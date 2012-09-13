@@ -971,6 +971,12 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
                         errorStr,
                         sDeviceProperties,
                         ArrayLength(sDeviceProperties));
+    InfallibleTArray<BluetoothNamedValue> property = v.get_ArrayOfBluetoothNamedValue();
+    if (property[0].name().EqualsLiteral("Paired") {
+return DBUS_HANDLER_RESULT_HANDLED;
+    } else {
+      
+    }
   } else if (dbus_message_is_signal(aMsg, DBUS_MANAGER_IFACE, "AdapterAdded")) {
     const char* str;
     if (!dbus_message_get_args(aMsg, &err,
