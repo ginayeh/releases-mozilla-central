@@ -46,6 +46,15 @@
 
 #define DEFAULT_SHUTDOWN_TIMER_MS 5000
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 USING_BLUETOOTH_NAMESPACE
@@ -270,6 +279,7 @@ BluetoothService::Init()
   }
 
   RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
+  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
   mRegisteredForLocalAgent = true;
 
   return true;
@@ -758,6 +768,9 @@ BluetoothService::Notify(const BluetoothSignal& aData)
   } else if (aData.name().EqualsLiteral("Cancel")) {
     NS_ASSERTION(arr.Length() == 0, "Cancel: Wrong length of parameters");
     type.AssignLiteral("bluetooth-cancel");
+  } else if (aData.name().EqualsLiteral("PropertyChanged")) {
+    NS_ASSERTION(arr.Length() == 1, "PropertyChanged: Wrong length of parameters");
+    type.AssignLiteral("bluetooth-pairingstatuschanged");
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -774,5 +787,6 @@ BluetoothService::Notify(const BluetoothSignal& aData)
     NS_WARNING("Failed to get SystemMessenger service!");
     return;
   }
+  LOG("Broadcast %s", NS_ConvertUTF16toUTF8(type).get());
   systemMessenger->BroadcastMessage(type, OBJECT_TO_JSVAL(obj));
 }
