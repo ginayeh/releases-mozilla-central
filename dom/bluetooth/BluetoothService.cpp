@@ -270,6 +270,7 @@ BluetoothService::Init()
   }
 
   RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
+  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
   mRegisteredForLocalAgent = true;
 
   return true;
