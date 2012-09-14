@@ -152,12 +152,14 @@ BluetoothGonkService::StopInternal()
 
   nsresult ret;
 
-  ret = BluetoothDBusService::StopInternal();
+//  ret = BluetoothDBusService::StopInternal();
+  ret = StartStopGonkBluetooth(false);
 
   if (NS_FAILED(ret)) {
     return ret;
   }
 
-  return StartStopGonkBluetooth(false);
+//  return StartStopGonkBluetooth(false);
+  return BluetoothDBusService::StopInternal();
 }
 
