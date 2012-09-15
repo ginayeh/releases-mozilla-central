@@ -715,9 +715,15 @@ SetJsObject(JSContext* aContext,
                                            data.Length());
       NS_ENSURE_TRUE(JsData, NS_ERROR_OUT_OF_MEMORY);
       v = STRING_TO_JSVAL(JsData);
+      LOG("-- Service: data = %s", NS_ConvertUTF16toUTF8(data).get());
     } else if (aData[i].value().type() == BluetoothValue::Tuint32_t) {
       int data = aData[i].value().get_uint32_t();
       v = INT_TO_JSVAL(data);
+      LOG("-- Service: data = %d", data);
+    } else if (aData[i].value().type() == BluetoothValue::Tbool) {
+      bool data = aData[i].value().get_bool();
+      v = BOOLEAN_TO_JSVAL(data);
+      LOG("-- Service: data = %d", data);
     } else {
       NS_WARNING("SetJsObject: Parameter is not handled");
     }

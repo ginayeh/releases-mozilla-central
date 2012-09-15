@@ -973,9 +973,9 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
                         ArrayLength(sDeviceProperties));
     InfallibleTArray<BluetoothNamedValue> property = v.get_ArrayOfBluetoothNamedValue();
     if (property[0].name().EqualsLiteral("Paired")) {
-      LOG("--- DBus, property changed of bluetooth device");
-      // bluetooth-pairingstatuschanged, send signal to BluetoothService and 
-      // broadcast by system message
+      // transfer signal to BluetoothService and 
+      // broadcast system message of bluetooth-pairingstatuschanged
+      signalName = NS_LITERAL_STRING("paired");
       signalPath = NS_LITERAL_STRING(LOCAL_AGENT_PATH);
     }
   } else if (dbus_message_is_signal(aMsg, DBUS_MANAGER_IFACE, "AdapterAdded")) {
