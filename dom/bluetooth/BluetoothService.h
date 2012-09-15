@@ -184,7 +184,7 @@ public:
   GetDevicePropertiesInternal(const nsAString& aDevicePath,
                               const nsAString& aSignalPath) = 0;
 
-  /** 
+  /**
    * Set a property for the specified object
    *
    * @param aPath Path to the object

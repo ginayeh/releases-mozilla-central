@@ -41,6 +41,15 @@
 # endif
 #endif
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 #define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
 #define BLUETOOTH_ENABLED_SETTING "bluetooth.enabled"
 
@@ -341,6 +350,8 @@ void
 BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
 {
   MOZ_ASSERT(NS_IsMainThread());
+  LOG("-- Service: DistributeSignal '%s' to [%s]", NS_ConvertUTF16toUTF8(aSignal.name()).get(),
+NS_ConvertUTF16toUTF8(aSignal.path()).get());
   // Notify observers that a message has been sent
   BluetoothSignalObserverList* ol;
   if (!mBluetoothSignalObserverTable.Get(aSignal.path(), &ol)) {

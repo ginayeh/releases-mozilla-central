@@ -892,7 +892,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
   
   if (dbus_message_is_signal(aMsg, DBUS_ADAPTER_IFACE, "DeviceFound")) {
     DBusMessageIter iter;
-
+    LOG("--- DBus: Device Found");
     if (!dbus_message_iter_init(aMsg, &iter)) {
       NS_WARNING("Can't create iterator!");
       return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -942,6 +942,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
       v = NS_ConvertUTF8toUTF16(str);
     }
 
+    LOG("--- DBus: DeviceCreated");
     // Get device properties and then send to BluetoothAdapter
     BluetoothService* bs = BluetoothService::Get();
     if (!bs) {
@@ -1283,6 +1284,8 @@ public:
   {
     MOZ_ASSERT(!NS_IsMainThread());
 
+    LOG("--- DBus, BluetoothDevicePropertiesRunnable::Run()");
+
     DBusError err;
     dbus_error_init(&err);
 
@@ -1297,6 +1300,7 @@ public:
                                               "GetProperties",
                                               DBUS_TYPE_INVALID);
     UnpackDevicePropertiesMessage(msg, &err, v, replyError);
+    LOG("--- DBus, UnpackDevicePropertiesMessage");
 
     if (!replyError.IsEmpty()) {
       NS_WARNING("Failed to get device properties");

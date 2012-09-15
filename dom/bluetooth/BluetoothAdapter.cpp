@@ -26,6 +26,15 @@
 #include "mozilla/Util.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 
 USING_BLUETOOTH_NAMESPACE
@@ -275,6 +284,10 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     nsCOMPtr<nsIDOMBluetoothDeviceEvent> e = do_QueryInterface(event);
     e->InitBluetoothDeviceEvent(NS_LITERAL_STRING("devicefound"),
                                 false, false, device);
+    nsString name;
+    device->GetName(name);
+    LOG("- Adapter: Device Found, name = %s",
+      NS_ConvertUTF16toUTF8(name).get());
     e->SetTrusted(true);
     bool dummy;
     DispatchEvent(event, &dummy);
@@ -303,9 +316,14 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     nsCOMPtr<nsIDOMBluetoothDeviceEvent> e = do_QueryInterface(event);
     e->InitBluetoothDeviceEvent(NS_LITERAL_STRING("devicecreated"),
                                 false, false, device);
+    nsString name;
+    device->GetName(name);
+    LOG("- Adapter: DeviceCreated, name = %s",
+NS_ConvertUTF16toUTF8(name).get());
     e->SetTrusted(true);
     bool dummy;
-    DispatchEvent(event, &dummy);
+    nsresult rv = DispatchEvent(event, &dummy);
+    LOG("- Adapter: Dispatch Event => %s", (rv == NS_OK) ? "NS_OK" : "NS_ERROR");
   } else if (aData.name().EqualsLiteral("PropertyChanged")) {
     // Get BluetoothNamedValue, make sure array length is 1
     arr = aData.value().get_ArrayOfBluetoothNamedValue();
