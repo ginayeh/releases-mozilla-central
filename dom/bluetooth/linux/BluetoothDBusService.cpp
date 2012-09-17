@@ -277,6 +277,7 @@ static void
 UnpackObjectPathMessage(DBusMessage* aMsg, DBusError* aErr,
                         BluetoothValue& aValue, nsAString& aErrorStr)
 {
+  LOG("--- DBus, UnpackObjectPathMessage");
   DBusError err;
   dbus_error_init(&err);
   if (!IsDBusMessageError(aMsg, aErr, aErrorStr)) {
@@ -322,6 +323,8 @@ AgentEventFilter(DBusConnection *conn, DBusMessage *msg, void *data)
   nsString errorStr;
   BluetoothValue v;
   InfallibleTArray<BluetoothNamedValue> parameters;
+
+  LOG("--- DBus: Agent Event");
 
   // The following descriptions of each signal are retrieved from:
   //
@@ -596,6 +599,7 @@ RunDBusCallback(DBusMessage* aMsg, void* aBluetoothReplyRunnable,
 void
 GetObjectPathCallback(DBusMessage* aMsg, void* aBluetoothReplyRunnable)
 {
+  LOG("--- DBus, GetObjectPathCallback");
   RunDBusCallback(aMsg, aBluetoothReplyRunnable,
                   UnpackObjectPathMessage);
 }
@@ -897,8 +901,9 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
   signalName = NS_ConvertUTF8toUTF16(dbus_message_get_member(aMsg));
   nsString errorStr;
   BluetoothValue v;
-  
+
   if (dbus_message_is_signal(aMsg, DBUS_ADAPTER_IFACE, "DeviceFound")) {
+    LOG("--- DBus: DeviceFound");
     DBusMessageIter iter;
 
     if (!dbus_message_iter_init(aMsg, &iter)) {
@@ -930,6 +935,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
       errorStr.AssignLiteral("DBus device found message structure not as expected!");
     }
   } else if (dbus_message_is_signal(aMsg, DBUS_ADAPTER_IFACE, "DeviceDisappeared")) {
+  LOG("--- DBus, DeviceDisappeared");
     const char* str;
     if (!dbus_message_get_args(aMsg, &err,
                                DBUS_TYPE_STRING, &str,
@@ -940,6 +946,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
       v = NS_ConvertUTF8toUTF16(str);
     }
   } else if (dbus_message_is_signal(aMsg, DBUS_ADAPTER_IFACE, "DeviceCreated")) {
+    LOG("--- DBus: DeviceCreated");
     const char* str;
     if (!dbus_message_get_args(aMsg, &err,
                                DBUS_TYPE_OBJECT_PATH, &str,
@@ -950,6 +957,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
       v = NS_ConvertUTF8toUTF16(str);
     }
   } else if (dbus_message_is_signal(aMsg, DBUS_ADAPTER_IFACE, "DeviceRemoved")) {
+    LOG("--- DBus: DeviceRemoved");
     const char* str;
     if (!dbus_message_get_args(aMsg, &err,
                                DBUS_TYPE_OBJECT_PATH, &str,
@@ -966,6 +974,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
                         sAdapterProperties,
                         ArrayLength(sAdapterProperties));
   } else if (dbus_message_is_signal(aMsg, DBUS_DEVICE_IFACE, "PropertyChanged")) {
+    LOG("--- DBus: ProperthChanged");
     ParsePropertyChange(aMsg,
                         v,
                         errorStr,
@@ -973,12 +982,15 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
                         ArrayLength(sDeviceProperties));
     InfallibleTArray<BluetoothNamedValue> property = v.get_ArrayOfBluetoothNamedValue();
     if (property[0].name().EqualsLiteral("Paired")) {
+      LOG("--- DBus: ProperthChanged, Paired");
       // transfer signal to BluetoothService and 
       // broadcast system message of bluetooth-pairingstatuschanged
-      signalName = NS_LITERAL_STRING("paired");
-      signalPath = NS_LITERAL_STRING(LOCAL_AGENT_PATH);
+      signalName = NS_LITERAL_STRING("PairedStatusChagned");
+	  signalPath = NS_LITERAL_STRING(LOCAL_AGENT_PATH);
+	  v.get_ArrayOfBluetoothNamedValue()[0].name() = NS_LITERAL_STRING("paired");
     }
   } else if (dbus_message_is_signal(aMsg, DBUS_MANAGER_IFACE, "AdapterAdded")) {
+    LOG("--- DBus: AdapterAdded");
     const char* str;
     if (!dbus_message_get_args(aMsg, &err,
                                DBUS_TYPE_OBJECT_PATH, &str,
@@ -996,12 +1008,12 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
                         sManagerProperties,
                         ArrayLength(sManagerProperties));
   } else {
-#ifdef DEBUG
+//#ifdef DEBUG
     nsAutoCString signalStr;
     signalStr += dbus_message_get_member(aMsg);
     signalStr += " Signal not handled!";
     NS_WARNING(signalStr.get());
-#endif
+//#endif
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
   }
 
@@ -1575,6 +1587,7 @@ BluetoothDBusService::CreatePairedDeviceInternal(const nsAString& aAdapterPath,
                                                  int aTimeout,
                                                  BluetoothReplyRunnable* aRunnable)
 {
+  LOG("--- DBus, CreatePairedDeviceInternal");
   const char *capabilities = B2G_AGENT_CAPABILITIES;
   const char *deviceAgentPath = REMOTE_AGENT_PATH;
 
@@ -1598,6 +1611,7 @@ BluetoothDBusService::CreatePairedDeviceInternal(const nsAString& aAdapterPath,
 
   if (!ret) {
     NS_WARNING("Could not start async function!");
+    LOG("--- DBUs: Could not start async function!");
     return NS_ERROR_FAILURE;
   }
 
@@ -1716,6 +1730,7 @@ BluetoothDBusService::SetPasskeyInternal(const nsAString& aDeviceAddress, uint32
 bool
 BluetoothDBusService::SetPairingConfirmationInternal(const nsAString& aDeviceAddress, bool aConfirm)
 {
+  LOG("-- Service: SetPairingConfirmationInternal, %d", aConfirm);
   DBusMessage *msg;
   if (!sPairingReqTable.Get(aDeviceAddress, &msg)) {
     LOG("%s: Couldn't get original request message.", __FUNCTION__);

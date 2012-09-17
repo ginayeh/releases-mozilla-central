@@ -26,6 +26,15 @@
 #include "mozilla/Util.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 
 USING_BLUETOOTH_NAMESPACE
@@ -548,6 +557,7 @@ BluetoothAdapter::PairUnpair(bool aPair,
 
   if (NS_FAILED(rv)) {
     NS_WARNING("Pair/Unpair failed!");
+    LOG("Adapter, pair/unpair failed");
     return NS_ERROR_FAILURE;
   }
 
@@ -606,6 +616,7 @@ BluetoothAdapter::SetPairingConfirmation(const nsAString& aDeviceAddress, bool a
   }
 
   bool result = bs->SetPairingConfirmationInternal(aDeviceAddress, aConfirmation);
+  LOG("- Adapter: SetPairingConfirmation = %d", result);
 
   return result ? NS_OK : NS_ERROR_FAILURE;
 }

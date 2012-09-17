@@ -99,17 +99,15 @@ BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue)
   const BluetoothValue& value = aValue.value();
   if (name.EqualsLiteral("Name")) {
     mName = value.get_nsString();
-  } else if (name.EqualsLiteral("Path")) {
-    mPath = value.get_nsString();
-    NS_WARNING(NS_ConvertUTF16toUTF8(mPath).get());
+  } else if (name.EqualsLiteral("Address")) {
+    mAddress = value.get_nsString();
+
     BluetoothService* bs = BluetoothService::Get();
     if (!bs) {
       NS_WARNING("BluetoothService not available!");
-    } else {
-      bs->RegisterBluetoothSignalHandler(mPath, this);
+    } else if (!bs->GetDevicePath(mAdapterPath, mAddress, mPath)) {
+      NS_WARNING("Failed to set device path");
     }
-  } else if (name.EqualsLiteral("Address")) {
-    mAddress = value.get_nsString();
   } else if (name.EqualsLiteral("Class")) {
     mClass = value.get_uint32_t();
   } else if (name.EqualsLiteral("Icon")) {

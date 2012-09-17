@@ -759,6 +759,7 @@ BluetoothService::Notify(const BluetoothSignal& aData)
     return;
   }
 
+  LOG("--- Service, got notified, %s", NS_ConvertUTF16toUTF8(aData.name()).get());
   if (aData.name().EqualsLiteral("RequestConfirmation")) {
     NS_ASSERTION(arr.Length() == 3, "RequestConfirmation: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestconfirmation");
@@ -774,8 +775,8 @@ BluetoothService::Notify(const BluetoothSignal& aData)
   } else if (aData.name().EqualsLiteral("Cancel")) {
     NS_ASSERTION(arr.Length() == 0, "Cancel: Wrong length of parameters");
     type.AssignLiteral("bluetooth-cancel");
-  } else if (aData.name().EqualsLiteral("PropertyChanged")) {
-    NS_ASSERTION(arr.Length() == 1, "PropertyChanged: Wrong length of parameters");
+  } else if (aData.name().EqualsLiteral("PairedStatusChanged")) {
+    NS_ASSERTION(arr.Length() == 1, "PairedStatusChagned: Wrong length of parameters");
     type.AssignLiteral("bluetooth-pairingstatuschanged");
   } else {
 #ifdef DEBUG

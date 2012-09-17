@@ -11,6 +11,15 @@
 #include "nsThreadUtils.h"
 #include "jsapi.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "Bluetooth", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 class nsIDOMDOMRequest;
 
 BEGIN_BLUETOOTH_NAMESPACE
@@ -60,6 +69,7 @@ public:
 protected:
   virtual bool ParseSuccessfulReply(jsval* aValue)
   {
+    LOG("VoidReplyRunnable::ParseSuccessfulReply");
     *aValue = JSVAL_VOID;
     return true;
   }
