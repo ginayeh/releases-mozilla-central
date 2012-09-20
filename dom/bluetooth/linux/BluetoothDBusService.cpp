@@ -884,6 +884,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
   BluetoothValue v;
   
   if (dbus_message_is_signal(aMsg, DBUS_ADAPTER_IFACE, "DeviceFound")) {
+    LOG("[D] DeviceFound");
     DBusMessageIter iter;
 
     if (!dbus_message_iter_init(aMsg, &iter)) {
@@ -957,6 +958,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
                         sDeviceProperties,
                         ArrayLength(sDeviceProperties));
   } else if (dbus_message_is_signal(aMsg, DBUS_MANAGER_IFACE, "AdapterAdded")) {
+    LOG("[D] ApdaterAdded");
     const char* str;
     if (!dbus_message_get_args(aMsg, &err,
                                DBUS_TYPE_OBJECT_PATH, &str,
@@ -1001,6 +1003,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
 nsresult
 BluetoothDBusService::StartInternal()
 {
+  LOG("[D] StartInternal");
   // This could block. It should never be run on the main thread.
   MOZ_ASSERT(!NS_IsMainThread());
   
@@ -1187,6 +1190,7 @@ private:
 nsresult
 BluetoothDBusService::GetDefaultAdapterPathInternal(BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[D] GetDefaultAdapterPathInternal");
   if (!mConnection || !gThreadConnection) {
     NS_ERROR("Bluetooth service not started yet!");
     return NS_ERROR_FAILURE;

@@ -21,6 +21,15 @@
 #include "nsXPCOMCIDInternal.h"
 #include "mozilla/Util.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 
 USING_BLUETOOTH_NAMESPACE
@@ -194,6 +203,7 @@ BluetoothManager::GetEnabled(bool* aEnabled)
 NS_IMETHODIMP
 BluetoothManager::GetDefaultAdapter(nsIDOMDOMRequest** aAdapter)
 {
+  LOG("[M] GetDefaultAdapter");
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");

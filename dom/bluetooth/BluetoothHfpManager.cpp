@@ -12,6 +12,8 @@
 #include "BluetoothServiceUuid.h"
 #include "AudioManager.h"
 #include "mozilla/ipc/Socket.h"
+#include "nsISystemMessagesInternal.h"
+#include "nsContentUtils.h"
 #include <unistd.h> /* usleep() */
 #include <linux/ioctl.h>
 #include <fcntl.h>
@@ -172,6 +174,44 @@ BluetoothHfpManager::ReceiveSocketData(SocketRawData* aMessage)
     }
 
     mCurrentVgs = newVgs;
+  } else if (!strncmp(msg, "AT+BLDN", 7)) {
+    ReplyOk();
+
+    nsString type;
+    type.AssignLiteral("bluetooth-dialercommand");
+
+    JSContext* cx = nsContentUtils::GetSafeJSContext();
+    NS_ASSERTION(!::JS_IsExceptionPending(cx),
+                 "Shouldn't get here when an exception is pending!");
+
+    JSAutoRequest jsar(cx);
+    JSObject* obj = JS_NewObject(cx, NULL, NULL, NULL);
+    if (!obj) {
+      NS_WARNING("Failed to new JSObject for system message!");
+      return;
+    }
+
+    JSString* JsData = JS_NewStringCopyN(cx, "BLDN", 4);
+    if (!JsData) {
+      NS_WARNING("JS_NewStringCopyN is out of memory");
+      return;
+    }
+
+    jsval v = STRING_TO_JSVAL(JsData);
+
+    if (!JS_SetProperty(cx, obj, "command", &v)) {
+      NS_WARNING("Failed to set properties of system message!");
+      return;
+    }
+ 
+    nsCOMPtr<nsISystemMessagesInternal> systemMessenger =
+      do_GetService("@mozilla.org/system-message-internal;1");
+
+    if (!systemMessenger) {
+      NS_WARNING("Failed to get SystemMessenger service!");
+      return;
+    }
+    systemMessenger->BroadcastMessage(type, OBJECT_TO_JSVAL(obj));
   } else {
     LOG("Unhandled message, reply ok");
     ReplyOk();
@@ -259,6 +299,7 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
         case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
           sStopSendingRingFlag = true;
           // Continue executing, no break
+        case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
         case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
           // Send "Call = 1, CallSetup = 0"
           SendLine("+CIEV: 4,1");
