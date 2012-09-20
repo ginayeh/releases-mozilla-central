@@ -207,8 +207,8 @@ class PrepareAdapterTask : public nsRunnable {
 public:
   PrepareAdapterTask(const nsAString& aPath) :
     mPath(aPath)
-  {
-  }
+{
+}
 
   NS_IMETHOD
   Run()
@@ -607,12 +607,12 @@ ExtractHandles(DBusMessage *aReply, nsTArray<uint32_t>& aOutHandles)
   dbus_error_init(&err);
 
   if (dbus_message_get_args(aReply, &err,
-                            DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32, &handles, &len,
-                            DBUS_TYPE_INVALID)) {
-     if (!handles) {
-       LOG("Null array in extract_handles");
-     } else {
-        for (int i = 0; i < len; ++i) {
+        DBUS_TYPE_ARRAY, DBUS_TYPE_UINT32, &handles, &len,
+        DBUS_TYPE_INVALID)) {
+    if (!handles) {
+      LOG("Null array in extract_handles");
+    } else {
+      for (int i = 0; i < len; ++i) {
         aOutHandles.AppendElement(handles[i]);
       }
     }
