@@ -1285,6 +1285,16 @@ BluetoothDBusService::StartInternal()
     return NS_ERROR_FAILURE;
   }
 
+  LOG("[D] Register agent signal handler");
+  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
+  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
+
+  LOG("[D] mLiveManagers.Length() = %d", mLiveManagers.Length());
+  BluetoothManagerList::ForwardIterator iter(mLiveManagers);
+  while (iter.HasMore()) {
+    RegisterBluetoothSignalHandler(NS_LITERAL_STRING("/"), (BluetoothSignalObserver*)iter.GetNext());
+  }
+
   sPairingReqTable.Init();
   sAuthorizeReqTable.Init();
 

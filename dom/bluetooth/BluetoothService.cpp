@@ -46,6 +46,15 @@
 
 #define DEFAULT_SHUTDOWN_TIMER_MS 5000
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 USING_BLUETOOTH_NAMESPACE
@@ -269,8 +278,8 @@ BluetoothService::Init()
     return false;
   }
 
-  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
-  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
+//  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
+//  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
   mRegisteredForLocalAgent = true;
 
   return true;
@@ -298,7 +307,7 @@ void
 BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                  BluetoothSignalObserver* aHandler)
 {
-  MOZ_ASSERT(NS_IsMainThread());
+//  MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
   BluetoothSignalObserverList* ol;
@@ -621,23 +630,27 @@ BluetoothService::HandleShutdown()
 void
 BluetoothService::RegisterManager(BluetoothManager* aManager)
 {
-  MOZ_ASSERT(NS_IsMainThread());
+  LOG("[S] RegisterManager [%p], original Length = %d", aManager, mLiveManagers.Length());
+//  MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aManager);
   MOZ_ASSERT(!mLiveManagers.Contains(aManager));
 
   mLiveManagers.AppendElement(aManager);
   RegisterBluetoothSignalHandler(aManager->GetPath(), aManager);
+  LOG("[S] RegisterManager [%p], Length = %d", aManager, mLiveManagers.Length());
 }
 
 void
 BluetoothService::UnregisterManager(BluetoothManager* aManager)
 {
+  LOG("[S] UnregisterManager [%p], original Length = %d", aManager, mLiveManagers.Length());
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aManager);
   MOZ_ASSERT(mLiveManagers.Contains(aManager));
 
   UnregisterBluetoothSignalHandler(aManager->GetPath(), aManager);
   mLiveManagers.RemoveElement(aManager);
+  LOG("[S] UnregisterManager [%p], Length = %d", aManager, mLiveManagers.Length());
 }
 
 // static
@@ -749,13 +762,13 @@ BluetoothService::Notify(const BluetoothSignal& aData)
   }
 
   if (aData.name().EqualsLiteral("RequestConfirmation")) {
-    NS_ASSERTION(arr.Length() == 3, "RequestConfirmation: Wrong length of parameters");
+    NS_ASSERTION(arr.Length() == 2, "RequestConfirmation: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestconfirmation");
   } else if (aData.name().EqualsLiteral("RequestPinCode")) {
-    NS_ASSERTION(arr.Length() == 2, "RequestPinCode: Wrong length of parameters");
+    NS_ASSERTION(arr.Length() == 1, "RequestPinCode: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestpincode");
   } else if (aData.name().EqualsLiteral("RequestPasskey")) {
-    NS_ASSERTION(arr.Length() == 2, "RequestPinCode: Wrong length of parameters");
+    NS_ASSERTION(arr.Length() == 1, "RequestPinCode: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestpasskey");
   } else if (aData.name().EqualsLiteral("Authorize")) {
     NS_ASSERTION(arr.Length() == 2, "Authorize: Wrong length of parameters");
