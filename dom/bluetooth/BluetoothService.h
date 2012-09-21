@@ -263,6 +263,12 @@ public:
   virtual nsresult
   DisconnectHeadset(const nsAString& aPath, BluetoothReplyRunnable* aRunnable) = 0;
 
+  virtual nsresult
+  ConnectObjectPush(const nsAString& aPath, BluetoothReplyRunnable* aRunnable) = 0;
+
+  virtual nsresult
+  DisconnectObjectPush(const nsAString& aPath, BluetoothReplyRunnable* aRunnable) = 0;
+
   bool
   IsEnabled() const
   {

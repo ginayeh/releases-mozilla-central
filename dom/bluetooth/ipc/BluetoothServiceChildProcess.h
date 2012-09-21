@@ -124,6 +124,14 @@ public:
   DisconnectHeadset(const nsAString& aDeviceObjectPath,
                     BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
+  virtual nsresult
+  ConnectObjectPush(const nsAString& aDeviceObjectPath,
+                    BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
+
+  virtual nsresult
+  DisconnectObjectPush(const nsAString& aDeviceObjectPath,
+                       BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
+
 protected:
   BluetoothServiceChildProcess();
   virtual ~BluetoothServiceChildProcess();

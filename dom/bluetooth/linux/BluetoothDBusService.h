@@ -112,6 +112,12 @@ public:
   virtual nsresult
   DisconnectHeadset(const nsAString& aPath, BluetoothReplyRunnable* aRunnable);
 
+  virtual nsresult
+  ConnectObjectPush(const nsAString& aPath, BluetoothReplyRunnable* aRunnable);
+
+  virtual nsresult
+  DisconnectObjectPush(const nsAString& aPath, BluetoothReplyRunnable* aRunnable);
+
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
                                   const char* aInterface,

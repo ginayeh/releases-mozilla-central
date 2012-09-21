@@ -216,7 +216,12 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
     case Request::TConnectHeadsetRequest:
       return actor->DoRequest(aRequest.get_ConnectHeadsetRequest());
     case Request::TDisconnectHeadsetRequest:
-      return actor->DoRequest(aRequest.get_DisconnectHeadsetRequest());
+      return actor->DoRequest(aRequest.get_DisconnectHeadsetRequest());    
+    case Request::TConnectObjectPushRequest:
+      return actor->DoRequest(aRequest.get_ConnectObjectPushRequest());
+    case Request::TDisconnectObjectPushRequest:
+      return actor->DoRequest(aRequest.get_DisconnectObjectPushRequest());
+
     default:
       MOZ_NOT_REACHED("Unknown type!");
       return false;
@@ -515,6 +520,36 @@ BluetoothRequestParent::DoRequest(const DisconnectHeadsetRequest& aRequest)
   nsresult rv =
     mService->DisconnectHeadset(aRequest.path(),
                                 mReplyRunnable.get());
+
+  NS_ENSURE_SUCCESS(rv, false);
+
+  return true;
+}
+
+bool
+BluetoothRequestParent::DoRequest(const ConnectObjectPushRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TConnectObjectPushRequest);
+
+  nsresult rv =
+    mService->ConnectObjectPush(aRequest.path(),
+                                mReplyRunnable.get());
+
+  NS_ENSURE_SUCCESS(rv, false);
+
+  return true;
+}
+
+bool
+BluetoothRequestParent::DoRequest(const DisconnectObjectPushRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TDisconnectObjectPushRequest);
+
+  nsresult rv =
+    mService->DisconnectObjectPush(aRequest.path(),
+                                   mReplyRunnable.get());
 
   NS_ENSURE_SUCCESS(rv, false);
 
