@@ -164,7 +164,13 @@ protected:
   DoRequest(const ConfirmAuthorizationRequest& aRequest);
 
   bool
-  DoRequest(const DenyAuthorizationRequest& aRequest);
+  DoRequest(const DenyAuthorizationRequest& aRequest);  
+  
+  bool
+  DoRequest(const ConnectHeadsetRequest& aRequest);  
+  
+  bool
+  DoRequest(const DisconnectHeadsetRequest& aRequest);
 };
 
 END_BLUETOOTH_NAMESPACE
