@@ -107,6 +107,16 @@ struct DisconnectHeadsetRequest
   nsString path;
 };
 
+struct ConnectObjectPushRequest
+{
+  nsString path;
+};
+
+struct DisconnectObjectPushRequest
+{
+  nsString path;
+};
+
 union Request
 {
   DefaultAdapterPathRequest;
@@ -125,6 +135,8 @@ union Request
   DevicePropertiesRequest;
   ConnectHeadsetRequest;
   DisconnectHeadsetRequest;
+  ConnectObjectPushRequest;
+  DisconnectObjectPushRequest;
 };
 
 protocol PBluetooth
