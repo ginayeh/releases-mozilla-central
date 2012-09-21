@@ -1288,6 +1288,9 @@ BluetoothDBusService::StartInternal()
   sPairingReqTable.Init();
   sAuthorizeReqTable.Init();
 
+  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
+  RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
+
   return NS_OK;
 }
 
