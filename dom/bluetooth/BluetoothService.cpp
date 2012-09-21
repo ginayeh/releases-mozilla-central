@@ -297,7 +297,7 @@ void
 BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                  BluetoothSignalObserver* aHandler)
 {
-  MOZ_ASSERT(NS_IsMainThread());
+  //MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
   BluetoothSignalObserverList* ol;
@@ -738,13 +738,16 @@ BluetoothService::Notify(const BluetoothSignal& aData)
   }
 
   if (aData.name().EqualsLiteral("RequestConfirmation")) {
-    NS_ASSERTION(arr.Length() == 3, "RequestConfirmation: Wrong length of parameters");
+    //NS_ASSERTION(arr.Length() == 3, "RequestConfirmation: Wrong length of parameters");
+    NS_ASSERTION(arr.Length() == 2, "RequestConfirmation: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestconfirmation");
   } else if (aData.name().EqualsLiteral("RequestPinCode")) {
-    NS_ASSERTION(arr.Length() == 2, "RequestPinCode: Wrong length of parameters");
+    //NS_ASSERTION(arr.Length() == 2, "RequestPinCode: Wrong length of parameters");
+    NS_ASSERTION(arr.Length() == 1, "RequestPinCode: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestpincode");
   } else if (aData.name().EqualsLiteral("RequestPasskey")) {
-    NS_ASSERTION(arr.Length() == 2, "RequestPinCode: Wrong length of parameters");
+    //NS_ASSERTION(arr.Length() == 2, "RequestPinCode: Wrong length of parameters");
+    NS_ASSERTION(arr.Length() == 1, "RequestPinCode: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestpasskey");
   } else if (aData.name().EqualsLiteral("Authorize")) {
     NS_ASSERTION(arr.Length() == 2, "Authorize: Wrong length of parameters");
