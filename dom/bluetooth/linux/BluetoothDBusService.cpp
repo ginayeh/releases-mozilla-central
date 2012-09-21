@@ -2106,9 +2106,9 @@ public:
 
     nsString address = GetAddressFromObjectPath(mObjectPath);
     int channel = GetDeviceServiceChannel(mObjectPath, mServiceUUID, 0x0004);
-    BluetoothValue v;
+    BluetoothValue v = true;
     nsString replyError;
-      
+
     if (!mozilla::ipc::ConnectSocket(mConsumer, mType,
                                      NS_ConvertUTF16toUTF8(address).get(),
                                      channel, mAuth, mEncrypt)) {
@@ -2174,7 +2174,7 @@ public:
   nsresult
   Run()
   {
-    BluetoothValue v;
+    BluetoothValue v = true;
     nsString replyError;
     if (!mozilla::ipc::CloseSocket(mConsumer)) {
       replyError.AssignLiteral("SocketConnectionError");

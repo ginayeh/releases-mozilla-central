@@ -311,6 +311,12 @@ BluetoothDevice::GetServices(JSContext* aCx, jsval* aServices)
 NS_IMETHODIMP
 BluetoothDevice::ConnectHeadset(nsIDOMDOMRequest** aRequest)
 {
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    NS_WARNING("BluetoothService not available!");
+    return NS_ERROR_FAILURE;
+  }
+
   nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
   if (!rs) {
     NS_WARNING("No DOMRequest Service!");
@@ -325,24 +331,7 @@ BluetoothDevice::ConnectHeadset(nsIDOMDOMRequest** aRequest)
   }
 
   nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
-
-  BluetoothService* bs = BluetoothService::Get();
-  if (!bs) {
-    NS_WARNING("BluetoothService not available!");
-    return NS_ERROR_FAILURE;
-  }
-
   bs->ConnectHeadset(mPath, result);
-/*
-  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-
-  if (hfp->Connect(mPath, result)) {
-    LOG("[HFP] Start connecting with headset");
-  } else {
-    LOG("[HFP] Start connecting failed");
-  }
-  */
-
   req.forget(aRequest);
 
   return NS_OK;
@@ -350,7 +339,13 @@ BluetoothDevice::ConnectHeadset(nsIDOMDOMRequest** aRequest)
 
 NS_IMETHODIMP
 BluetoothDevice::DisconnectHeadset(nsIDOMDOMRequest** aRequest)
-{
+{  
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    NS_WARNING("BluetoothService not available!");
+    return NS_ERROR_FAILURE;
+  }
+
   nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
   if (!rs) {
     NS_WARNING("No DOMRequest Service!");
@@ -365,25 +360,7 @@ BluetoothDevice::DisconnectHeadset(nsIDOMDOMRequest** aRequest)
   }
 
   nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
-
-  BluetoothService* bs = BluetoothService::Get();
-  if (!bs) {
-    NS_WARNING("BluetoothService not available!");
-    return NS_ERROR_FAILURE;
-  }
-
   bs->DisconnectHeadset(mPath, result);
-
-/*
-  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-
-  if (hfp->Disconnect(result)) {
-    LOG("[HFP] Stopping connecting with headset");
-  } else {
-    LOG("[HFP] Stopping connecting failed");
-  }
-  */
-
   req.forget(aRequest);
 
   return NS_OK;
