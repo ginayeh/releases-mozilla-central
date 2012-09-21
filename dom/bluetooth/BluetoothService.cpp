@@ -630,27 +630,23 @@ BluetoothService::HandleShutdown()
 void
 BluetoothService::RegisterManager(BluetoothManager* aManager)
 {
-  LOG("[S] RegisterManager [%p], original Length = %d", aManager, mLiveManagers.Length());
-//  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aManager);
   MOZ_ASSERT(!mLiveManagers.Contains(aManager));
 
   mLiveManagers.AppendElement(aManager);
   RegisterBluetoothSignalHandler(aManager->GetPath(), aManager);
-  LOG("[S] RegisterManager [%p], Length = %d", aManager, mLiveManagers.Length());
 }
 
 void
 BluetoothService::UnregisterManager(BluetoothManager* aManager)
 {
-  LOG("[S] UnregisterManager [%p], original Length = %d", aManager, mLiveManagers.Length());
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aManager);
   MOZ_ASSERT(mLiveManagers.Contains(aManager));
 
   UnregisterBluetoothSignalHandler(aManager->GetPath(), aManager);
   mLiveManagers.RemoveElement(aManager);
-  LOG("[S] UnregisterManager [%p], Length = %d", aManager, mLiveManagers.Length());
 }
 
 // static

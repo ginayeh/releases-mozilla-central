@@ -17,6 +17,24 @@
 #include "nsContentUtils.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
+#undef LOGV
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOGV(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBusV", args);
+#else
+#define BTDEBUG true
+#define LOGV(args...) if (BTDEBUG) printf(args);
+#endif
+
 USING_BLUETOOTH_NAMESPACE
 
 DOMCI_DATA(BluetoothDevice, BluetoothDevice)
@@ -56,6 +74,7 @@ BluetoothDevice::BluetoothDevice(nsPIDOMWindow* aOwner,
   mAdapterPath(aAdapterPath),
   mIsRooted(false)
 {
+  LOG("[D] %s", __FUNCTION__);
   BindToOwner(aOwner);
   const InfallibleTArray<BluetoothNamedValue>& values =
     aValue.get_ArrayOfBluetoothNamedValue();
@@ -66,6 +85,7 @@ BluetoothDevice::BluetoothDevice(nsPIDOMWindow* aOwner,
 
 BluetoothDevice::~BluetoothDevice()
 {
+  LOG("[D] %s", __FUNCTION__);
   BluetoothService* bs = BluetoothService::Get();
   // bs can be null on shutdown, where destruction might happen.
   if (bs) {
@@ -77,6 +97,7 @@ BluetoothDevice::~BluetoothDevice()
 void
 BluetoothDevice::Root()
 {
+  LOGV("[D] %s", __FUNCTION__);
   if (!mIsRooted) {
     NS_HOLD_JS_OBJECTS(this, BluetoothDevice);
     mIsRooted = true;
@@ -86,17 +107,54 @@ BluetoothDevice::Root()
 void
 BluetoothDevice::Unroot()
 {
+  LOGV("[D] %s", __FUNCTION__);
   if (mIsRooted) {
     NS_DROP_JS_OBJECTS(this, BluetoothDevice);
     mIsRooted = false;
   }
 }
 
+static void PrintProperty(const nsAString& aName, const BluetoothValue& aValue);
+
+void
+PrintProperty(const nsAString& aName, const BluetoothValue& aValue)
+{
+  if (aValue.type() == BluetoothValue::TnsString) {
+    LOGV("[D] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), NS_ConvertUTF16toUTF8(aValue.get_nsString()).get());
+    return;
+  } else if (aValue.type() == BluetoothValue::Tuint32_t) {
+    LOGV("[D] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_uint32_t());
+    return;
+  } else if (aValue.type() == BluetoothValue::Tbool) {
+    LOGV("[D] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_bool());
+    return;
+  } else if (aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
+    LOGV("[D] %s, <%s, Array of BluetoothNamedValue>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
+//    PrintProperty(aName, aValue);
+    return;
+  } else if (aValue.type() == BluetoothValue::TArrayOfnsString) {
+    nsTArray<nsString> tmp = aValue.get_ArrayOfnsString();
+    for (int i = 0; i < tmp.Length(); i++) {
+      LOGV("[D] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), NS_ConvertUTF16toUTF8(tmp[i]).get());
+    }
+    return;
+//  } else if (aValue.type() == BluetoothValue::TArrayOfuint8_t) {
+//    LOGV("[D] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_ArrayOfuint8_t()[0]);
+  } else {
+    LOGV("[D] %s, <%s, Unknown value type>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
+    return;
+  }
+}
+
+
 void
 BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue)
 {
   const nsString& name = aValue.name();
   const BluetoothValue& value = aValue.value();
+
+  PrintProperty(name, value);
+
   if (name.EqualsLiteral("Name")) {
     mName = value.get_nsString();
   } else if (name.EqualsLiteral("Address")) {
@@ -172,6 +230,7 @@ BluetoothDevice::Create(nsPIDOMWindow* aOwner,
                         const nsAString& aAdapterPath,
                         const BluetoothValue& aValue)
 {
+  LOG("[D] %s", __FUNCTION__);
   // Make sure we at least have a service
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -190,6 +249,7 @@ BluetoothDevice::Create(nsPIDOMWindow* aOwner,
 void
 BluetoothDevice::Notify(const BluetoothSignal& aData)
 {
+  LOG("[D] %s", __FUNCTION__);
   if (aData.name().EqualsLiteral("PropertyChanged")) {
     NS_ASSERTION(aData.value().type() == BluetoothValue::TArrayOfBluetoothNamedValue,
                  "PropertyChanged: Invalid value type");
@@ -198,6 +258,9 @@ BluetoothDevice::Notify(const BluetoothSignal& aData)
     NS_ASSERTION(arr.Length() == 1, "Got more than one property in a change message!");
     BluetoothNamedValue v = arr[0];
     nsString name = v.name();
+
+    LOG("[D] Receive event - PropertyChanged");
+    PrintProperty(name, v.value());
 
     SetPropertyByValue(v);
     if (name.EqualsLiteral("Connected")) {
@@ -233,6 +296,7 @@ BluetoothDevice::Notify(const BluetoothSignal& aData)
 NS_IMETHODIMP
 BluetoothDevice::GetAddress(nsAString& aAddress)
 {
+  LOGV("[D] %s", __FUNCTION__);
   aAddress = mAddress;
   return NS_OK;
 }
@@ -240,6 +304,7 @@ BluetoothDevice::GetAddress(nsAString& aAddress)
 NS_IMETHODIMP
 BluetoothDevice::GetName(nsAString& aName)
 {
+  LOGV("[D] %s", __FUNCTION__);
   aName = mName;
   return NS_OK;
 }
@@ -247,6 +312,7 @@ BluetoothDevice::GetName(nsAString& aName)
 NS_IMETHODIMP
 BluetoothDevice::GetIcon(nsAString& aIcon)
 {
+  LOGV("[D] %s", __FUNCTION__);
   aIcon = mIcon;
   return NS_OK;
 }
@@ -254,6 +320,7 @@ BluetoothDevice::GetIcon(nsAString& aIcon)
 NS_IMETHODIMP
 BluetoothDevice::GetDeviceClass(uint32_t* aClass)
 {
+  LOGV("[D] %s", __FUNCTION__);
   *aClass = mClass;
   return NS_OK;
 }
@@ -261,6 +328,7 @@ BluetoothDevice::GetDeviceClass(uint32_t* aClass)
 NS_IMETHODIMP
 BluetoothDevice::GetPaired(bool* aPaired)
 {
+  LOGV("[D] %s", __FUNCTION__);
   *aPaired = mPaired;
   return NS_OK;
 }
@@ -268,6 +336,7 @@ BluetoothDevice::GetPaired(bool* aPaired)
 NS_IMETHODIMP
 BluetoothDevice::GetConnected(bool* aConnected)
 {
+  LOGV("[D] %s", __FUNCTION__);
   *aConnected = mConnected;
   return NS_OK;
 }
@@ -275,6 +344,7 @@ BluetoothDevice::GetConnected(bool* aConnected)
 NS_IMETHODIMP
 BluetoothDevice::GetUuids(JSContext* aCx, jsval* aUuids)
 {
+  LOGV("[D] %s", __FUNCTION__);
   if (mJsUuids) {
     aUuids->setObject(*mJsUuids);
   } else {
@@ -287,6 +357,7 @@ BluetoothDevice::GetUuids(JSContext* aCx, jsval* aUuids)
 NS_IMETHODIMP
 BluetoothDevice::GetServices(JSContext* aCx, jsval* aServices)
 {
+  LOGV("[D] %s", __FUNCTION__);
   if (mJsServices) {
     aServices->setObject(*mJsServices);
   } else {
