@@ -47,6 +47,24 @@
 
 #define DEFAULT_SHUTDOWN_TIMER_MS 5000
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
+#undef LOGV
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOGV(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBusV", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 USING_BLUETOOTH_NAMESPACE
@@ -68,6 +86,7 @@ RemoveAllSignalHandlers(const nsAString& aKey,
                         nsAutoPtr<BluetoothSignalObserverList>& aData,
                         void* aUserArg)
 {
+  LOG("[S] %s", __FUNCTION__);
   aData->RemoveObserver(static_cast<BluetoothSignalObserver*>(aUserArg));
   return aData->Length() ? PL_DHASH_NEXT : PL_DHASH_REMOVE;
 }
@@ -75,6 +94,7 @@ RemoveAllSignalHandlers(const nsAString& aKey,
 void
 ShutdownTimeExceeded(nsITimer* aTimer, void* aClosure)
 {
+  LOGV("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   *static_cast<bool*>(aClosure) = true;
 }
@@ -82,6 +102,7 @@ ShutdownTimeExceeded(nsITimer* aTimer, void* aClosure)
 void
 GetAllBluetoothActors(InfallibleTArray<BluetoothParent*>& aActors)
 {
+  LOGV("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aActors.IsEmpty());
 
@@ -121,6 +142,7 @@ public:
 
   NS_IMETHOD Run()
   {
+    LOG("[S] ToggleBtAck::Run");
     MOZ_ASSERT(NS_IsMainThread());
 
     if (!gBluetoothService) {
@@ -165,6 +187,7 @@ public:
 
   NS_IMETHOD Run()
   {
+    LOG("[S] ToggleBtTask::Run");
     MOZ_ASSERT(!NS_IsMainThread());
 
     if (mEnabled) {
@@ -197,6 +220,7 @@ public:
 
   NS_IMETHOD Handle(const nsAString& aName, const jsval& aResult, JSContext* aCx)
   {
+    LOG("[S] StartupTask::Handle");
     MOZ_ASSERT(NS_IsMainThread());
 
     if (!aResult.isBoolean()) {
@@ -226,6 +250,7 @@ NS_IMPL_ISUPPORTS1(BluetoothService, nsIObserver)
 
 BluetoothService::~BluetoothService()
 {
+  LOG("[S] %s", __FUNCTION__);
   Cleanup();
 }
 
@@ -233,6 +258,7 @@ BluetoothService::~BluetoothService()
 BluetoothService*
 BluetoothService::Create()
 {
+  LOG("[S] %s", __FUNCTION__);
 #if defined(MOZ_B2G_BT)
   if (!IsMainProcess()) {
     return BluetoothServiceChildProcess::Create();
@@ -251,6 +277,7 @@ BluetoothService::Create()
 bool
 BluetoothService::Init()
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -277,6 +304,7 @@ BluetoothService::Init()
 void
 BluetoothService::Cleanup()
 {
+  LOGV("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (mRegisteredForLocalAgent) {
@@ -297,6 +325,7 @@ void
 BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                  BluetoothSignalObserver* aHandler)
 {
+  LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get());
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
@@ -312,6 +341,7 @@ void
 BluetoothService::UnregisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                    BluetoothSignalObserver* aHandler)
 {
+  LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get());
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
@@ -330,6 +360,7 @@ BluetoothService::UnregisterBluetoothSignalHandler(const nsAString& aNodeName,
 void
 BluetoothService::UnregisterAllSignalHandlers(BluetoothSignalObserver* aHandler)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
@@ -339,10 +370,12 @@ BluetoothService::UnregisterAllSignalHandlers(BluetoothSignalObserver* aHandler)
 void
 BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
 {
+  LOG("[S] %s '%s' to %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aSignal.name()).get(), NS_ConvertUTF16toUTF8(aSignal.path()).get());
   MOZ_ASSERT(NS_IsMainThread());
   // Notify observers that a message has been sent
   BluetoothSignalObserverList* ol;
   if (!mBluetoothSignalObserverTable.Get(aSignal.path(), &ol)) {
+    LOG("No observer registered for path ");
 #if DEBUG
     nsAutoCString msg("No observer registered for path ");
     msg.Append(NS_ConvertUTF16toUTF8(aSignal.path()));
@@ -357,6 +390,7 @@ BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
 nsresult
 BluetoothService::StartStopBluetooth(bool aStart)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (gInShutdown) {
@@ -398,6 +432,7 @@ BluetoothService::StartStopBluetooth(bool aStart)
 void
 BluetoothService::SetEnabled(bool aEnabled)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aEnabled == mEnabled) {
@@ -441,6 +476,7 @@ BluetoothService::SetEnabled(bool aEnabled)
 nsresult
 BluetoothService::HandleStartup()
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!mSettingsCheckInProgress);
 
@@ -463,6 +499,7 @@ BluetoothService::HandleStartup()
 nsresult
 BluetoothService::HandleStartupSettingsCheck(bool aEnable)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!mSettingsCheckInProgress) {
@@ -483,6 +520,7 @@ BluetoothService::HandleStartupSettingsCheck(bool aEnable)
 nsresult
 BluetoothService::HandleSettingsChanged(const nsAString& aData)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   // The string that we're interested in will be a JSON string that looks like:
@@ -566,6 +604,7 @@ BluetoothService::HandleSettingsChanged(const nsAString& aData)
 nsresult
 BluetoothService::HandleShutdown()
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   // This is a two phase shutdown. First we notify all child processes that
@@ -631,6 +670,7 @@ BluetoothService::HandleShutdown()
 void
 BluetoothService::RegisterManager(BluetoothManager* aManager)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aManager);
   MOZ_ASSERT(!mLiveManagers.Contains(aManager));
@@ -642,6 +682,7 @@ BluetoothService::RegisterManager(BluetoothManager* aManager)
 void
 BluetoothService::UnregisterManager(BluetoothManager* aManager)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aManager);
   MOZ_ASSERT(mLiveManagers.Contains(aManager));
@@ -684,6 +725,7 @@ nsresult
 BluetoothService::Observe(nsISupports* aSubject, const char* aTopic,
                           const PRUnichar* aData)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!strcmp(aTopic, "profile-after-change")) {
@@ -707,6 +749,7 @@ SetJsObject(JSContext* aContext,
             JSObject* aObj,
             const InfallibleTArray<BluetoothNamedValue>& aData)
 {
+  LOG("[S] %s", __FUNCTION__);
   for (uint32_t i = 0; i < aData.Length(); i++) {
     jsval v;
     if (aData[i].value().type() == BluetoothValue::TnsString) {
@@ -738,6 +781,7 @@ SetJsObject(JSContext* aContext,
 void
 BluetoothService::Notify(const BluetoothSignal& aData)
 {
+  LOG("[S] %s", __FUNCTION__);
   InfallibleTArray<BluetoothNamedValue> arr = aData.value().get_ArrayOfBluetoothNamedValue();
   nsString type;
 
@@ -759,21 +803,27 @@ BluetoothService::Notify(const BluetoothSignal& aData)
   }
 
   if (aData.name().EqualsLiteral("RequestConfirmation")) {
+    LOG("[S] Receive event - RequestConfirmation");
     NS_ASSERTION(arr.Length() == 3, "RequestConfirmation: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestconfirmation");
   } else if (aData.name().EqualsLiteral("RequestPinCode")) {
+    LOG("[S] Receive event - RequestPinCode");
     NS_ASSERTION(arr.Length() == 2, "RequestPinCode: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestpincode");
   } else if (aData.name().EqualsLiteral("RequestPasskey")) {
+    LOG("[S] Receive event - RequestPasskey");
     NS_ASSERTION(arr.Length() == 2, "RequestPinCode: Wrong length of parameters");
     type.AssignLiteral("bluetooth-requestpasskey");
   } else if (aData.name().EqualsLiteral("Authorize")) {
+    LOG("[S] Receive event - Authorize");
     NS_ASSERTION(arr.Length() == 2, "Authorize: Wrong length of parameters");
     type.AssignLiteral("bluetooth-authorize");
   } else if (aData.name().EqualsLiteral("Cancel")) {
+    LOG("[S] Receive event - Cancel");
     NS_ASSERTION(arr.Length() == 0, "Cancel: Wrong length of parameters");
     type.AssignLiteral("bluetooth-cancel");
   } else if (aData.name().EqualsLiteral("PairedStatusChanged")) {
+    LOG("[S] Receive event - PairedStatusChanged");
     NS_ASSERTION(arr.Length() == 1, "PairedStatusChagned: Wrong length of parameters");
     type.AssignLiteral("bluetooth-pairedstatuschanged");
   } else {
