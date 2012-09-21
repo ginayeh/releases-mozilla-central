@@ -109,15 +109,16 @@ BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue)
   const BluetoothValue& value = aValue.value();
   if (name.EqualsLiteral("Name")) {
     mName = value.get_nsString();
-  } else if (name.EqualsLiteral("Path")) {
-    mPath = value.get_nsString();
-    NS_WARNING(NS_ConvertUTF16toUTF8(mPath).get());
+  } else if (name.EqualsLiteral("Address")) {
+    mAddress = value.get_nsString();
     BluetoothService* bs = BluetoothService::Get();
     if (!bs) {
       NS_WARNING("BluetoothService not available!");
-    } else {
-      bs->RegisterBluetoothSignalHandler(mPath, this);
+      return;
     }
+
+    // We can't actually set up our path until we know our address
+    bs->GetDevicePath(mAdapterPath, mAddress, mPath);
   } else if (name.EqualsLiteral("Address")) {
     mAddress = value.get_nsString();
   } else if (name.EqualsLiteral("Class")) {
