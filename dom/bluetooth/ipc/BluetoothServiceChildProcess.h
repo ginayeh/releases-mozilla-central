@@ -117,6 +117,14 @@ public:
                            bool aAllow,
                            BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
+  virtual nsresult
+  ConnectHeadset(const nsAString& aDeviceObjectPath,
+                 BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
+
+  virtual nsresult
+  DisconnectHeadset(const nsAString& aDeviceObjectPath,
+                    BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
+
 protected:
   BluetoothServiceChildProcess();
   virtual ~BluetoothServiceChildProcess();

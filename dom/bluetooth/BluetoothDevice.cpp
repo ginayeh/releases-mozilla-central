@@ -6,6 +6,7 @@
 
 #include "base/basictypes.h"
 #include "BluetoothDevice.h"
+#include "BluetoothHfpManager.h"
 #include "BluetoothPropertyEvent.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothService.h"
@@ -16,6 +17,15 @@
 #include "nsDOMClassInfo.h"
 #include "nsContentUtils.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
+
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...) __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
 
 USING_BLUETOOTH_NAMESPACE
 
@@ -294,6 +304,87 @@ BluetoothDevice::GetServices(JSContext* aCx, jsval* aServices)
   } else {
     NS_WARNING("Services not yet set!\n");
   }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothDevice::ConnectHeadset(nsIDOMDOMRequest** aRequest)
+{
+  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
+  if (!rs) {
+    NS_WARNING("No DOMRequest Service!");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsIDOMDOMRequest> req;
+  nsresult rv = rs->CreateRequest(GetOwner(), getter_AddRefs(req));
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Can't create DOMRequest!");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    NS_WARNING("BluetoothService not available!");
+    return NS_ERROR_FAILURE;
+  }
+
+  bs->ConnectHeadset(mPath, result);
+/*
+  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+
+  if (hfp->Connect(mPath, result)) {
+    LOG("[HFP] Start connecting with headset");
+  } else {
+    LOG("[HFP] Start connecting failed");
+  }
+  */
+
+  req.forget(aRequest);
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+BluetoothDevice::DisconnectHeadset(nsIDOMDOMRequest** aRequest)
+{
+  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
+  if (!rs) {
+    NS_WARNING("No DOMRequest Service!");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsIDOMDOMRequest> req;
+  nsresult rv = rs->CreateRequest(GetOwner(), getter_AddRefs(req));
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Can't create DOMRequest!");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    NS_WARNING("BluetoothService not available!");
+    return NS_ERROR_FAILURE;
+  }
+
+  bs->DisconnectHeadset(mPath, result);
+
+/*
+  BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+
+  if (hfp->Disconnect(result)) {
+    LOG("[HFP] Stopping connecting with headset");
+  } else {
+    LOG("[HFP] Stopping connecting failed");
+  }
+  */
+
+  req.forget(aRequest);
+
   return NS_OK;
 }
 

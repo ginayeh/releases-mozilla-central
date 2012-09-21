@@ -101,6 +101,12 @@ public:
   virtual nsresult
   PrepareAdapterInternal(const nsAString& aPath);
 
+  virtual nsresult
+  ConnectHeadset(const nsAString& aPath, BluetoothReplyRunnable* aRunnable);
+
+  virtual nsresult
+  DisconnectHeadset(const nsAString& aPath, BluetoothReplyRunnable* aRunnable);
+
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
                                   const char* aInterface,

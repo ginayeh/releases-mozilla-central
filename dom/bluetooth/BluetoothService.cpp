@@ -8,6 +8,7 @@
 
 #include "BluetoothService.h"
 
+#include "BluetoothHfpManager.h"
 #include "BluetoothManager.h"
 #include "BluetoothParent.h"
 #include "BluetoothReplyRunnable.h"

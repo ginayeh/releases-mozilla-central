@@ -212,8 +212,8 @@ BluetoothServiceChildProcess::GetSocketViaService(
                                               mozilla::ipc::SocketConsumer* aSocket,
                                               BluetoothReplyRunnable* aRunnable)
 {
-  MOZ_NOT_REACHED("Implement me!");
-  return NS_ERROR_NOT_IMPLEMENTED;
+  MOZ_NOT_REACHED("Should never be called from child");
+  return NS_OK;
 }
 
 bool
@@ -275,6 +275,26 @@ BluetoothServiceChildProcess::SetAuthorizationInternal(
     SendRequest(aRunnable,
                 DenyAuthorizationRequest(nsString(aDeviceAddress)));
   }
+  return NS_OK;
+}
+
+nsresult
+BluetoothServiceChildProcess::ConnectHeadset(const nsAString& aDeviceObjectPath,
+                                             BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+              ConnectHeadsetRequest(nsString(aDeviceObjectPath)));
+
+  return NS_OK;
+}
+
+nsresult
+BluetoothServiceChildProcess::DisconnectHeadset(const nsAString& aDeviceObjectPath,
+                                                BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+              DisconnectHeadsetRequest(nsString(aDeviceObjectPath)));
+
   return NS_OK;
 }
 

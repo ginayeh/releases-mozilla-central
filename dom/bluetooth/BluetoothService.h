@@ -264,6 +264,12 @@ public:
   virtual nsresult
   PrepareAdapterInternal(const nsAString& aPath) = 0;
 
+  virtual nsresult
+  ConnectHeadset(const nsAString& aPath, BluetoothReplyRunnable* aRunnable) = 0;
+
+  virtual nsresult
+  DisconnectHeadset(const nsAString& aPath, BluetoothReplyRunnable* aRunnable) = 0;
+
   bool
   IsEnabled() const
   {
