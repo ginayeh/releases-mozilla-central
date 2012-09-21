@@ -14,6 +14,7 @@
 #include "BluetoothServiceChildProcess.h"
 
 #include "jsapi.h"
+#include "mozilla/ipc/Socket.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/unused.h"
@@ -142,6 +143,7 @@ public:
       }
 
       if (gInShutdown) {
+        mozilla::ipc::StopSocketManager();
         gBluetoothService = nullptr;
       }
     }
@@ -357,16 +359,6 @@ nsresult
 BluetoothService::StartStopBluetooth(bool aStart)
 {
   MOZ_ASSERT(NS_IsMainThread());
-
-#ifdef DEBUG
-  if (aStart && mLastRequestedEnable) {
-    MOZ_ASSERT(false, "Calling Start twice in a row!");
-  }
-  else if (!aStart && !mLastRequestedEnable) {
-    MOZ_ASSERT(false, "Calling Stop twice in a row!");
-  }
-  mLastRequestedEnable = aStart;
-#endif
 
   if (gInShutdown) {
     if (aStart) {
@@ -663,6 +655,8 @@ BluetoothService::Get()
     service->Cleanup();
     return nullptr;
   }
+
+  mozilla::ipc::StartSocketManager();
 
   gBluetoothService = service;
   return gBluetoothService;

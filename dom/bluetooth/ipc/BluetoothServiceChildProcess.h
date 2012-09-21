@@ -89,10 +89,12 @@ public:
                       int aType,
                       bool aAuth,
                       bool aEncrypt,
+                      mozilla::ipc::SocketConsumer* aSocket,
                       BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
   virtual bool
-  CloseSocket(int aFd, BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
+  CloseSocket(mozilla::ipc::SocketConsumer* aSocket, 
+              BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
   virtual bool
   SetPinCodeInternal(const nsAString& aDeviceAddress,

@@ -209,6 +209,7 @@ BluetoothServiceChildProcess::GetSocketViaService(
                                               int aType,
                                               bool aAuth,
                                               bool aEncrypt,
+                                              mozilla::ipc::SocketConsumer* aSocket,
                                               BluetoothReplyRunnable* aRunnable)
 {
   MOZ_NOT_REACHED("Implement me!");
@@ -216,7 +217,7 @@ BluetoothServiceChildProcess::GetSocketViaService(
 }
 
 bool
-BluetoothServiceChildProcess::CloseSocket(int aFd,
+BluetoothServiceChildProcess::CloseSocket(mozilla::ipc::SocketConsumer* aSocket,
                                           BluetoothReplyRunnable* aRunnable)
 {
   MOZ_NOT_REACHED("Implement me!");

@@ -66,9 +66,10 @@ public:
                       int aType,
                       bool aAuth,
                       bool aEncrypt,
+                      mozilla::ipc::SocketConsumer* aSocketConsumer,
                       BluetoothReplyRunnable* aRunnable);
 
-  virtual bool CloseSocket(int aFd, BluetoothReplyRunnable* aRunnable);
+  virtual bool CloseSocket(mozilla::ipc::SocketConsumer* aConsumer, BluetoothReplyRunnable* aRunnable);
 
   virtual nsresult
   CreatePairedDeviceInternal(const nsAString& aAdapterPath,
