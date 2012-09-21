@@ -51,8 +51,9 @@ CPPSRCS += \
   BluetoothChild.cpp \
   BluetoothParent.cpp \
   BluetoothServiceChildProcess.cpp \
-  BluetoothHfpManager.cpp \
   BluetoothUnixSocketConnector.cpp \
+  BluetoothHfpManager.cpp \
+  BluetoothOppManager.cpp \
   $(NULL)
 
 XPIDLSRCS = \
