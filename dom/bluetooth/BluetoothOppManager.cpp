@@ -89,11 +89,7 @@ BluetoothOppManager::Disconnect(BluetoothReplyRunnable* aRunnable)
   // runnable.forget();
 
   nsresult rv = NS_OK;
-  int err;
-  if(!CloseSocket(err)) {
-    NS_WARNING("Cannot close socket!");
-  }
-
+  CloseSocket();
   return NS_FAILED(rv) ? false : true;
 }
 
