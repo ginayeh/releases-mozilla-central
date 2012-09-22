@@ -158,7 +158,11 @@ BluetoothHfpManager::Disconnect(BluetoothReplyRunnable* aRunnable)
   // nsresult rv = bs->CloseSocket(this, runnable);
   // runnable.forget();
 
-  CloseSocket();
+  int err;
+  if(!CloseSocket(err)) {
+    NS_WARNING("Cannot close socket!");
+  }
+
   return NS_FAILED(rv) ? false : true;
 }
 
