@@ -8,13 +8,13 @@
 #define mozilla_dom_bluetooth_bluetoothoppmanager_h__
 
 #include "BluetoothCommon.h"
-#include "mozilla/ipc/Socket.h"
+#include "mozilla/ipc/UnixSocket.h"
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothReplyRunnable;
 
-class BluetoothOppManager : public mozilla::ipc::SocketConsumer
+class BluetoothOppManager : public mozilla::ipc::UnixSocketConsumer
 {
 public:
   /*
@@ -26,7 +26,7 @@ public:
 
   ~BluetoothOppManager();
   static BluetoothOppManager* Get();
-  void ReceiveSocketData(mozilla::ipc::SocketRawData* aMessage);
+  void ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage);
 
   /*
    * If a application wnats to send a file, first, it needs to
