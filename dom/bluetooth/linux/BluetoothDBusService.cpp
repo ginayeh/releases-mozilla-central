@@ -2102,6 +2102,7 @@ public:
   nsresult
   Run()
   {
+    LOG("[B] CreateBluetoothSocketRunnable::Run");
     NS_WARNING("Running create socket!\n");
     MOZ_ASSERT(!NS_IsMainThread());
 
@@ -2118,6 +2119,7 @@ public:
       return NS_ERROR_FAILURE;
     }
 
+    LOG("[B] DispatchBluetoothReply");
     DispatchBluetoothReply(mRunnable, v, replyError);
 
     return NS_OK;
@@ -2142,6 +2144,7 @@ BluetoothDBusService::GetSocketViaService(const nsAString& aObjectPath,
                                           SocketConsumer* aSocketConsumer,
                                           BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s", __FUNCTION__);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
   if (!mConnection || !gThreadConnection) {
     NS_ERROR("Bluetooth service not started yet!");

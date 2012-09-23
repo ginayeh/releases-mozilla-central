@@ -243,7 +243,6 @@ BluetoothServiceChildProcess::SetPasskeyInternal(
 {
   SendRequest(aRunnable,
               SetPasskeyRequest(nsString(aDeviceAddress), aPasskey));
-
   return true;
 }
 
@@ -260,7 +259,6 @@ BluetoothServiceChildProcess::SetPairingConfirmationInternal(
     SendRequest(aRunnable,
                 DenyPairingConfirmationRequest(nsString(aDeviceAddress)));
   }
-
   return true;
 }
 
@@ -277,7 +275,6 @@ BluetoothServiceChildProcess::SetAuthorizationInternal(
     SendRequest(aRunnable,
                 DenyAuthorizationRequest(nsString(aDeviceAddress)));
   }
-
   return true;
 }
 

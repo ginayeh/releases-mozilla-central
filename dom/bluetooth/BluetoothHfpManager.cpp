@@ -4,6 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "base/basictypes.h"
+
 #include "BluetoothHfpManager.h"
 
 #include "BluetoothReplyRunnable.h"
@@ -11,7 +13,21 @@
 #include "BluetoothServiceUuid.h"
 
 #include "mozilla/Services.h"
+#include "nsIDOMDOMRequest.h"
+#include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "nsIObserverService.h"
+
+#include "nsISystemMessagesInternal.h"
+#include "nsContentUtils.h"
+
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
 
 USING_BLUETOOTH_NAMESPACE
 
@@ -101,6 +117,47 @@ BluetoothHfpManager::ReceiveSocketData(mozilla::ipc::SocketRawData* aMessage)
     mCurrentVgs = newVgs;
 
     SendLine("OK");
+  } else if (!strncmp(msg, "AT+BLDN", 7)) {
+    SendLine("OK");
+
+/*    nsString type;
+    type.AssignLiteral("bluetooth-dialercommand");
+
+    JSContext* cx = nsContentUtils::GetSafeJSContext();
+    NS_ASSERTION(!::JS_IsExceptionPending(cx),
+                 "Shouldn't get here when an exception is pending!");
+
+    JSAutoRequest jsar(cx);
+    JSObject* obj = JS_NewObject(cx, NULL, NULL, NULL);
+    if (!obj) {
+      NS_WARNING("Failed to new JSObject for system message!");
+      return;
+    }
+
+    JSString* JsData = JS_NewStringCopyN(cx, "BLDN", 4);
+    if (!JsData) {
+      NS_WARNING("JS_NewStringCopyN is out of memory");
+      return;
+    }
+
+    jsval v = STRING_TO_JSVAL(JsData);
+    if (!JS_SetProperty(cx, obj, "command", &v)) {
+      NS_WARNING("Failed to set properties of system message!");
+      return;
+    }
+
+    LOG("[H] message is ready!");
+
+    nsCOMPtr<nsISystemMessagesInternal> systemMessenger =
+      do_GetService("@mozilla.org/system-message-internal;1");
+
+    if (!systemMessenger) {
+      NS_WARNING("Failed to get SystemMessenger service!");
+      return;
+    }
+
+    LOG("[H] broadcast message");
+    systemMessenger->BroadcastMessage(type, OBJECT_TO_JSVAL(obj));*/
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -116,6 +173,7 @@ bool
 BluetoothHfpManager::Connect(const nsAString& aDeviceObjectPath,
                              BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[H] Connect");
   MOZ_ASSERT(NS_IsMainThread());
 
   BluetoothService* bs = BluetoothService::Get();

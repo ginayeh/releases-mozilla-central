@@ -158,6 +158,7 @@ SocketConsumer::SendSocketData(SocketRawData* aData)
 int
 OpenSocket(int aType, const char* aAddress, int aChannel, bool aAuth, bool aEncrypt)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(!NS_IsMainThread());
   int lm = 0;
   int fd = -1;
@@ -203,6 +204,7 @@ OpenSocket(int aType, const char* aAddress, int aChannel, bool aAuth, bool aEncr
     }
   }
 
+  LOG("[S] setsockopt");
   if (aType == TYPE_RFCOMM) {
     sndbuf = RFCOMM_SO_SNDBUF;
     if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf))) {
@@ -218,6 +220,7 @@ OpenSocket(int aType, const char* aAddress, int aChannel, bool aAuth, bool aEncr
   struct sockaddr *addr;
   bdaddr_t bd_address_obj;
 
+  LOG("[S] get_bdaddr");
   if (get_bdaddr(aAddress, &bd_address_obj)) {
     NS_WARNING("Can't get bluetooth address!");
     return -1;
@@ -248,12 +251,13 @@ OpenSocket(int aType, const char* aAddress, int aChannel, bool aAuth, bool aEncr
     return -1;
   }
 
+  LOG("[S] connect");
   int ret = connect(fd, addr, addr_sz);
 
   if (ret) {
-#if DEBUG
+//#if DEBUG
     LOG("Socket connect errno=%d\n", errno);
-#endif
+//#endif
     NS_WARNING("Socket connect error!");
     return -1;
   }
@@ -458,6 +462,7 @@ StopSocketManager()
 bool
 ConnectSocket(SocketConsumer* aConsumer, int aType, const char* aAddress, int aChannel, bool aAuth, bool aEncrypt)
 {
+  LOG("[S] %s", __FUNCTION__);
   if (!sManager) {
     NS_WARNING("Manager not yet started!");
     return false;

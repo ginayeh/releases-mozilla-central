@@ -311,6 +311,7 @@ BluetoothDevice::GetServices(JSContext* aCx, jsval* aServices)
 NS_IMETHODIMP
 BluetoothDevice::ConnectHeadset(nsIDOMDOMRequest** aRequest)
 {
+  LOG("[D] %s", __FUNCTION__);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");

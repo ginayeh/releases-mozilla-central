@@ -30,7 +30,7 @@ const kMessages =["SystemMessageManager:GetPending",
                   "SystemMessageManager:Unregister"]
 
 function debug(aMsg) {
-  //dump("-- SystemMessageInternal " + Date.now() + " : " + aMsg + "\n");
+  dump("-- SystemMessageInternal " + Date.now() + " : " + aMsg + "\n");
 }
 
 // Implementation of the component used by internal users.
