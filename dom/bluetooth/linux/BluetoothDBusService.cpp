@@ -455,11 +455,13 @@ AgentEventFilter(DBusConnection *conn, DBusMessage *msg, void *data)
       LOG("%s: Invalid arguments for RequestConfirmation() method", __FUNCTION__);
       errorStr.AssignLiteral("Invalid arguments for RequestConfirmation() method");
     } else {
-      nsString address = NS_LITERAL_STRING("address");
-      parameters.AppendElement(BluetoothNamedValue(address, NS_ConvertUTF8toUTF16(objectPath)));
-      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("passkey"), passkey));
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("address"),
+                                                   NS_ConvertUTF8toUTF16(objectPath)));
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("passkey"),
+                                                   passkey));
 
-      KeepDBusPairingMessage(address, msg);
+      KeepDBusPairingMessage(GetAddressFromObjectPath(NS_ConvertUTF8toUTF16(objectPath)),
+                             msg);
 
       BluetoothSignal signal(signalName, signalPath, parameters);
 
@@ -483,10 +485,11 @@ AgentEventFilter(DBusConnection *conn, DBusMessage *msg, void *data)
       LOG("%s: Invalid arguments for RequestPinCode() method", __FUNCTION__);
       errorStr.AssignLiteral("Invalid arguments for RequestPinCode() method");
     } else {
-      nsString address = NS_LITERAL_STRING("address");
-      parameters.AppendElement(BluetoothNamedValue(address, NS_ConvertUTF8toUTF16(objectPath)));
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("address"),
+                               NS_ConvertUTF8toUTF16(objectPath)));
 
-      KeepDBusPairingMessage(address, msg);
+      KeepDBusPairingMessage(GetAddressFromObjectPath(NS_ConvertUTF8toUTF16(objectPath)),
+                             msg);
 
       BluetoothSignal signal(signalName, signalPath, parameters);
 
@@ -509,10 +512,11 @@ AgentEventFilter(DBusConnection *conn, DBusMessage *msg, void *data)
       LOG("%s: Invalid arguments for RequestPasskey() method", __FUNCTION__);
       errorStr.AssignLiteral("Invalid arguments for RequestPasskey() method");
     } else {
-      nsString address = NS_LITERAL_STRING("address");
-      parameters.AppendElement(BluetoothNamedValue(address, NS_ConvertUTF8toUTF16(objectPath)));
+      parameters.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("address"),
+                                                   NS_ConvertUTF8toUTF16(objectPath)));
 
-      KeepDBusPairingMessage(address, msg);
+      KeepDBusPairingMessage(GetAddressFromObjectPath(NS_ConvertUTF8toUTF16(objectPath)),
+                             msg);
 
       BluetoothSignal signal(signalName, signalPath, parameters);
 
@@ -2044,6 +2048,7 @@ BluetoothDBusService::SetPairingConfirmationInternal(const nsAString& aDeviceAdd
   nsString errorStr;
   BluetoothValue v = true;
   DBusMessage *msg;
+
   if (!sPairingReqTable.Get(aDeviceAddress, &msg)) {
     LOG("%s: Couldn't get original request message.", __FUNCTION__);
     errorStr.AssignLiteral("Couldn't get original request message.");
