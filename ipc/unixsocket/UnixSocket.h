@@ -30,6 +30,13 @@ struct UnixSocketRawData
   {
   }
 
+  UnixSocketRawData(const uint8_t* aData, int aSize) :
+    mSize(aSize),
+    mCurrentWriteOffset(0)
+  {
+    memcpy(mData, aData, aSize);
+  }
+
 };
 
 class UnixSocketImpl;
