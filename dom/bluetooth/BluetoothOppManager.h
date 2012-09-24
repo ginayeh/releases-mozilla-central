@@ -49,8 +49,14 @@ public:
 private:
   BluetoothOppManager();
   void SendConnectReqeust();
+  void SendDisconnectReqeust();
+  void SendPutReqeust(uint8_t* fileName, int fileNameLength,
+                      uint8_t* fileBody, int fileBodyLength);
 
   bool mConnected;
+  uint8_t mRemoteObexVersion;
+  uint8_t mRemoteConnectionFlags;
+  int mRemoteMaxPacketLength;
 };
 
 END_BLUETOOTH_NAMESPACE

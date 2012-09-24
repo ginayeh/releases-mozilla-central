@@ -139,7 +139,7 @@ public:
   }
 };
 
-int AppendHeaderName(uint8_t* retBuf, const char* name, int length);
+int AppendHeaderName(uint8_t* retBuf, uint8_t* name, int length);
 int AppendHeaderBody(uint8_t* retBuf, uint8_t* data, int length);
 int AppendHeaderLength(uint8_t* retBuf, int objectLength);
 int AppendHeaderConnectionId(uint8_t* retBuf, int connectionId);

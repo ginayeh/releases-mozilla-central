@@ -10,7 +10,7 @@
 BEGIN_BLUETOOTH_NAMESPACE
 
 int
-AppendHeaderName(uint8_t* retBuf, const char* name, int length)
+AppendHeaderName(uint8_t* retBuf, uint8_t* name, int length)
 {
   int headerLength = length + 3;
 

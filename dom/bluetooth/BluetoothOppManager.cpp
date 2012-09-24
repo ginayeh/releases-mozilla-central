@@ -98,8 +98,6 @@ BluetoothOppManager::SendFile(const nsAString& aFileUri,
                               BluetoothReplyRunnable* aRunnable)
 {
   // First, send OBEX connection request to remote device.
-
-  LOG("Let's send connect request!!!");
   SendConnectReqeust();
 
   return true;
@@ -122,13 +120,30 @@ BluetoothOppManager::ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage
   LOG("Response Code: %x, Packet Length: %d, Received Length = %d",
       responseCode, packetLength, receivedLength);
 
+  // Start parsing response
+  ObexHeaderSet headerSet(sLastCommand);
+
   if (sLastCommand == ObexRequestCode::Connect) {
     if (responseCode != ObexResponseCode::Success) {
       LOG("[OBEX] Connect failed");
     } else {
       LOG("[OBEX] Connect ok");
 
+      mRemoteObexVersion = aMessage->mData[3];
+      mRemoteConnectionFlags = aMessage->mData[4];
+      mRemoteMaxPacketLength = ((aMessage->mData[5] << 8) | aMessage->mData[6]);
+
+      ParseHeaders((uint8_t*)&aMessage->mData[7], packetLength - 7, &headerSet);
+
       mConnected = true;
+
+      // xxx Eric Temp
+      // xxxxxxxxxxxxxxxxxxxxx File Name and Body
+      uint8_t tempName[18] = {0x00, 0x74, 0x00, 0x65, 0x00, 0x73, 0x00, 0x74, 0x00, 0x2e, 0x00, 0x74,
+                              0x00, 0x78, 0x00, 0x74, 0x00, 0x00};
+      uint8_t tempBody[11] = {0x45, 0x72, 0x69, 0x63, 0x20, 0x54, 0x65, 0x73, 0x74, 0x2e, 0x0a};
+
+      SendPutReqeust(tempName, 18, tempBody, 11);
     }
   } else if (sLastCommand == ObexRequestCode::Disconnect) {
     if (responseCode != ObexResponseCode::Success) {
@@ -138,7 +153,23 @@ BluetoothOppManager::ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage
 
       mConnected = false;
     }
-  } 
+  } else if (sLastCommand == ObexRequestCode::Put) {
+    if (responseCode != ObexResponseCode::Continue) {
+      LOG("[OBEX] Put failed");
+    } else {
+      // Put: Do nothing, just reply responsecode
+      LOG("[OBEX] Remote device received part of file, keep sending");
+    }
+  } else if (sLastCommand == ObexRequestCode::PutFinal) {
+    if (responseCode != ObexResponseCode::Success) {
+      LOG("[OBEX] PutFinal failed");
+    } else {
+      LOG("[OBEX] File sharing done");
+
+      // Disconnect right after connected
+      SendDisconnectReqeust();
+    }
+  }
 }
 
 void
@@ -167,3 +198,69 @@ BluetoothOppManager::SendConnectReqeust()
   LOG("[Gecko] OPP sent connect request!");
 }
 
+void
+BluetoothOppManager::SendDisconnectReqeust()
+{
+  // IrOBEX 1.2 3.3.2
+  // [opcode:1][length:2][Headers:var]
+  uint8_t req[255];
+  int currentIndex = 3;
+
+  SetObexPacketInfo(req, ObexRequestCode::Disconnect, currentIndex);
+  sLastCommand = ObexRequestCode::Disconnect;
+
+  mozilla::ipc::UnixSocketRawData* s 
+    = new mozilla::ipc::UnixSocketRawData(req, currentIndex);
+  SendSocketData(s);
+
+  LOG("[Gecko] OPP sent disconnect request!");
+}
+
+void
+BluetoothOppManager::SendPutReqeust(uint8_t* fileName, int fileNameLength,
+                                    uint8_t* fileBody, int fileBodyLength)
+{
+
+  // IrOBEX 1.2 3.3.3
+  // [opcode:1][length:2][Headers:var]
+  if (!mConnected) return;
+
+  uint8_t* req = new uint8_t[mRemoteMaxPacketLength];
+
+  int sentFileBodyLength = 0;
+  int index = 3;
+
+  index += AppendHeaderConnectionId(&req[index], sConnectionId);
+  index += AppendHeaderName(&req[index], fileName, fileNameLength);
+  index += AppendHeaderLength(&req[index], fileBodyLength);
+
+  while (fileBodyLength > sentFileBodyLength) {
+    int packetLeftSpace = mRemoteMaxPacketLength - index - 3;
+
+    if (fileBodyLength <= packetLeftSpace) {
+      index += AppendHeaderBody(&req[index], &fileBody[sentFileBodyLength], fileBodyLength);
+      sentFileBodyLength += fileBodyLength;
+    } else {
+      index += AppendHeaderBody(&req[index], &fileBody[sentFileBodyLength], packetLeftSpace);
+      sentFileBodyLength += packetLeftSpace;
+    }
+
+    LOG("Sent file body length: %d", sentFileBodyLength);
+
+    if (sentFileBodyLength >= fileBodyLength) {
+      SetObexPacketInfo(req, ObexRequestCode::PutFinal, index);
+      sLastCommand = ObexRequestCode::PutFinal;
+    } else {
+      SetObexPacketInfo(req, ObexRequestCode::Put, index);
+      sLastCommand = ObexRequestCode::Put;
+    }
+
+    mozilla::ipc::UnixSocketRawData* s = 
+      new mozilla::ipc::UnixSocketRawData(req, index);
+    SendSocketData(s);
+
+    index = 3;
+  }
+
+  delete [] req;
+}
