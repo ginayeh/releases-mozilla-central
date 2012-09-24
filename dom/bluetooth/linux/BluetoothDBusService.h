@@ -118,6 +118,10 @@ public:
   virtual nsresult
   DisconnectObjectPush(const nsAString& aPath, BluetoothReplyRunnable* aRunnable);
 
+  virtual nsresult
+  SendFile(const nsAString& aDevicePath, const nsAString& aFilePath,
+           BluetoothReplyRunnable* aRunnable);
+
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
                                   const char* aInterface,

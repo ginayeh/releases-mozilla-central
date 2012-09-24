@@ -2270,3 +2270,14 @@ BluetoothDBusService::DisconnectObjectPush(const nsAString& aObjectPath,
 
   return result ? NS_OK : NS_ERROR_FAILURE;
 }
+
+nsresult
+BluetoothDBusService::SendFile(const nsAString& aObjectPath,
+                               const nsAString& aFilePath,
+                               BluetoothReplyRunnable* aRunnable)
+{
+  BluetoothOppManager* opp = BluetoothOppManager::Get();
+  bool result = opp->SendFile(aFilePath, aRunnable);
+
+  return result ? NS_OK : NS_ERROR_FAILURE;
+}

@@ -310,6 +310,17 @@ BluetoothServiceChildProcess::DisconnectObjectPush(const nsAString& aDeviceObjec
 }
 
 nsresult
+BluetoothServiceChildProcess::SendFile(const nsAString& aDevicePath,
+                                       const nsAString& aFilePath,
+                                       BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable,
+              SendFileRequest(nsString(aDevicePath), nsString(aFilePath)));
+
+  return NS_OK;
+}
+
+nsresult
 BluetoothServiceChildProcess::PrepareAdapterInternal(const nsAString& aPath)
 {
   MOZ_NOT_REACHED("Should never be called from child");

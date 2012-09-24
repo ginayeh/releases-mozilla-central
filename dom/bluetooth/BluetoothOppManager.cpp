@@ -98,6 +98,8 @@ BluetoothOppManager::SendFile(const nsAString& aFileUri,
                               BluetoothReplyRunnable* aRunnable)
 {
   // First, send OBEX connection request to remote device.
+
+  LOG("Let's send connect request!!!");
   SendConnectReqeust();
 
   return true;

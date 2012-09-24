@@ -269,6 +269,10 @@ public:
   virtual nsresult
   DisconnectObjectPush(const nsAString& aPath, BluetoothReplyRunnable* aRunnable) = 0;
 
+  virtual nsresult
+  SendFile(const nsAString& aDevicePath, const nsAString& aFilePath,
+           BluetoothReplyRunnable* aRunnable) = 0;
+
   bool
   IsEnabled() const
   {

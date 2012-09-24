@@ -8,7 +8,7 @@
 
 interface nsIDOMDOMRequest;
 
-[scriptable, builtinclass, uuid(933c3af4-bf9c-4268-a706-25d7fbc62512)]
+[scriptable, builtinclass, uuid(1015423f-31d2-47b7-985f-3cff28f1e08e)]
 interface nsIDOMBluetoothDevice : nsIDOMEventTarget
 {
   readonly attribute DOMString address;
@@ -29,4 +29,5 @@ interface nsIDOMBluetoothDevice : nsIDOMEventTarget
   // ObjectPush
   nsIDOMDOMRequest connectObjectPush();
   nsIDOMDOMRequest disconnectObjectPush();
+  nsIDOMDOMRequest sendFile(in DOMString filePath);
 };
