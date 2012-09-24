@@ -26,6 +26,7 @@ public:
                BluetoothReplyRunnable* aRunnable);
   bool Disconnect(BluetoothReplyRunnable* aRunnable);
   void SendLine(const char* aMessage);
+  nsresult HandleSettingsChanged(const nsAString& aData);
 
 private:
   BluetoothHfpManager();

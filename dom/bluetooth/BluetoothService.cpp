@@ -48,6 +48,15 @@
 
 #define DEFAULT_SHUTDOWN_TIMER_MS 5000
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 using namespace mozilla::dom;
 USING_BLUETOOTH_NAMESPACE
@@ -299,6 +308,7 @@ void
 BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                  BluetoothSignalObserver* aHandler)
 {
+  LOG("[S] %s", __FUNCTION__);
   //MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
@@ -341,15 +351,16 @@ BluetoothService::UnregisterAllSignalHandlers(BluetoothSignalObserver* aHandler)
 void
 BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   // Notify observers that a message has been sent
   BluetoothSignalObserverList* ol;
   if (!mBluetoothSignalObserverTable.Get(aSignal.path(), &ol)) {
-#if DEBUG
+//#if DEBUG
     nsAutoCString msg("No observer registered for path ");
     msg.Append(NS_ConvertUTF16toUTF8(aSignal.path()));
     NS_WARNING(msg.get());
-#endif
+//#endif
     return;
   }
   MOZ_ASSERT(ol->Length());
