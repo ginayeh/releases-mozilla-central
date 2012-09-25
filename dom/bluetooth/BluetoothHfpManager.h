@@ -40,6 +40,8 @@ private:
   }
 
   nsresult HandleVolumeChanged(const nsAString& aData);
+  bool BroadcastSystemMessage(const char* aCommand,
+                              const int aCommandLength);
 
   int mCurrentVgs;
 };

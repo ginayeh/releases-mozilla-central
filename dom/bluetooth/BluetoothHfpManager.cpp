@@ -22,6 +22,16 @@
 
 #define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
 #define AUDIO_VOLUME_MASTER "audio.volume.master"
+
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...) __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 USING_BLUETOOTH_NAMESPACE
 
 static BluetoothHfpManager* sInstance = nullptr;
@@ -140,6 +150,52 @@ BluetoothHfpManager::Observe(nsISupports* aSubject,
   return NS_ERROR_UNEXPECTED;
 }
 
+bool
+BluetoothHfpManager::BroadcastSystemMessage(const char* aCommand,
+                                            const int aCommandLength)
+{
+  LOG("[H] %s", __FUNCTION__);
+  nsString type;
+  type.AssignLiteral("bluetooth-basiccommand");
+
+  JSContext* cx = nsContentUtils::GetSafeJSContext();
+  NS_ASSERTION(!::JS_IsExceptionPending(cx),
+		"Shouldn't get here when an exception is pending!");
+
+  JSAutoRequest jsar(cx);
+  JSObject* obj = JS_NewObject(cx, NULL, NULL, NULL);
+  if (!obj) {
+    NS_WARNING("Failed to new JSObject for system message!");
+    return false;
+  }
+
+  JSString* JsData = JS_NewStringCopyN(cx, aCommand, aCommandLength);
+  if (!JsData) {
+    NS_WARNING("JS_NewStringCopyN is out of memory");
+    return false;
+  }
+
+  jsval v = STRING_TO_JSVAL(JsData);
+  if (!JS_SetProperty(cx, obj, "command", &v)) {
+    NS_WARNING("Failed to set properties of system message!");
+    return false;
+  }
+
+  LOG("[H] message is ready!");
+  nsCOMPtr<nsISystemMessagesInternal> systemMessenger =
+    do_GetService("@mozilla.org/system-message-internal;1");
+
+  if (!systemMessenger) {
+    NS_WARNING("Failed to get SystemMessenger service!");
+    return false;
+  }
+
+  LOG("[H] broadcast message");
+  systemMessenger->BroadcastMessage(type, OBJECT_TO_JSVAL(obj));
+
+  return true;
+}
+
 // Virtual function of class SocketConsumer
 void
 BluetoothHfpManager::ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage)
@@ -204,6 +260,25 @@ BluetoothHfpManager::ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage
 
     mCurrentVgs = newVgs;
 
+    SendLine("OK");
+  } else if (!strncmp(msg, "AT+BLDN", 7)) {
+    LOG("[H] Receive 'AT+BLDN'");
+    if (!BroadcastSystemMessage("BLDN", 4)) {
+      NS_WARNING("Failed to broadcast system message to dialer");
+      return;
+    }
+    SendLine("OK");
+  } else if (!strncmp(msg, "ATA", 3)) {
+    if (!BroadcastSystemMessage("ATA", 3)) {
+      NS_WARNING("Failed to broadcast system message to dialer");
+      return;
+    }
+    SendLine("OK");
+  } else if (!strncmp(msg, "AT+CHUP", 7)) {
+    if (!BroadcastSystemMessage("CHUP", 4)) {
+      NS_WARNING("Failed to broadcast system message to dialer");
+      return;
+    }
     SendLine("OK");
   } else {
 #ifdef DEBUG
