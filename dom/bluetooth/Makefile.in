@@ -57,6 +57,11 @@ CPPSRCS += \
   ObexBase.cpp \
   $(NULL)
 
+ifdef MOZ_B2G_RIL
+CPPSRCS += BluetoothRilListener.cpp \
+  $(NULL)
+endif
+
 XPIDLSRCS = \
   nsIDOMNavigatorBluetooth.idl \
   nsIDOMBluetoothManager.idl \

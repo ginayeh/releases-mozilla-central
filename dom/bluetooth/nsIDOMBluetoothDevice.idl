@@ -6,9 +6,10 @@
 
 #include "nsIDOMEventTarget.idl"
 
+interface nsIDOMBlob;
 interface nsIDOMDOMRequest;
 
-[scriptable, builtinclass, uuid(1015423f-31d2-47b7-985f-3cff28f1e08e)]
+[scriptable, builtinclass, uuid(842f20ed-1536-4246-b23a-d08c39a3e375)]
 interface nsIDOMBluetoothDevice : nsIDOMEventTarget
 {
   readonly attribute DOMString address;
@@ -29,5 +30,5 @@ interface nsIDOMBluetoothDevice : nsIDOMEventTarget
   // ObjectPush
   nsIDOMDOMRequest connectObjectPush();
   nsIDOMDOMRequest disconnectObjectPush();
-  nsIDOMDOMRequest sendFile(in DOMString filePath);
+  nsIDOMDOMRequest sendFile(in nsIDOMBlob blob);
 };

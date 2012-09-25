@@ -13,10 +13,12 @@
 #include "BluetoothUtils.h"
 #include "BluetoothServiceUuid.h"
 
+#include "nsIDOMFile.h"
 #include "nsIDOMDOMRequest.h"
 #include "nsDOMClassInfo.h"
 #include "nsContentUtils.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
+#include "mozilla/dom/ipc/Blob.h"
 
 #undef LOG
 #if defined(MOZ_WIDGET_GONK)
@@ -425,7 +427,7 @@ BluetoothDevice::DisconnectObjectPush(nsIDOMDOMRequest** aRequest)
 }
 
 NS_IMETHODIMP
-BluetoothDevice::SendFile(const nsAString& aFilePath, nsIDOMDOMRequest** aRequest)
+BluetoothDevice::SendFile(nsIDOMBlob* aBlob, nsIDOMDOMRequest** aRequest)
 {
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -446,8 +448,23 @@ BluetoothDevice::SendFile(const nsAString& aFilePath, nsIDOMDOMRequest** aReques
     return NS_ERROR_FAILURE;
   }
 
+ // const nsDOMFileBase* blob = static_cast<nsDOMFileBase*>(aBlob);
+
+ // BlobConstructorParams params;
+
+  nsCOMPtr<nsIInputStream> stream;
+  rv = aBlob->GetInternalStream(getter_AddRefs(stream));
+  if (NS_FAILED(rv)) {
+    LOG("Suuuuuuuuuuuuuuuck");
+  }
+
+  char buffer[255] = {'\0'};
+  uint32_t readBytes;
+  stream->Read(&buffer[0], 255, &readBytes);
+  LOG("readBytes = %u, %s", readBytes, buffer);
+
   nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
-  bs->SendFile(mPath, aFilePath, result);
+  //bs->SendFile(mPath, buffer, readBytes, result);
   req.forget(aRequest);
 
   return NS_OK;

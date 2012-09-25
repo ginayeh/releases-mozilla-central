@@ -8,6 +8,7 @@ include protocol PBluetoothRequest;
 include protocol PContent;
 
 include BluetoothTypes;
+include DOMTypes;
 
 include "mozilla/dom/bluetooth/ipc/BluetoothMessageUtils.h";
 

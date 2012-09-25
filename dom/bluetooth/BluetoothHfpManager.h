@@ -8,6 +8,7 @@
 #define mozilla_dom_bluetooth_bluetoothhfpmanager_h__
 
 #include "BluetoothCommon.h"
+#include "BluetoothRilListener.h"
 #include "mozilla/ipc/UnixSocket.h"
 #include "nsIObserver.h"
 
@@ -22,6 +23,8 @@ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
 
+  ~BluetoothHfpManager();
+
   static BluetoothHfpManager* Get();
   void ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage);
 
@@ -29,21 +32,21 @@ public:
                BluetoothReplyRunnable* aRunnable);
   bool Disconnect(BluetoothReplyRunnable* aRunnable);
   void SendLine(const char* aMessage);
+  void CallStateChanged(int aCallIndex, int aCallState,
+                        const char* aNumber, bool aIsActive);
 
 private:
-  BluetoothHfpManager() : mCurrentVgs(-1)
-  {
-  }
+  BluetoothHfpManager();
 
-  ~BluetoothHfpManager()
-  {
-  }
 
   nsresult HandleVolumeChanged(const nsAString& aData);
   bool BroadcastSystemMessage(const char* aCommand,
                               const int aCommandLength);
 
   int mCurrentVgs;
+  int mCurrentCallIndex;
+  int mCurrentCallState;
+  BluetoothRilListener *mListener;
 };
 
 END_BLUETOOTH_NAMESPACE
