@@ -9,15 +9,18 @@
 
 #include "BluetoothCommon.h"
 #include "mozilla/ipc/UnixSocket.h"
+#include "nsIObserver.h"
 
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothReplyRunnable;
 
 class BluetoothHfpManager : public mozilla::ipc::UnixSocketConsumer
+                          , public nsIObserver
 {
 public:
-  ~BluetoothHfpManager();
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIOBSERVER
 
   static BluetoothHfpManager* Get();
   void ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage);
@@ -28,7 +31,15 @@ public:
   void SendLine(const char* aMessage);
 
 private:
-  BluetoothHfpManager();
+  BluetoothHfpManager() : mCurrentVgs(-1)
+  {
+  }
+
+  ~BluetoothHfpManager()
+  {
+  }
+
+  nsresult HandleVolumeChanged(const nsAString& aData);
 
   int mCurrentVgs;
 };
