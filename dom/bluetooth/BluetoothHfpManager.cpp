@@ -9,12 +9,14 @@
 #include "BluetoothHfpManager.h"
 
 #include "BluetoothReplyRunnable.h"
+#include "BluetoothScoManager.h"
 #include "BluetoothService.h"
 #include "BluetoothServiceUuid.h"
 
 #include "mozilla/Services.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "nsContentUtils.h"
+#include "nsIDOMDOMRequest.h"
 #include "nsIObserverService.h"
 #include "nsISystemMessagesInternal.h"
 #include "nsIRadioInterfaceLayer.h"
@@ -68,6 +70,67 @@ public:
     return NS_OK;
   }
 };
+
+/*
+class TestTask : public nsRunnable
+{
+public:
+  TestTask(const nsAString& aDeviceObjectPath,
+           nsRunnable* aRunnable)
+    : mPath(aDeviceObjectPath)
+    , mRunnable(aRunnable)
+  {
+  }
+
+  NS_IMETHOD Run()
+  {
+    LOG("[H] TestTask::Run");
+    MOZ_ASSERT(NS_IsMainThread());
+
+    BluetoothService* bs = BluetoothService::Get();
+    if (!bs) {
+      NS_WARNING("BluetoothService not available!");
+      return NS_ERROR_FAILURE;
+    }
+
+    BluetoothScoManager* sco = BluetoothScoManager::Get();
+    if (!sco) {
+      NS_WARNING("BluetoothScoManager is not available!");
+      return NS_ERROR_FAILURE;
+    }
+    bool rv = sco->Connect(mPath, mRunnable);
+
+    LOG("[Sco] sco connect result: %d", rv);
+    return rv ? NS_OK : NS_ERROR_FAILURE;
+  }
+
+private:
+  nsString mPath;
+  nsRefPtr<nsRunnable> mRunnable;
+};*/
+
+/*class TestRunnable : public nsRunnable
+{
+public:
+  TestRunnable() :
+  {
+  }
+
+  ~TestRunnable()
+  {
+  }
+
+  NS_IMETHOD Run()
+  {
+    LOG("[Sco] TestRunnable::Run");
+    MOZ_ASSERT(NS_IsMainThread());
+
+
+    return NS_OK;
+  }
+
+private:
+};*/
 
 BluetoothHfpManager::BluetoothHfpManager()
   : mCurrentVgs(-1)
@@ -360,7 +423,10 @@ bool
 BluetoothHfpManager::Connect(const nsAString& aDeviceObjectPath,
                              BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[H] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
+
+  mDevicePath = aDeviceObjectPath;
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -415,6 +481,17 @@ BluetoothHfpManager::SendLine(const char* aMessage)
   msg += kHfpCrlf;
 
   SendSocketData(msg);
+}
+
+void
+CreateScoSocket(const nsAString& aDevicePath)
+{
+  BluetoothScoManager* sco = BluetoothScoManager::Get();
+  if (!sco) {
+    NS_WARNING("BluetoothScoManager is not available!");
+    return;
+  }
+  bool result = sco->Connect(aDevicePath);
 }
 
 /*
@@ -480,7 +557,9 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
           break;
       }
 
+      CreateScoSocket(mDevicePath);
       break;
+
     case nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED:
       LOG("[H] CALL_STATE_DISCONNECTED");
       switch (mCurrentCallState) {

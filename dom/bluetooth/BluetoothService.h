@@ -230,6 +230,14 @@ public:
                        BluetoothReplyRunnable* aRunnable) = 0;
 
   virtual nsresult
+  GetSocket(const nsAString& aObjectPath,
+            BluetoothSocketType aType,
+            bool aAuth,
+            bool aEncrypt,
+            mozilla::ipc::UnixSocketConsumer* aConsumer) = 0; //,
+//            nsRunnable* aRunnable) = 0;
+
+  virtual nsresult
   GetSocketViaService(const nsAString& aObjectPath,
                       const nsAString& aService,
                       BluetoothSocketType aType,

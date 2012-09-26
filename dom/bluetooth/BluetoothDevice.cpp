@@ -9,6 +9,7 @@
 #include "BluetoothHfpManager.h"
 #include "BluetoothPropertyEvent.h"
 #include "BluetoothReplyRunnable.h"
+//#include "BluetoothScoManager.h"
 #include "BluetoothService.h"
 #include "BluetoothUtils.h"
 #include "BluetoothServiceUuid.h"
@@ -58,6 +59,29 @@ NS_INTERFACE_MAP_END_INHERITING(nsDOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(BluetoothDevice, nsDOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(BluetoothDevice, nsDOMEventTargetHelper)
+
+/*class TestTask : public BluetoothVoidReplyRunnable
+{
+public:
+  TestTask(nsIDOMDOMRequest* aReq) :
+    BluetoothVoidReplyRunnable(aReq),
+  {
+    MOZ_ASSERT(aReq);
+  }
+
+  virtual bool ParseSuccessfulReply(jsval* aValue)
+  {
+    LOG("[D] TestTask::ParseSuccessfulReply");
+  }
+
+  void
+  ReleaseMembers()
+  {
+    BluetoothVoidReplyRunnable::ReleaseMembers();
+  }
+private:
+};*/
+
 
 BluetoothDevice::BluetoothDevice(nsPIDOMWindow* aOwner,
                                  const nsAString& aAdapterPath,
@@ -332,7 +356,8 @@ BluetoothDevice::ConnectHeadset(nsIDOMDOMRequest** aRequest)
     return NS_ERROR_FAILURE;
   }
 
-  nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
+  nsRefPtr<BluetoothVoidReplyRunnable> result = //new TestTask(req);
+    new BluetoothVoidReplyRunnable(req);
   bs->ConnectHeadset(mPath, result);
   req.forget(aRequest);
 

@@ -20,6 +20,7 @@
 #include "BluetoothDBusService.h"
 #include "BluetoothHfpManager.h"
 #include "BluetoothOppManager.h"
+#include "BluetoothScoManager.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothUnixSocketConnector.h"
@@ -2149,6 +2150,62 @@ BluetoothDBusService::PrepareAdapterInternal(const nsAString& aPath)
   return NS_OK;
 }
 
+class CreateBluetoothSocket : public nsRunnable
+{
+public: 
+  CreateBluetoothSocket(UnixSocketConsumer* aConsumer,
+                        const nsAString& aObjectPath,
+                        BluetoothSocketType aType,
+                        bool aAuth,
+                        bool aEncrypt)
+    : mConsumer(aConsumer),
+      mObjectPath(aObjectPath),
+      mType(aType),
+      mAuth(aAuth),
+      mEncrypt(aEncrypt)
+  {
+  }
+
+  nsresult
+  Run()
+  {
+    LOG("[B] CreateBluetoothSocket::Run");
+    NS_WARNING("Running create socket!\n");
+    MOZ_ASSERT(!NS_IsMainThread());
+
+    nsString address = GetAddressFromObjectPath(mObjectPath);
+    nsString serviceUuidStr =
+      NS_ConvertUTF8toUTF16(mozilla::dom::bluetooth::BluetoothServiceUuidStr::Handsfree);
+    int channel = GetDeviceServiceChannel(mObjectPath, serviceUuidStr, 0x0004);
+    BluetoothValue v = true;
+    nsString replyError;
+    BluetoothUnixSocketConnector c(mType, channel, mAuth, mEncrypt);
+    BluetoothScoManager* sco = BluetoothScoManager::Get();
+    if (!mConsumer->ConnectSocket(c, NS_ConvertUTF16toUTF8(address).get())) {
+      replyError.AssignLiteral("SocketConnectionError");
+      sco->SetConnected(false); 
+      return NS_ERROR_FAILURE;
+    }
+
+
+    sco->SetConnected(true); 
+
+      // XXX
+/*    if (NS_FAILED(NS_DispatchToMainThread(mRunnable))) {
+      NS_WARNING("Failed to dispatch to main thread!");
+    }*/
+
+    return NS_OK;
+  }
+
+private:
+  nsRefPtr<UnixSocketConsumer> mConsumer;
+  nsString mObjectPath;
+  BluetoothSocketType mType;
+  bool mAuth;
+  bool mEncrypt;
+};
+
 class CreateBluetoothSocketRunnable : public nsRunnable
 {
 public:
@@ -2202,6 +2259,35 @@ private:
 };
 
 nsresult
+BluetoothDBusService::GetSocket(const nsAString& aObjectPath,
+                                BluetoothSocketType aType,
+                                bool aAuth,
+                                bool aEncrypt,
+                                mozilla::ipc::UnixSocketConsumer* aConsumer) //,
+//                                nsRunnable* aRunnable)
+{
+  LOG("[B] %s", __FUNCTION__);
+  NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
+  if (!mConnection || !gThreadConnection) {
+    NS_ERROR("Bluetooth service not started yet!");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsRefPtr<nsRunnable> func(new CreateBluetoothSocket(aConsumer,
+                                                      aObjectPath,
+                                                      aType,
+                                                      aAuth,
+                                                      aEncrypt));
+  if (NS_FAILED(mBluetoothCommandThread->Dispatch(func, NS_DISPATCH_NORMAL))) {
+    NS_WARNING("Cannot dispatch firmware loading task!");
+    return NS_ERROR_FAILURE;
+  }
+
+//  runnable.forget();
+  return NS_OK; 
+}
+
+nsresult
 BluetoothDBusService::GetSocketViaService(const nsAString& aObjectPath,
                                           const nsAString& aService,
                                           BluetoothSocketType aType,
@@ -2235,6 +2321,7 @@ nsresult
 BluetoothDBusService::ConnectHeadset(const nsAString& aObjectPath, 
                                      BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s", __FUNCTION__);
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   bool result = hfp->Connect(aObjectPath, aRunnable);
 
