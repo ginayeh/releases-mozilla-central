@@ -2156,7 +2156,7 @@ BluetoothDBusService::PrepareAdapterInternal(const nsAString& aPath)
 
 bool sStopRouteFlag = true;
 
-void*
+/*void*
 RouteAudioInternal(void* ptr)
 {
   LOG("[B] RouteAudioInternal");
@@ -2169,7 +2169,7 @@ RouteAudioInternal(void* ptr)
   }
 
   return NULL;
-}
+}*/
 
 class CreateBluetoothSocket : public nsRunnable
 {
@@ -2212,16 +2212,20 @@ public:
     sco->SetConnected(true); 
     LOG("[B] Create ScoSocket success");
 
-//    nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1"); 
-//    am->SetAudioRoute(AudioSystem::FORCE_BT_SCO); 
+    nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
+    int32_t force0, force1, force2, force3;
+    am->GetForceForUse(0, &force0);
+    am->GetForceForUse(1, &force1); 
+    am->GetForceForUse(2, &force2); 
+    am->GetForceForUse(3, &force3);
+    LOG("[B] %d %d %d %d", force0, force1, force2, force3);
+    am->SetForceForUse(0, 3); 
+    am->SetForceForUse(1, 3); 
+    am->SetForceForUse(2, 3); 
+    am->SetForceForUse(3, 3); 
 //    am->SetAudioRoute(3);
-//    mozilla::dom::gonk::AudioManager::BluetoothSco = true;
+    
     mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
-
-      // XXX
-/*    if (NS_FAILED(NS_DispatchToMainThread(mRunnable))) {
-      NS_WARNING("Failed to dispatch to main thread!");
-    }*/
 
     return NS_OK;
   }

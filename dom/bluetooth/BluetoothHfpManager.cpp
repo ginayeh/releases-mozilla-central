@@ -399,8 +399,6 @@ BluetoothHfpManager::ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage
     mCurrentVgs = newVgs;
 
     SendLine("OK");
- 
-    CreateScoSocket(mDevicePath);
   } else if (!strncmp(msg, "AT+BLDN", 7)) {
     LOG("[H] Receive 'AT+BLDN'");
     if (!BroadcastSystemMessage("BLDN", 4)) {
@@ -560,7 +558,7 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
           break;
       }
 
-//      CreateScoSocket(mDevicePath);
+      CreateScoSocket(mDevicePath);
       break;
 
     case nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED:

@@ -79,9 +79,14 @@ InternalSetAudioRoutesICS(SwitchState aState)
     sHeadsetState |= AUDIO_DEVICE_OUT_WIRED_HEADPHONE;
   } else if (aState == SWITCH_STATE_BLUETOOTH_SCO) {
     LOG("[AudioManager] SCO");
+
+    String8 cmd;
+      cmd.appendFormat("bt_samplerate=8000");
+
+    AudioSystem::setParameters(0, cmd);
     AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET,
-                                          AUDIO_POLICY_DEVICE_STATE_AVAILABLE, "");
-    sHeadsetState |= AUDIO_DEVICE_OUT_BLUETOOTH_SCO;
+                                          AUDIO_POLICY_DEVICE_STATE_AVAILABLE, "50:C9:71:37:F3:CD");
+    sHeadsetState |= AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET;
   } else if (aState == SWITCH_STATE_OFF) {
     AudioSystem::setDeviceConnectionState(static_cast<audio_devices_t>(sHeadsetState),
                                           AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE, "");
@@ -291,32 +296,7 @@ AudioManager::GetForceForUse(int32_t aUsage, int32_t* aForce) {
 
 void
 AudioManager::SetAudioRoute(int aRoutes) {
-/*  if (static_cast<
-      audio_io_handle_t (*)(AudioSystem::stream_type, uint32_t, uint32_t, uint32_t, AudioSystem::output_flags)
-      >(AudioSystem::getOutput)) {
-    audio_io_handle_t handle = 0;
-    handle = AudioSystem::getOutput((AudioSystem::stream_type)AudioSystem::SYSTEM);
-    String8 cmd;
-    cmd.appendFormat("routing=%d", GetRoutingMode(aRoutes));
-    AudioSystem::setParameters(handle, cmd);
-  } else if (static_cast<
-             status_t (*)(audio_devices_t, audio_policy_dev_state_t, const char*)
-             >(AudioSystem::setDeviceConnectionState)) {
-    AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_WIRED_HEADSET, 
-        GetRoutingMode(aRoutes) == AudioSystem::DEVICE_OUT_WIRED_HEADSET ? 
-        AUDIO_POLICY_DEVICE_STATE_AVAILABLE : AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE,
-        "");*/
-
    InternalSetAudioRoutes(SWITCH_STATE_BLUETOOTH_SCO);
-
-    // The audio volume is not consistent when we plug and unplug the headset.
-    // Set the fm volume again here.
-/*    if (IsFmRadioAudioOn()) {
-      float masterVolume;
-      AudioSystem::getMasterVolume(&masterVolume);
-      AudioSystem::setFmVolume(masterVolume);
-    }
-  }*/
 }
 
 NS_IMETHODIMP
