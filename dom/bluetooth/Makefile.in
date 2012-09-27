@@ -54,6 +54,7 @@ CPPSRCS += \
   BluetoothUnixSocketConnector.cpp \
   BluetoothHfpManager.cpp \
   BluetoothOppManager.cpp \
+  BluetoothScoManager.cpp \
   ObexBase.cpp \
   $(NULL)
 

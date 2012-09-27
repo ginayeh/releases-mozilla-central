@@ -256,6 +256,7 @@ public:
 
   SwitchState GetCurrentInformation(SwitchDevice aDevice)
   {
+    LOG("mEventInfo[aDevice].mEvent.status() = %d", mEventInfo[aDevice].mEvent.status());
     return mEventInfo[aDevice].mEvent.status();
   }
 

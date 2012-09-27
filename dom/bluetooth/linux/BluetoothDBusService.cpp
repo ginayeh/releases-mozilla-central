@@ -29,6 +29,7 @@
 #include <dbus/dbus.h>
 
 #include "nsIDOMDOMRequest.h"
+#include "AudioManager.h"
 #include "nsAutoPtr.h"
 #include "nsThreadUtils.h"
 #include "nsDebug.h"
@@ -39,6 +40,9 @@
 #include "mozilla/ipc/RawDBusConnection.h"
 #include "mozilla/Util.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
+
+#include <pthread.h>
+#include <unistd.h> /* usleep() */
 
 /**
  * Some rules for dealing with memory in DBus:
@@ -2150,6 +2154,23 @@ BluetoothDBusService::PrepareAdapterInternal(const nsAString& aPath)
   return NS_OK;
 }
 
+bool sStopRouteFlag = true;
+
+void*
+RouteAudioInternal(void* ptr)
+{
+  LOG("[B] RouteAudioInternal");
+  sStopRouteFlag = false;
+
+  while (!sStopRouteFlag) {
+    LOG("[B] SetAudioRoute(3)");
+    usleep(5000);
+    mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
+  }
+
+  return NULL;
+}
+
 class CreateBluetoothSocket : public nsRunnable
 {
 public: 
@@ -2184,11 +2205,18 @@ public:
     if (!mConsumer->ConnectSocket(c, NS_ConvertUTF16toUTF8(address).get())) {
       replyError.AssignLiteral("SocketConnectionError");
       sco->SetConnected(false); 
+      LOG("[B] Create ScoSocket failed");
       return NS_ERROR_FAILURE;
     }
 
-
     sco->SetConnected(true); 
+    LOG("[B] Create ScoSocket success");
+
+//    nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1"); 
+//    am->SetAudioRoute(AudioSystem::FORCE_BT_SCO); 
+//    am->SetAudioRoute(3);
+//    mozilla::dom::gonk::AudioManager::BluetoothSco = true;
+    mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
 
       // XXX
 /*    if (NS_FAILED(NS_DispatchToMainThread(mRunnable))) {

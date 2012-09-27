@@ -111,16 +111,12 @@ BluetoothScoManager::Connect(const nsAString& aDeviceObjectPath) //,
     return false;
   }
 
-//  nsRefPtr<nsRunnable> runnable = aRunnable;
-
   nsresult rv = bs->GetSocket(aDeviceObjectPath,
                               BluetoothSocketType::SCO,
                               true,
                               false,
-                              this); /*,
-                              runnable);*/
+                              this);
 
-//  runnable.forget();
   return NS_FAILED(rv) ? false : true;
 }
 
