@@ -12,8 +12,13 @@
 #include "BluetoothService.h"
 #include "BluetoothServiceUuid.h"
 
-#include "AudioManager.h"
+#include "mozilla/Services.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
+#include "nsContentUtils.h"
+#include "nsIDOMDOMRequest.h"
+#include "nsIObserverService.h"
+#include "nsISystemMessagesInternal.h"
+#include "nsVariant.h"
 
 #undef LOG
 #if defined(MOZ_WIDGET_GONK)

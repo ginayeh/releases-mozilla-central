@@ -15,6 +15,7 @@ class JSObject;
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothDevice;
+class BluetoothNamedValue;
 
 nsresult
 StringArrayToJSArray(JSContext* aCx, JSObject* aGlobal,
@@ -25,6 +26,11 @@ nsresult
 BluetoothDeviceArrayToJSArray(JSContext* aCx, JSObject* aGlobal,
                               const nsTArray<nsRefPtr<BluetoothDevice> >& aSourceArray,
                               JSObject** aResultArray);
+
+bool
+SetJsObject(JSContext* aContext,
+            JSObject* aObj,
+            const InfallibleTArray<BluetoothNamedValue>& aData);
 
 END_BLUETOOTH_NAMESPACE
 

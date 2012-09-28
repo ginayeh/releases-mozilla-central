@@ -243,8 +243,8 @@ class PrepareAdapterTask : public nsRunnable {
 public:
   PrepareAdapterTask(const nsAString& aPath) :
     mPath(aPath)
-{
-}
+  {
+  }
 
   NS_IMETHOD
   Run()
