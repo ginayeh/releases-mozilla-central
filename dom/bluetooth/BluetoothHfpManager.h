@@ -15,7 +15,6 @@
 BEGIN_BLUETOOTH_NAMESPACE
 
 class BluetoothReplyRunnable;
-//class BluetoothScoManager;
 
 class BluetoothHfpManager : public mozilla::ipc::UnixSocketConsumer
                           , public nsIObserver

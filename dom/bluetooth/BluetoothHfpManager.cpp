@@ -39,7 +39,7 @@
 
 USING_BLUETOOTH_NAMESPACE
 
-static BluetoothHfpManager* sInstance = nullptr;
+static nsRefPtr<BluetoothHfpManager> sInstance = nullptr;
 static nsCOMPtr<nsIThread> sHfpCommandThread;
 static bool sStopSendingRingFlag = true;
 
@@ -72,77 +72,33 @@ public:
 };
 
 void
-CreateScoSocket(const nsAString& aDevicePath)
+OpenScoSocket(const nsAString& aDevicePath)
 {
+  MOZ_ASSERT(NS_IsMainThread());
+
   BluetoothScoManager* sco = BluetoothScoManager::Get();
   if (!sco) {
     NS_WARNING("BluetoothScoManager is not available!");
     return;
   }
-  bool result = sco->Connect(aDevicePath);
+
+  if (!sco->Connect(aDevicePath)) {
+    NS_WARNING("Failed to create a sco socket!");
+  }
 }
 
-
-/*
-class TestTask : public nsRunnable
+void
+CloseScoSocket()
 {
-public:
-  TestTask(const nsAString& aDeviceObjectPath,
-           nsRunnable* aRunnable)
-    : mPath(aDeviceObjectPath)
-    , mRunnable(aRunnable)
-  {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  BluetoothScoManager* sco = BluetoothScoManager::Get();
+  if (!sco) {
+    NS_WARNING("BluetoothScoManager is not available!");
+    return;
   }
-
-  NS_IMETHOD Run()
-  {
-    LOG("[H] TestTask::Run");
-    MOZ_ASSERT(NS_IsMainThread());
-
-    BluetoothService* bs = BluetoothService::Get();
-    if (!bs) {
-      NS_WARNING("BluetoothService not available!");
-      return NS_ERROR_FAILURE;
-    }
-
-    BluetoothScoManager* sco = BluetoothScoManager::Get();
-    if (!sco) {
-      NS_WARNING("BluetoothScoManager is not available!");
-      return NS_ERROR_FAILURE;
-    }
-    bool rv = sco->Connect(mPath, mRunnable);
-
-    LOG("[Sco] sco connect result: %d", rv);
-    return rv ? NS_OK : NS_ERROR_FAILURE;
-  }
-
-private:
-  nsString mPath;
-  nsRefPtr<nsRunnable> mRunnable;
-};*/
-
-/*class TestRunnable : public nsRunnable
-{
-public:
-  TestRunnable() :
-  {
-  }
-
-  ~TestRunnable()
-  {
-  }
-
-  NS_IMETHOD Run()
-  {
-    LOG("[Sco] TestRunnable::Run");
-    MOZ_ASSERT(NS_IsMainThread());
-
-
-    return NS_OK;
-  }
-
-private:
-};*/
+  sco->Disconnect();
+}
 
 BluetoothHfpManager::BluetoothHfpManager()
   : mCurrentVgs(-1)
@@ -188,6 +144,8 @@ BluetoothHfpManager::~BluetoothHfpManager()
 BluetoothHfpManager*
 BluetoothHfpManager::Get()
 {
+  MOZ_ASSERT(NS_IsMainThread());
+
   if (sInstance == nullptr) {
     sInstance = new BluetoothHfpManager();
   }
@@ -534,8 +492,8 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
         SendLine("+CIEV: 5,3");
       } else {
 #ifdef DEBUG
-        NS_WARNING("%s: Impossible state changed from %d to %d",
-                   __FUNCTION__, mCurrentCallState, aCallState);
+        LOG("%s: Impossible state changed from %d to %d",
+            __FUNCTION__, mCurrentCallState, aCallState);
 #endif
       }
       break;
@@ -552,13 +510,12 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
           break;
         default:
 #ifdef DEBUG
-          NS_WARNING("%s: Impossible state changed from %d to %d",
-                     __FUNCTION__, mCurrentCallState, aCallState);
+          LOG("%s: Impossible state changed from %d to %d",
+               __FUNCTION__, mCurrentCallState, aCallState);
 #endif
           break;
       }
-
-      CreateScoSocket(mDevicePath);
+      OpenScoSocket(mDevicePath);
       break;
 
     case nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED:
@@ -578,11 +535,12 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
           break;
         default:
 #ifdef DEBUG
-          NS_WARNING("%s: Impossible state changed from %d to %d",
-                     __FUNCTION__, mCurrentCallState, aCallState);
+          LOG("%s: Impossible state changed from %d to %d",
+               __FUNCTION__, mCurrentCallState, aCallState);
 #endif
           break;
       }
+      CloseScoSocket();
       break;
 
     default:

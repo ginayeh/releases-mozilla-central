@@ -14,7 +14,6 @@
 
 #include "AudioManager.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
-//#include "nsContentUtils.h"
 
 #undef LOG
 #if defined(MOZ_WIDGET_GONK)
@@ -27,34 +26,8 @@
 
 USING_BLUETOOTH_NAMESPACE
 
-static BluetoothScoManager* sInstance = nullptr;
+static nsRefPtr<BluetoothScoManager> sInstance;
 static nsCOMPtr<nsIThread> sScoCommandThread;
-//static bool sConnected = false;
-
-/*class TestTask : public BluetoothVoidReplyRunnable
-{
-public:
-  TestTask(nsIDOMDOMRequest* aReq)
-    : BluetoothVoidReplyRunnable(aReq)
-  {
-  }
-
-  ~TestTask()
-  {
-  }
-
-  virtual bool ParseSuccessfulReply(jsval* aValue)
-  {
-    LOG("[SCO] TestTask::ParseSuccessfulReply");
-  }
-
-  void
-  ReleaseMembers()
-  {
-  }
-
-private:
-};*/
 
 BluetoothScoManager::BluetoothScoManager()
 {
@@ -86,6 +59,7 @@ BluetoothScoManager::Get()
     sInstance = new BluetoothScoManager();
   }
 
+  // TODO: destroy pointer sInstance on shutdown
   return sInstance;
 }
 
@@ -93,17 +67,20 @@ BluetoothScoManager::Get()
 void
 BluetoothScoManager::ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage)
 {
-  const char* msg = (const char*)aMessage->mData;
-
-  // XXX
+  // SCO socket do nothing here
+  MOZ_NOT_REACHED("This should never be called!");
 }
 
 bool
-BluetoothScoManager::Connect(const nsAString& aDeviceObjectPath) //,
-//                             nsRunnable* aRunnable)
+BluetoothScoManager::Connect(const nsAString& aDeviceObjectPath)
 {
   LOG("[Sco] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
+
+  if (mConnected) {
+    NS_WARNING("Sco socket has been ready");
+    return true;
+  }
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -111,27 +88,25 @@ BluetoothScoManager::Connect(const nsAString& aDeviceObjectPath) //,
     return false;
   }
 
-  nsresult rv = bs->GetSocket(aDeviceObjectPath,
-                              BluetoothSocketType::SCO,
-                              true,
-                              false,
-                              this);
+  nsresult rv = bs->GetScoSocket(aDeviceObjectPath,
+                                 true,
+                                 false,
+                                 this);
 
   return NS_FAILED(rv) ? false : true;
 }
 
-bool
-BluetoothScoManager::Disconnect()//nsRunnable* aRunnable)
+void
+BluetoothScoManager::Disconnect()
 {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  nsresult rv = NS_OK;
+  LOG("[Sco] %s", __FUNCTION__);
   CloseSocket();
-  return NS_FAILED(rv) ? false : true;
+  mConnected = false;
 }
 
+// FIXME: detect connection in UnixSocketConsumer
 bool
-BluetoothScoManager::IsConnected()
+BluetoothScoManager::GetConnected()
 {
   return mConnected;
 }

@@ -202,13 +202,11 @@ BluetoothServiceChildProcess::RemoveDeviceInternal(
 }
 
 nsresult
-BluetoothServiceChildProcess::GetSocket(
-                                       const nsAString& aObjectPath,
-                                       BluetoothSocketType aType,
-                                       bool aAuth,
-                                       bool aEncrypt,
-                                       mozilla::ipc::UnixSocketConsumer* aConsumer)//,
-//                                       nsRunnable* aRunnable)
+BluetoothServiceChildProcess::GetScoSocket(
+                                    const nsAString& aObjectPath,
+                                    bool aAuth,
+                                    bool aEncrypt,
+                                    mozilla::ipc::UnixSocketConsumer* aConsumer)
 {
   MOZ_NOT_REACHED("This should never be called!");
   return NS_ERROR_FAILURE;

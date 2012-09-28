@@ -29,20 +29,19 @@
 #include <dbus/dbus.h>
 
 #include "nsIDOMDOMRequest.h"
+#include "nsIObserverService.h"
 #include "AudioManager.h"
 #include "nsAutoPtr.h"
 #include "nsThreadUtils.h"
 #include "nsDebug.h"
 #include "nsDataHashtable.h"
+#include "mozilla/Hal.h"
 #include "mozilla/ipc/UnixSocket.h"
 #include "mozilla/ipc/DBusThread.h"
 #include "mozilla/ipc/DBusUtils.h"
 #include "mozilla/ipc/RawDBusConnection.h"
 #include "mozilla/Util.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
-
-#include <pthread.h>
-#include <unistd.h> /* usleep() */
 
 /**
  * Some rules for dealing with memory in DBus:
@@ -75,6 +74,7 @@ USING_BLUETOOTH_NAMESPACE
 #define BLUEZ_DBUS_BASE_PATH      "/org/bluez"
 #define BLUEZ_DBUS_BASE_IFC       "org.bluez"
 #define BLUEZ_ERROR_IFC           "org.bluez.Error"
+#define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
 
 typedef struct {
   const char* name;
@@ -209,6 +209,34 @@ public:
     bs->DistributeSignal(mSignal);
     return NS_OK;
   }
+};
+
+class NotifyAudioManagerTask : public nsRunnable {
+public:
+  NotifyAudioManagerTask(nsString aObjectPath) : 
+    mObjectPath(aObjectPath)
+  {
+  }
+
+  NS_IMETHOD
+  Run()
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
+    am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_BT_SCO);
+
+    nsCOMPtr<nsIObserverService> obs = do_GetService("@mozilla.org/observer-service;1");
+    if (obs) {
+      if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, mObjectPath.get()))) {
+        NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
+        return NS_ERROR_FAILURE;
+      }
+    }
+    return NS_OK;
+  }
+private:
+  nsString mObjectPath;
 };
 
 class PrepareAdapterTask : public nsRunnable {
@@ -2154,34 +2182,15 @@ BluetoothDBusService::PrepareAdapterInternal(const nsAString& aPath)
   return NS_OK;
 }
 
-bool sStopRouteFlag = true;
-
-/*void*
-RouteAudioInternal(void* ptr)
-{
-  LOG("[B] RouteAudioInternal");
-  sStopRouteFlag = false;
-
-  while (!sStopRouteFlag) {
-    LOG("[B] SetAudioRoute(3)");
-    usleep(5000);
-    mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
-  }
-
-  return NULL;
-}*/
-
-class CreateBluetoothSocket : public nsRunnable
+class CreateBluetoothScoSocket : public nsRunnable
 {
 public: 
-  CreateBluetoothSocket(UnixSocketConsumer* aConsumer,
-                        const nsAString& aObjectPath,
-                        BluetoothSocketType aType,
-                        bool aAuth,
-                        bool aEncrypt)
+  CreateBluetoothScoSocket(UnixSocketConsumer* aConsumer,
+                           const nsAString& aObjectPath,
+                           bool aAuth,
+                           bool aEncrypt)
     : mConsumer(aConsumer),
       mObjectPath(aObjectPath),
-      mType(aType),
       mAuth(aAuth),
       mEncrypt(aEncrypt)
   {
@@ -2191,49 +2200,31 @@ public:
   Run()
   {
     LOG("[B] CreateBluetoothSocket::Run");
-    NS_WARNING("Running create socket!\n");
     MOZ_ASSERT(!NS_IsMainThread());
 
     nsString address = GetAddressFromObjectPath(mObjectPath);
-    nsString serviceUuidStr =
-      NS_ConvertUTF8toUTF16(mozilla::dom::bluetooth::BluetoothServiceUuidStr::Handsfree);
-    int channel = GetDeviceServiceChannel(mObjectPath, serviceUuidStr, 0x0004);
-    BluetoothValue v = true;
     nsString replyError;
-    BluetoothUnixSocketConnector c(mType, channel, mAuth, mEncrypt);
+    BluetoothUnixSocketConnector c(BluetoothSocketType::SCO, -1, mAuth, mEncrypt);
+
     BluetoothScoManager* sco = BluetoothScoManager::Get();
     if (!mConsumer->ConnectSocket(c, NS_ConvertUTF16toUTF8(address).get())) {
       replyError.AssignLiteral("SocketConnectionError");
       sco->SetConnected(false); 
-      LOG("[B] Create ScoSocket failed");
       return NS_ERROR_FAILURE;
     }
+    sco->SetConnected(true);
 
-    sco->SetConnected(true); 
-    LOG("[B] Create ScoSocket success");
-
-    nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
-    int32_t force0, force1, force2, force3;
-    am->GetForceForUse(0, &force0);
-    am->GetForceForUse(1, &force1); 
-    am->GetForceForUse(2, &force2); 
-    am->GetForceForUse(3, &force3);
-    LOG("[B] %d %d %d %d", force0, force1, force2, force3);
-    am->SetForceForUse(0, 3); 
-    am->SetForceForUse(1, 3); 
-    am->SetForceForUse(2, 3); 
-    am->SetForceForUse(3, 3); 
-//    am->SetAudioRoute(3);
-    
-    mozilla::dom::gonk::AudioManager::SetAudioRoute(3);
-
+    nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(address);
+    if (NS_FAILED(NS_DispatchToMainThread(task))) {
+      NS_WARNING("Failed to dispatch to main thread!");
+      return NS_ERROR_FAILURE;
+    }    
     return NS_OK;
   }
 
 private:
   nsRefPtr<UnixSocketConsumer> mConsumer;
   nsString mObjectPath;
-  BluetoothSocketType mType;
   bool mAuth;
   bool mEncrypt;
 };
@@ -2291,12 +2282,10 @@ private:
 };
 
 nsresult
-BluetoothDBusService::GetSocket(const nsAString& aObjectPath,
-                                BluetoothSocketType aType,
-                                bool aAuth,
-                                bool aEncrypt,
-                                mozilla::ipc::UnixSocketConsumer* aConsumer) //,
-//                                nsRunnable* aRunnable)
+BluetoothDBusService::GetScoSocket(const nsAString& aObjectPath,
+                                   bool aAuth,
+                                   bool aEncrypt,
+                                   mozilla::ipc::UnixSocketConsumer* aConsumer)
 {
   LOG("[B] %s", __FUNCTION__);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
@@ -2305,17 +2294,15 @@ BluetoothDBusService::GetSocket(const nsAString& aObjectPath,
     return NS_ERROR_FAILURE;
   }
 
-  nsRefPtr<nsRunnable> func(new CreateBluetoothSocket(aConsumer,
-                                                      aObjectPath,
-                                                      aType,
-                                                      aAuth,
-                                                      aEncrypt));
+  nsRefPtr<nsRunnable> func(new CreateBluetoothScoSocket(aConsumer,
+                                                         aObjectPath,
+                                                         aAuth,
+                                                         aEncrypt));
   if (NS_FAILED(mBluetoothCommandThread->Dispatch(func, NS_DISPATCH_NORMAL))) {
     NS_WARNING("Cannot dispatch firmware loading task!");
     return NS_ERROR_FAILURE;
   }
 
-//  runnable.forget();
   return NS_OK; 
 }
 

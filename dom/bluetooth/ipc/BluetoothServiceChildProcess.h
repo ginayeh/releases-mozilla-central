@@ -87,12 +87,10 @@ public:
                        BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
   virtual nsresult
-  GetSocket(const nsAString& aObjectPath,
-            BluetoothSocketType aType,
-            bool aAuth,
-            bool aEncrypt,
-            mozilla::ipc::UnixSocketConsumer* aConsumer) MOZ_OVERRIDE;//,
-//            nsRunnable* aRunnable) MOZ_OVERRIDE;
+  GetScoSocket(const nsAString& aObjectPath,
+               bool aAuth,
+               bool aEncrypt,
+               mozilla::ipc::UnixSocketConsumer* aConsumer) MOZ_OVERRIDE;
 
   virtual nsresult
   GetSocketViaService(const nsAString& aObjectPath,

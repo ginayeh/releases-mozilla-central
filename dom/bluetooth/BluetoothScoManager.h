@@ -22,14 +22,10 @@ public:
   static BluetoothScoManager* Get();
   void ReceiveSocketData(mozilla::ipc::UnixSocketRawData* aMessage);
 
-  bool Connect(const nsAString& aDeviceObjectPath); //,
-//               nsRunnable* aRunnable);
-  bool Disconnect();// nsRunnable* aRunnable);
+  bool Connect(const nsAString& aDeviceObjectPath);
+  void Disconnect();
   void SetConnected(bool aConnected);
-  bool IsConnected();
-//  void SendLine(const char* aMessage);
-/*  void CallStateChanged(int aCallIndex, int aCallState,
-                        const char* aNumber, bool aIsActive);*/
+  bool GetConnected();
 
 private:
   BluetoothScoManager();
