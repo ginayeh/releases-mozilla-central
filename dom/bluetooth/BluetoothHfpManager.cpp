@@ -26,6 +26,15 @@
 #define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
 #define AUDIO_VOLUME_MASTER "audio.volume.master"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 USING_BLUETOOTH_NAMESPACE
 using namespace mozilla::ipc;
 
@@ -146,6 +155,28 @@ BluetoothHfpManager::BroadcastSystemMessage(const nsAString& aType,
 }
 
 void
+BluetoothHfpManager::NotifySettings(const bool aConnected)
+{
+  nsString type, name;
+  BluetoothValue v;
+  InfallibleTArray<BluetoothNamedValue> parameters;
+  type.AssignLiteral("bluetooth-hfp-status-changed");
+
+  name.AssignLiteral("connected");
+  v = aConnected;
+  parameters.AppendElement(BluetoothNamedValue(name, v));
+
+  name.AssignLiteral("address");
+  v = GetAddressFromObjectPath(mDevicePath);
+  parameters.AppendElement(BluetoothNamedValue(name, v));
+
+  if (!BroadcastSystemMessage(type, parameters)) {
+    NS_WARNING("Failed to broadcast system message to dialer");
+    return;
+  }
+}
+
+void
 BluetoothHfpManager::NotifyDialer(const nsAString& aCommand)
 {
   nsString type, name, command;
@@ -255,42 +286,6 @@ BluetoothHfpManager::Observe(nsISupports* aSubject,
   return NS_ERROR_UNEXPECTED;
 }
 
-bool
-BluetoothHfpManager::BroadcastSystemMessage(const nsAString_internal& aCommand,
-                                            const InfallibleTArray<BluetoothNamedValue>& aData)
-{
-  LOG("[H] %s", __FUNCTION__);
-  nsString type;
-  type.AssignLiteral("bluetooth-dialer-command");
-
-  JSContext* cx = nsContentUtils::GetSafeJSContext();
-  NS_ASSERTION(!::JS_IsExceptionPending(cx),
-               "Shouldn't get here when an exception is pending!");
-
-  JSAutoRequest jsar(cx);
-  JSObject* obj = JS_NewObject(cx, NULL, NULL, NULL);
-  if (!obj) {
-    NS_WARNING("Failed to new JSObject for system message!");
-    return false;
-  }
-
-
-
-  LOG("[H] message is ready!");
-  nsCOMPtr<nsISystemMessagesInternal> systemMessenger =
-    do_GetService("@mozilla.org/system-message-internal;1");
-
-  if (!systemMessenger) {
-    NS_WARNING("Failed to get SystemMessenger service!");
-    return false;
-  }
-
-  LOG("[H] broadcast message");
-  systemMessenger->BroadcastMessage(type, OBJECT_TO_JSVAL(obj));
-
-  return true;
-}
-
 // Virtual function of class SocketConsumer
 void
 BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
@@ -328,22 +323,9 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CMER=", 8)) {
     // SLC establishment
+    LOG("SLC establishment");
+    NotifySettings(true);
     SendLine("OK");
-
-    nsString type, name;
-    BluetoothValue v;
-    InfallibleTArray<BluetoothNamedValue> parameters;
-    type.AssignLiteral("bluetooth-hfp-status-changed");
-
-    name.AssignLiteral("connected");
-    v = true;
-    parameters.AppendElement(BluetoothNamedValue(type, v));
-
-    name.AssignLiteral("address");
-    v = mDevicePath;
-    parameters.AppendElement(BluetoothNamedValue(type, v));
-
-    BroadcastSystemMessage(type, parameters);
   } else if (!strncmp(msg, "AT+CHLD=?", 9)) {
     SendLine("+CHLD: (0,1,2,3)");
     SendLine("OK");
@@ -431,6 +413,7 @@ BluetoothHfpManager::Connect(const nsAString& aDeviceObjectPath,
 void
 BluetoothHfpManager::Disconnect()
 {
+  NotifySettings(false);
   CloseSocket();
 }
 

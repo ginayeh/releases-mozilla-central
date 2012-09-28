@@ -23,6 +23,7 @@
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothServiceUuid.h"
 #include "BluetoothUnixSocketConnector.h"
+#include "BluetoothUtils.h"
 
 #include <cstdio>
 #include <dbus/dbus.h>
@@ -149,7 +150,7 @@ static nsTArray<uint32_t> sServiceHandles;
 
 typedef void (*UnpackFunc)(DBusMessage*, DBusError*, BluetoothValue&, nsAString&);
 
-static nsString
+/*static nsString
 GetObjectPathFromAddress(const nsAString& aAdapterPath,
                          const nsAString& aDeviceAddress)
 {
@@ -178,7 +179,7 @@ GetAddressFromObjectPath(const nsAString& aObjectPath)
   address.ReplaceChar('_', ':');
 
   return address;
-}
+}*/
 
 class DistributeBluetoothSignalTask : public nsRunnable {
   BluetoothSignal mSignal;

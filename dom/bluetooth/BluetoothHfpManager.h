@@ -39,25 +39,17 @@ public:
 private:
   BluetoothHfpManager();
 
-<<<<<<< HEAD
-  bool BroadcastSystemMessage(const char* aCommand,
-                              const int aCommandLength);
   nsresult HandleVolumeChanged(const nsAString& aData);
-=======
-  nsresult HandleVolumeChanged(const nsAString& aData);
-  bool BroadcastSystemMessage(const nsAString_internal&, const InfallibleTArray<mozilla::dom::bluetooth::BluetoothNamedValue>&);
+  bool BroadcastSystemMessage(const nsAString& aType,
+                              const InfallibleTArray<BluetoothNamedValue>& aData);
   void NotifyDialer(const nsAString& aCommand);
->>>>>>> e225efe... broadcast system message when SLC establishment
+  void NotifySettings(const bool aConnected);
 
   int mCurrentVgs;
   int mCurrentCallIndex;
   int mCurrentCallState;
-<<<<<<< HEAD
   nsAutoPtr<BluetoothRilListener> mListener;
-=======
-  BluetoothRilListener *mListener;
   nsString mDevicePath;
->>>>>>> e225efe... broadcast system message when SLC establishment
 };
 
 END_BLUETOOTH_NAMESPACE

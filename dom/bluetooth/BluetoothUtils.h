@@ -32,6 +32,13 @@ SetJsObject(JSContext* aContext,
             JSObject* aObj,
             const InfallibleTArray<BluetoothNamedValue>& aData);
 
+nsString
+GetObjectPathFromAddress(const nsAString& aAdapterPath,
+                         const nsAString& aDeviceAddress);
+
+nsString
+GetAddressFromObjectPath(const nsAString& aObjectPath);
+
 END_BLUETOOTH_NAMESPACE
 
 #endif
