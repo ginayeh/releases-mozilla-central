@@ -1258,44 +1258,6 @@ GetPropertiesInternal(const nsAString& aPath, const char* aIface, BluetoothValue
   return true;
 }
 
-class DevicePropertiesSignalHandler : public nsRunnable
-{
-public:
-  DevicePropertiesSignalHandler(const BluetoothValue& aValue,
-                                const nsAString& aPath) :
-    mValue(aValue),
-    mPath(aPath)
-  {
-  }
-
-  NS_IMETHODIMP
-  Run()
-  {
-    LOG("[B] DevicePropertiesSignalHandler::Run");
-    MOZ_ASSERT(NS_IsMainThread());
-
-    // Get device properties and then send to BluetoothAdapter
-    BluetoothService* bs = BluetoothService::Get();
-    if (!bs) {
-      NS_WARNING("BluetoothService not available!");
-      return NS_ERROR_FAILURE;
-    }
-
-    // Due to the fact that we need to queue the dbus call to the command thread
-    // inside the bluetoothservice, we have to route the call down to the main
-    // thread and then back out to the command thread. There has to be a better
-    // way to do this.
-    if (NS_FAILED(bs->GetDevicePropertiesInternal(mValue, mPath))) {
-      NS_WARNING("get properties failed");
-      return NS_ERROR_FAILURE;
-    }
-    return NS_OK;
-  }
-private:
-  BluetoothValue mValue;
-  nsString mPath;
-};
-
 // Called by dbus during WaitForAndDispatchEventNative()
 // This function is called on the IOThread
 static
