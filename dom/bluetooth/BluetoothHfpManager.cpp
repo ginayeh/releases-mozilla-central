@@ -28,6 +28,24 @@
 #define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
 #define AUDIO_VOLUME_BT_SCO "audio.volume.bt_sco"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
+#undef LOGV
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOGV(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBusV", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 using namespace mozilla::ipc;
 USING_BLUETOOTH_NAMESPACE
@@ -210,6 +228,7 @@ public:
   void Run() MOZ_OVERRIDE
   {
     MOZ_ASSERT(NS_IsMainThread());
+    LOG("[Hfp] SendRingIndicatorTask::Run");
 
     NS_ENSURE_FALSE_VOID(sStopSendingRingFlag);
 
@@ -232,6 +251,7 @@ void
 OpenScoSocket(const nsAString& aDeviceAddress)
 {
   MOZ_ASSERT(NS_IsMainThread());
+  LOG("[Hfp] %s", __FUNCTION__);
 
   BluetoothScoManager* sco = BluetoothScoManager::Get();
   if (!sco) {
@@ -248,6 +268,7 @@ void
 CloseScoSocket()
 {
   MOZ_ASSERT(NS_IsMainThread());
+  LOG("[Hfp] %s", __FUNCTION__);
 
   BluetoothScoManager* sco = BluetoothScoManager::Get();
   if (!sco) {
@@ -309,6 +330,7 @@ BluetoothHfpManager::~BluetoothHfpManager()
 void
 BluetoothHfpManager::Cleanup()
 {
+  LOGV("[Hfp] %s", __FUNCTION__);
   if (!mListener->StopListening()) {
     NS_WARNING("Failed to stop listening RIL");
   }
@@ -322,6 +344,7 @@ BluetoothHfpManager::Cleanup()
 BluetoothHfpManager*
 BluetoothHfpManager::Get()
 {
+  LOGV("[Hfp] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   // If we already exist, exit early
@@ -396,6 +419,7 @@ BluetoothHfpManager::NotifyDialer(const nsAString& aCommand)
 nsresult
 BluetoothHfpManager::HandleVolumeChanged(const nsAString& aData)
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   // The string that we're interested in will be a JSON string that looks like:
@@ -479,6 +503,7 @@ BluetoothHfpManager::HandleShutdown()
 void
 BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   const char* msg = (const char*)aMessage->mData;
@@ -604,6 +629,7 @@ BluetoothHfpManager::Connect(const nsAString& aDevicePath,
                              BluetoothReplyRunnable* aRunnable)
 {
   MOZ_ASSERT(NS_IsMainThread());
+  LOG("[Hfp] %s", __FUNCTION__);
 
   if (gInShutdown) {
     NS_WARNING("Connect called while in shutdown!");
@@ -676,6 +702,7 @@ BluetoothHfpManager::Listen()
 void
 BluetoothHfpManager::Disconnect()
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   if (GetConnectionStatus() == SocketConnectionStatus::SOCKET_DISCONNECTED) {
     NS_WARNING("BluetoothHfpManager has been disconnected!");
     return;
@@ -756,6 +783,7 @@ BluetoothHfpManager::SendCommand(const char* aCommand, const int aValue)
 void
 BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   nsRefPtr<nsRunnable> sendRingTask;
   nsString address;
 
