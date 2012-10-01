@@ -9,6 +9,24 @@
 #include "nsIDOMDOMRequest.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
+#undef LOGV
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOGV(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBusV", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 USING_BLUETOOTH_NAMESPACE
 
 BluetoothReplyRunnable::BluetoothReplyRunnable(nsIDOMDOMRequest* aReq)
@@ -18,6 +36,7 @@ BluetoothReplyRunnable::BluetoothReplyRunnable(nsIDOMDOMRequest* aReq)
 void
 BluetoothReplyRunnable::SetReply(BluetoothReply* aReply)
 {
+  LOG("SetReply");
   mReply = aReply;
 }
 
@@ -68,15 +87,20 @@ BluetoothReplyRunnable::Run()
   MOZ_ASSERT(mDOMRequest);
   MOZ_ASSERT(mReply);
 
+  LOG("BluetoothReplyRunnable::Run");
   nsresult rv;
 
   if (mReply->type() != BluetoothReply::TBluetoothReplySuccess) {
+    LOG("NOT BluetoothReply::TBluetoothReplySuccess");
     rv = FireReply(JSVAL_VOID);
   } else {
+	  LOG("IS BluetoothReply::TBluetoothReplySuccess");
     jsval v; 
     if (!ParseSuccessfulReply(&v)) {
+      LOG("ParseSuccessfulReply(false)");
       rv = FireErrorString();
     } else {
+      LOG("ParseSuccessfulReply(true)");
       rv = FireReply(v);
     }
   }

@@ -328,17 +328,21 @@ DispatchBluetoothReply(BluetoothReplyRunnable* aRunnable,
   // Reply will be deleted by the runnable after running on main thread
   BluetoothReply* reply;
   if (!aErrorStr.IsEmpty()) {
+    LOGV("[B] ErrorStr: %s", NS_ConvertUTF16toUTF8(aErrorStr).get());
     nsString err(aErrorStr);
     reply = new BluetoothReply(BluetoothReplyError(err));
   } else {
     MOZ_ASSERT(aValue.type() != BluetoothValue::T__None);
+    LOGV("[B] ReplySuccess", NS_ConvertUTF16toUTF8(aErrorStr).get());
     reply = new BluetoothReply(BluetoothReplySuccess(aValue));
   }
 
   aRunnable->SetReply(reply);
   if (NS_FAILED(NS_DispatchToMainThread(aRunnable))) {
     NS_WARNING("Failed to dispatch to main thread!");
+    LOG("Failed to dispatch to main thread!");
   }
+  LOG("DispatchToMainThread");
 }
 
 static void
@@ -792,6 +796,11 @@ public:
   {
     LOG("[B] PrepareAdapterRunnable::Run");
     MOZ_ASSERT(!NS_IsMainThread());
+    
+    if(!RegisterAgent(mPath)) {
+      NS_WARNING("Failed to register agent");
+      return NS_ERROR_FAILURE;
+    }
 
     nsTArray<uint32_t> uuids;
 
@@ -801,11 +810,6 @@ public:
     sServiceHandles.Clear();
     if (!BluetoothDBusService::AddReservedServicesInternal(mPath, uuids, sServiceHandles)) {
       NS_WARNING("Failed to add reserved services");
-      return NS_ERROR_FAILURE;
-    }
-
-    if(!RegisterAgent(mPath)) {
-      NS_WARNING("Failed to register agent");
       return NS_ERROR_FAILURE;
     }
 
@@ -1955,6 +1959,7 @@ GetDeviceServiceChannel(const nsAString& aObjectPath,
   nsCString tempPattern = NS_ConvertUTF16toUTF8(aPattern);
   const char* pattern = tempPattern.get();
 
+  LOG("[B] pattern: %s", pattern);
   DBusMessage *reply =
     dbus_func_args(gThreadConnection->GetConnection(),
                    NS_ConvertUTF16toUTF8(aObjectPath).get(),
@@ -2279,6 +2284,8 @@ BluetoothDBusService::ConnectHeadset(const nsAString& aDeviceAddress,
                                      const nsAString& aAdapterPath,
                                      BluetoothReplyRunnable* aRunnable)
 {
+  NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
+
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   return hfp->Connect(GetObjectPathFromAddress(aAdapterPath, aDeviceAddress),
                       aRunnable);
@@ -2295,7 +2302,7 @@ BluetoothDBusService::DisconnectHeadset(BluetoothReplyRunnable* aRunnable)
   // once Disconnect will fail.
   nsString replyError;
   BluetoothValue v = true;
-  DispatchBluetoothReply(aRunnable, v, replyError);
+//  DispatchBluetoothReply(aRunnable, v, replyError);
 }
 
 bool
@@ -2397,6 +2404,7 @@ public:
     MOZ_ASSERT(!NS_IsMainThread());
 
     nsString address = GetAddressFromObjectPath(mObjectPath);
+    LOG("[B] %s, %s", NS_ConvertUTF16toUTF8(mObjectPath).get(), NS_ConvertUTF16toUTF8(mServiceUUID).get());
     int channel = GetDeviceServiceChannel(mObjectPath, mServiceUUID, 0x0004);
     BluetoothValue v;
     nsString replyError;

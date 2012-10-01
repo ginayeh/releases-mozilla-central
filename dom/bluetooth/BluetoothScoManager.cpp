@@ -39,7 +39,6 @@
 #define LOG(args...) if (BTDEBUG) printf(args);
 #endif
 
-USING_BLUETOOTH_NAMESPACE
 using namespace mozilla;
 using namespace mozilla::ipc;
 USING_BLUETOOTH_NAMESPACE
@@ -66,6 +65,7 @@ BluetoothScoManager::Init()
   if (NS_FAILED(obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false))) {
     NS_WARNING("Failed to add shutdown observer!");
     return false;
+  }
 
   if (!sScoCommandThread &&
       NS_FAILED(NS_NewThread(getter_AddRefs(sScoCommandThread)))) {
