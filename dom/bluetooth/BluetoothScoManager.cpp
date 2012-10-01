@@ -21,6 +21,24 @@
 #include "nsISystemMessagesInternal.h"
 #include "nsVariant.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
+#undef LOGV
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOGV(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBusV", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 USING_BLUETOOTH_NAMESPACE
 using namespace mozilla;
 using namespace mozilla::ipc;
@@ -48,7 +66,6 @@ BluetoothScoManager::Init()
   if (NS_FAILED(obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false))) {
     NS_WARNING("Failed to add shutdown observer!");
     return false;
-  }
 
   if (!sScoCommandThread &&
       NS_FAILED(NS_NewThread(getter_AddRefs(sScoCommandThread)))) {
@@ -66,6 +83,7 @@ BluetoothScoManager::~BluetoothScoManager()
 void
 BluetoothScoManager::Cleanup()
 {
+  LOG("[Sco] %s", __FUNCTION__);
   // Shut down the command thread if it still exists.
   if (sScoCommandThread) {
     nsCOMPtr<nsIThread> thread;
@@ -180,6 +198,7 @@ BluetoothScoManager::Connect(const nsAString& aDeviceObjectPath)
 void
 BluetoothScoManager::Disconnect()
 {
+  LOG("[Sco] %s", __FUNCTION__);
   CloseSocket();
   mConnected = false;
 }
