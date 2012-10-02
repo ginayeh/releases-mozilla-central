@@ -448,11 +448,10 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     } else if (newVgs < mCurrentVgs) {
       os->NotifyObservers(nullptr, "bluetooth-volume-change", NS_LITERAL_STRING("down").get());
     }
-
     mCurrentVgs = newVgs;
-
     SendLine("OK");
   } else if (!strncmp(msg, "AT+BLDN", 7)) {
+    // Redial
     NotifyDialer(NS_LITERAL_STRING("BLDN"));
     SendLine("OK");
   } else if (!strncmp(msg, "ATA", 3)) {
@@ -460,6 +459,27 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CHUP", 7)) {
     NotifyDialer(NS_LITERAL_STRING("CHUP"));
+    SendLine("OK");
+  } else if (!strncmp(msg, "AT+CKPD", 7)) {
+    // For Headset
+    switch (mCurrentCallState) {
+      case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
+        NotifyDialer(NS_LITERAL_STRING("ATA"));
+        break;
+      case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
+      case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
+      case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
+        NotifyDialer(NS_LITERAL_STRING("CHUP"));
+        break;
+      case nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED:
+        NotifyDialer(NS_LITERAL_STRING("BLDN"));
+        break;
+      default:
+#ifdef DEBUG
+        NS_WARNING("Not handling state changed");
+#endif
+        break; 
+    }
     SendLine("OK");
   } else {
 #ifdef DEBUG

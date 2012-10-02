@@ -805,7 +805,7 @@ public:
 
     nsTArray<uint32_t> uuids;
 
-    uuids.AppendElement((uint32_t)(BluetoothServiceUuid::HandsfreeAG >> 32));
+//    uuids.AppendElement((uint32_t)(BluetoothServiceUuid::HandsfreeAG >> 32));
     uuids.AppendElement((uint32_t)(BluetoothServiceUuid::HeadsetAG >> 32));
 
     sServiceHandles.Clear();
