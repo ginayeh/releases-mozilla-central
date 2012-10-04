@@ -224,6 +224,7 @@ public:
   PrepareAdapterTask(const nsAString& aPath) :
     mPath(aPath)
   {
+    sDefaultAdapterPath = aPath;
   }
 
   NS_IMETHOD
@@ -1322,11 +1323,8 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
       LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, aMsg);
       errorStr.AssignLiteral("Cannot parse manager path!");
     } else {
-      sDefaultAdapterPath = NS_ConvertUTF8toUTF16(str);
-      v = sDefaultAdapterPath;
-
-      nsRefPtr<PrepareAdapterTask> b =
-        new PrepareAdapterTask(sDefaultAdapterPath);
+      v = NS_ConvertUTF8toUTF16(str);
+      nsRefPtr<PrepareAdapterTask> b = new PrepareAdapterTask(v.get_nsString());
       if (NS_FAILED(NS_DispatchToMainThread(b))) {
         NS_WARNING("Failed to dispatch to main thread!");
       }
@@ -1362,6 +1360,31 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
   }
 
   return DBUS_HANDLER_RESULT_HANDLED;
+}
+
+nsresult
+GetDefaultAdapterPath(BluetoothValue& aValue, nsString& aError)
+{
+  LOG("[B] %s", __FUNCTION__);
+  DBusError err;
+  dbus_error_init(&err);
+
+  DBusMessage* msg = dbus_func_args_timeout(gThreadConnection->GetConnection(),
+                                            1000,
+                                            &err,
+                                            "/",
+                                            DBUS_MANAGER_IFACE,
+                                            "DefaultAdapter",
+                                            DBUS_TYPE_INVALID);
+  UnpackObjectPathMessage(msg, &err, aValue, aError);
+  if (msg) {
+    dbus_message_unref(msg);
+  }
+  if (!aError.IsEmpty()) {
+    return NS_ERROR_FAILURE;
+  }
+
+  return NS_OK;
 }
 
 nsresult
@@ -1419,6 +1442,22 @@ BluetoothDBusService::StartInternal()
 
   sPairingReqTable.Init();
   sAuthorizeReqTable.Init();
+
+  BluetoothValue v;
+  nsString replyError;
+  if (NS_FAILED(GetDefaultAdapterPath(v, replyError))) {
+    // Adapter path is not ready yet
+    // Let's do PrepareAdapterTask when we receive signal 'AdapterAdded'
+    LOG("[B] adapter path is not ready yet!");
+  } else {
+    // Adapter path has been ready, and we won't receive signal 'AdapterAdded' later
+    // Let's do PrepareAdapterTask now
+    LOG("[B] adapter path is ready! '%s'", NS_ConvertUTF16toUTF8(v.get_nsString()).get());
+    nsRefPtr<PrepareAdapterTask> b = new PrepareAdapterTask(v.get_nsString());
+    if (NS_FAILED(NS_DispatchToMainThread(b))) {
+      NS_WARNING("Failed to dispatch to main thread!");
+    }
+  }
 
   return NS_OK;
 }
@@ -1497,52 +1536,28 @@ public:
   {
     LOG("[B] DefaultAdapterPropertiesRunnable::Run");
     MOZ_ASSERT(!NS_IsMainThread());
-    DBusError err;
-    dbus_error_init(&err);
 
     BluetoothValue v;
     nsString replyError;
 
-    DBusMessage* msg = dbus_func_args_timeout(gThreadConnection->GetConnection(),
-                                              1000,
-                                              &err,
-                                              "/",
-                                              DBUS_MANAGER_IFACE,
-                                              "DefaultAdapter",
-                                              DBUS_TYPE_INVALID);
-    UnpackObjectPathMessage(msg, &err, v, replyError);
-    if (msg) {
-      dbus_message_unref(msg);
-    }
-    if (!replyError.IsEmpty()) {
+    if (NS_FAILED(GetDefaultAdapterPath(v, replyError))) {
       DispatchBluetoothReply(mRunnable, v, replyError);
       return NS_ERROR_FAILURE;
     }
 
-    nsString path = v.get_nsString();
-    nsCString tmp_path = NS_ConvertUTF16toUTF8(path);
-    const char* object_path = tmp_path.get();
+    DBusError err;
+    dbus_error_init(&err);
 
+    nsString objectPath = v.get_nsString();
     v = InfallibleTArray<BluetoothNamedValue>();
-    msg = dbus_func_args_timeout(gThreadConnection->GetConnection(),
-                                 1000,
-                                 &err,
-                                 object_path,
-                                 "org.bluez.Adapter",
-                                 "GetProperties",
-                                 DBUS_TYPE_INVALID);
-    UnpackAdapterPropertiesMessage(msg, &err, v, replyError);
-
-    if (!replyError.IsEmpty()) {
-      DispatchBluetoothReply(mRunnable, v, replyError);
+    if (!GetPropertiesInternal(objectPath, DBUS_ADAPTER_IFACE, v)) {
+      NS_WARNING("Getting properties failed!");
       return NS_ERROR_FAILURE;
     }
-    if (msg) {
-      dbus_message_unref(msg);
-    }
+
     // We have to manually attach the path to the rest of the elements
-    v.get_ArrayOfBluetoothNamedValue().AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("Path"),
-                                                                         path));
+    v.get_ArrayOfBluetoothNamedValue().AppendElement(
+      BluetoothNamedValue(NS_LITERAL_STRING("Path"), objectPath));
 
     DispatchBluetoothReply(mRunnable, v, replyError);
 

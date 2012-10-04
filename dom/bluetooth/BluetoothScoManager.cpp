@@ -66,7 +66,7 @@ BluetoothScoManager::Init()
   if (NS_FAILED(obs->AddObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID, false))) {
     NS_WARNING("Failed to add shutdown observer!");
     return false;
-
+  }
   if (!sScoCommandThread &&
       NS_FAILED(NS_NewThread(getter_AddRefs(sScoCommandThread)))) {
     NS_ERROR("Failed to new thread for sScoCommandThread");
