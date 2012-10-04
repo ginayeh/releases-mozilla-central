@@ -86,12 +86,12 @@ BluetoothServiceChildProcess::RegisterBluetoothSignalHandler(
                                               const nsAString& aNodeName,
                                               BluetoothSignalObserver* aHandler)
 {
-//  LOG("[C] %s", __FUNCTION__);
+  LOG("[C] %s", __FUNCTION__);
   // ChildProcess
-/*  if (gBluetoothChild) {
+  if (gBluetoothChild) {
     LOG("[C] SendRegisterSignalHandler");
     gBluetoothChild->SendRegisterSignalHandler(nsString(aNodeName));
-  }*/
+  }
 
   // ParentProces
   BluetoothService::RegisterBluetoothSignalHandler(aNodeName, aHandler);
@@ -102,9 +102,9 @@ BluetoothServiceChildProcess::UnregisterBluetoothSignalHandler(
                                               const nsAString& aNodeName,
                                               BluetoothSignalObserver* aHandler)
 {
-/*  if (gBluetoothChild) {
+  if (gBluetoothChild) {
     gBluetoothChild->SendUnregisterSignalHandler(nsString(aNodeName));
-  }*/
+  }
   BluetoothService::UnregisterBluetoothSignalHandler(aNodeName, aHandler);
 }
 
