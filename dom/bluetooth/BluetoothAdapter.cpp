@@ -837,7 +837,8 @@ BluetoothAdapter::Connect(const nsAString& aDeviceAddress,
 
   nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
 
-  if (aProfileId == (uint16_t)(BluetoothServiceUuid::Handsfree >> 32)) {
+  if (aProfileId == (uint16_t)(BluetoothServiceUuid::Handsfree >> 32) ||
+      aProfileId == (uint16_t)(BluetoothServiceUuid::Headset >> 32)) {
     if (!bs->ConnectHeadset(aDeviceAddress, mPath, result)) {
       NS_WARNING("Creating RFCOMM socket failed.");
       return NS_ERROR_FAILURE;

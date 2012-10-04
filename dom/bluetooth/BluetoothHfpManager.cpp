@@ -492,7 +492,8 @@ BluetoothHfpManager::Connect(const nsAString& aDeviceObjectPath,
   mDevicePath = aDeviceObjectPath;
 
   nsString serviceUuidStr =
-    NS_ConvertUTF8toUTF16(mozilla::dom::bluetooth::BluetoothServiceUuidStr::Handsfree);
+//    NS_ConvertUTF8toUTF16(mozilla::dom::bluetooth::BluetoothServiceUuidStr::Handsfree);
+    NS_ConvertUTF8toUTF16(mozilla::dom::bluetooth::BluetoothServiceUuidStr::Headset);
 
   nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
 
