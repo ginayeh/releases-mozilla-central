@@ -324,30 +324,34 @@ void
 BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                  BluetoothSignalObserver* aHandler)
 {
-  LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get());
+  LOG("[S] %s - '%s', <%p>", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get(), aHandler);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
   BluetoothSignalObserverList* ol;
   if (!mBluetoothSignalObserverTable.Get(aNodeName, &ol)) {
+    LOG("[S] new entry");
     ol = new BluetoothSignalObserverList();
     mBluetoothSignalObserverTable.Put(aNodeName, ol);
   }
   ol->AddObserver(aHandler);
+  LOG("[S] add observer to %d", ol->Length());
 }
 
 void
 BluetoothService::UnregisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                    BluetoothSignalObserver* aHandler)
 {
-  LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get());
+  LOG("[S] %s - '%s' <%p>", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get(), aHandler);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
   BluetoothSignalObserverList* ol;
   if (mBluetoothSignalObserverTable.Get(aNodeName, &ol)) {
     ol->RemoveObserver(aHandler);
+    LOG("[S] remove observer to %d", ol->Length());
     if (ol->Length() == 0) {
+      LOG("[S] remove entry");
       mBluetoothSignalObserverTable.Remove(aNodeName);
     }
   }
