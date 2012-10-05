@@ -416,15 +416,18 @@ BluetoothService::StartStopBluetooth(bool aStart)
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  if (aStart) {
+/*  if (aStart) {
     RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
     RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
 
+    LOG("[S] registering agents");
     BluetoothManagerList::ForwardIterator iter(mLiveManagers);
+    int i = 0;
     while (iter.HasMore()) {
       RegisterBluetoothSignalHandler(NS_LITERAL_STRING("/"), (BluetoothSignalObserver*)iter.GetNext());
+      LOG("[S] registering mLiveManagers %p", mLiveManagers.ElementAt(i++));
     }
-  }
+  }*/
 
   nsCOMPtr<nsIRunnable> runnable = new ToggleBtTask(aStart);
   rv = mBluetoothCommandThread->Dispatch(runnable, NS_DISPATCH_NORMAL);
@@ -453,10 +456,24 @@ BluetoothService::SetEnabled(bool aEnabled)
     unused << childActors[index]->SendEnabled(aEnabled);
   }
 
+  if (aEnabled) {
+    RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
+    RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
+  }
+
   BluetoothManagerList::ForwardIterator iter(mLiveManagers);
+  int i = 0;
   while (iter.HasMore()) {
-    if (NS_FAILED(iter.GetNext()->FireEnabledDisabledEvent(aEnabled))) {
+    BluetoothManager* manager = iter.GetNext();
+    if (NS_FAILED(manager->FireEnabledDisabledEvent(aEnabled))) {
       NS_WARNING("FireEnabledDisabledEvent failed!");
+    }
+    if (aEnabled) {
+      RegisterBluetoothSignalHandler(NS_LITERAL_STRING("/"), (BluetoothSignalObserver*)manager);
+      LOG("[S] registering mLiveManagers %p", mLiveManagers.ElementAt(i++));
+    } else {
+      UnregisterBluetoothSignalHandler(NS_LITERAL_STRING("/"), (BluetoothSignalObserver*)manager);
+      LOG("[S] registering mLiveManagers %p", mLiveManagers.ElementAt(i++));
     }
   }
 }
