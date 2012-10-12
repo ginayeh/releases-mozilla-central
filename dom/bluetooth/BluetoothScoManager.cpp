@@ -223,14 +223,9 @@ BluetoothScoManager::GetConnected()
 }
 
 void
-BluetoothScoManager::SetConnected(bool aConnected)
-{
-  mConnected = aConnected;
-}
-
-void
 BluetoothScoManager::OnConnectSuccess()
 {
+  mConnected = true;
 }
 
 void

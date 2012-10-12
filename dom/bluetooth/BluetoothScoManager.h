@@ -27,7 +27,6 @@ public:
 
   bool Connect(const nsAString& aDeviceObjectPath);
   void Disconnect();
-  void SetConnected(bool aConnected);
   bool GetConnected();
 
 private:
