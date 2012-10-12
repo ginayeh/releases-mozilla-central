@@ -21,6 +21,15 @@
 using mozilla::unused;
 USING_BLUETOOTH_NAMESPACE
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 /*******************************************************************************
  * BluetoothRequestParent::ReplyRunnable
  ******************************************************************************/
@@ -116,6 +125,7 @@ BluetoothParent::InitWithService(BluetoothService* aService)
 void
 BluetoothParent::UnregisterAllSignalHandlers()
 {
+  LOG("[P] %s", __FUNCTION__);
   MOZ_ASSERT(mService);
   mService->UnregisterAllSignalHandlers(this);
 }
@@ -123,6 +133,7 @@ BluetoothParent::UnregisterAllSignalHandlers()
 void
 BluetoothParent::ActorDestroy(ActorDestroyReason aWhy)
 {
+  LOG("[P] %s - %d", __FUNCTION__, aWhy);
   if (mService) {
     UnregisterAllSignalHandlers();
 #ifdef DEBUG
@@ -154,6 +165,7 @@ BluetoothParent::RecvUnregisterSignalHandler(const nsString& aNode)
 bool
 BluetoothParent::RecvStopNotifying()
 {
+  LOG("[P] %s", __FUNCTION__);
   MOZ_ASSERT(mService);
 
   if (mShutdownState != Running && mShutdownState != SentBeginShutdown) {

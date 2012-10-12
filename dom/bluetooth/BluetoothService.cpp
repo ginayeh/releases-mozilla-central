@@ -432,7 +432,7 @@ BluetoothService::StartStopBluetooth(bool aStart)
 void
 BluetoothService::SetEnabled(bool aEnabled)
 {
-  LOG("[S] %s", __FUNCTION__);
+  LOG("[S] %s: %d", __FUNCTION__, aEnabled);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aEnabled == mEnabled) {
@@ -581,10 +581,10 @@ BluetoothService::HandleSettingsChanged(const nsAString& aData)
     mSettingsCheckInProgress = false;
   }
 
-  if (value.toBoolean() == IsEnabled()) {
+/*  if (value.toBoolean() == IsEnabled()) {
     // Nothing to do here.
     return NS_OK;
-  }
+  }*/
 
   nsresult rv;
 

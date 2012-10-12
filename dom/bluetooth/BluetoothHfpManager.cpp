@@ -53,6 +53,66 @@ using namespace mozilla;
 using namespace mozilla::ipc;
 USING_BLUETOOTH_NAMESPACE
 
+/* CallState for sCINDItems[CINDType::CALL].value
+ * - NO_CALL: there are no calls in progress
+ * - IN_PROGRESS: at least one call is in progress
+ */
+enum CallState {
+  NO_CALL,
+  IN_PROGRESS
+};
+
+/* CallSetupState for sCINDItems[CINDType::CALLSETUP].value
+ * - NO_CALLSETUP: not currently in call set up
+ * - INCOMING: an incoming call process ongoing
+ * - OUTGOING: an outgoing call set up is ongoing
+ * - OUTGOING_ALERTING: remote party being alerted in an outgoing call
+ */
+enum CallSetupState {
+  NO_CALLSETUP,
+  INCOMING,
+  OUTGOING,
+  OUTGOING_ALERTING
+};
+
+/* CallHeldState for sCINDItems[CINDType::CALLHELD].value
+ * - NO_CALLHELD: no calls held
+ * - ONHOLD_ACTIVE: both an active and a held call
+ * - ONHOLD_NOACTIVE: call on hold, no active call
+ */
+enum CallHeldState {
+  NO_CALLHELD,
+  ONHOLD_ACTIVE,
+  ONHOLD_NOACTIVE
+};
+
+typedef struct {
+  const char* name;
+  const char* range;
+  int value;
+} CINDItem;
+
+enum CINDType {
+  BATTCHG = 1,
+  SIGNAL,
+  SERVICE,
+  CALL,
+  CALLSETUP,
+  CALLHELD,
+  ROAM,
+};
+
+static CINDItem sCINDItems[] = {
+  {},
+  {"battchg", "0-5", 5},
+  {"signal", "0-5", 5},
+  {"service", "0,1", 1},
+  {"call", "0,1", CallState::NO_CALL},
+  {"callsetup", "0-3", CallSetupState::NO_CALLSETUP},
+  {"callheld", "0-2", CallHeldState::NO_CALLHELD},
+  {"roam", "0,1", 0}
+};
+
 class mozilla::dom::bluetooth::BluetoothHfpManagerObserver : public nsIObserver
 {
 public:
@@ -201,10 +261,11 @@ BluetoothHfpManager::BluetoothHfpManager()
   : mCurrentVgs(-1)
   , mCurrentCallIndex(0)
   , mCurrentCallState(nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED)
-  , mCall(0)
-  , mCallSetup(0)
-  , mCallHeld(0)
 {
+  Listen();
+  sCINDItems[CINDType::CALL].value = CallState::NO_CALL;
+  sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
+  sCINDItems[CINDType::CALLHELD].value = CallHeldState::NO_CALLHELD;
 }
 
 bool
@@ -389,7 +450,7 @@ BluetoothHfpManager::HandleVolumeChanged(const nsAString& aData)
   // HS volume range: [0, 15]
   mCurrentVgs = ceil(volume * 15);
 
-  nsDiscriminatedUnion du;
+/*  nsDiscriminatedUnion du;
   du.mType = 0;
   du.u.mInt8Value = mCurrentVgs;
 
@@ -397,13 +458,14 @@ BluetoothHfpManager::HandleVolumeChanged(const nsAString& aData)
   if (NS_FAILED(nsVariant::ConvertToACString(du, vgs))) {
     NS_WARNING("Failed to convert volume to string");
     return NS_ERROR_FAILURE;
-  }
+  }*/
 
-  nsAutoCString newVgs;
+  SendCommand("+VGS: ", mCurrentVgs);
+/*  nsAutoCString newVgs;
   newVgs += "+VGS: ";
   newVgs += vgs;
 
-  SendLine(newVgs.get());
+  SendLine(newVgs.get());*/
 
   return NS_OK;
 }
@@ -418,22 +480,22 @@ BluetoothHfpManager::HandleShutdown()
   return NS_OK;
 }
 
-bool
+/*bool
 AppendIntegerToString(nsAutoCString& aString, int aValue)
 {
   nsDiscriminatedUnion du;
-  du.mType = 0;
+  du.mType = nsIDataType::VTYPE_INT8;
   du.u.mInt8Value = aValue;
 
   nsCString temp;
   if (NS_FAILED(nsVariant::ConvertToACString(du, temp))) {
-    NS_WARNING("Failed to convert mCall/mCallSetup/mCallHeld to string");
+    NS_WARNING("Failed to convert sCINDItems[CINDType::CALL].value/sCINDItems[CINDType::CALLSETUP].value/sCINDItems[CINDType::CALLHELD].value to string");
     return false;
   }
-  aString += temp;
   aString += ",";
+  aString += temp;
   return true;
-}
+}*/
 
 // Virtual function of class SocketConsumer
 void
@@ -447,10 +509,11 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
   // For more information, please refer to 4.34.1 "Bluetooth Defined AT
   // Capabilities" in Bluetooth hands-free profile 1.6
   if (!strncmp(msg, "AT+BRSF=", 8)) {
-    SendLine("+BRSF: 23");
+//    SendLine("+BRSF: 23");
+    SendCommand("+BRSF: ", 23);
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CIND=?", 9)) {
-    nsAutoCString cindRange;
+/*    nsAutoCString cindRange;
 
     cindRange += "+CIND: ";
     cindRange += "(\"battchg\",(0-5)),";
@@ -461,20 +524,26 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     cindRange += "(\"callheld\",(0-2)),";
     cindRange += "(\"roam\",(0,1))";
 
-    SendLine(cindRange.get());
+    SendLine(cindRange.get());*/
+    SendCommand("+CIND: ", 0);
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CIND?", 8)) {
-    nsAutoCString cind;
-    cind += "+CIND: 5,5,1,";
+/*    nsAutoCString cind;
+    cind += "+CIND: 5,5,1";
 
-    if (!AppendIntegerToString(cind, mCall) ||
-        !AppendIntegerToString(cind, mCallSetup) ||
-        !AppendIntegerToString(cind, mCallHeld)) {
-      NS_WARNING("Failed to convert mCall/mCallSetup/mCallHeld to string");
+    if (!AppendIntegerToString(cind, sCINDItems[CINDType::CALL].value) ||
+        !AppendIntegerToString(cind, sCINDItems[CINDType::CALLSETUP].value) ||
+        !AppendIntegerToString(cind, sCINDItems[CINDType::CALLHELD].value)) {
+//    if (!AppendIntegerToString(cind, sCINDItems[CINDType::CALL].value) ||
+//        !AppendIntegerToString(cind, sCINDItems[CINDType::CALLSETUP].value) ||
+//        !AppendIntegerToString(cind, sCINDItems[CINDType::CALLHELD].value)) {
+      NS_WARNING("Failed to convert sCINDItems[CINDType::CALL].value/sCINDItems[CINDType::CALLSETUP].value/sCINDItems[CINDType::CALLHELD].value to string");
     } 
-    cind += "0";
+    cind += ",0";
 
-    SendLine(cind.get());
+    SendLine(cind.get());*/
+//    LOG("[Hfp] command '%s'", cind);
+    SendCommand("+CIND: ", 1);
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CMER=", 8)) {
     // SLC establishment
@@ -575,6 +644,8 @@ BluetoothHfpManager::Connect(const nsAString& aDeviceObjectPath,
   }
   mDevicePath = aDeviceObjectPath;
 
+  CloseSocket();
+
   nsString serviceUuidStr;
   if (aIsHandsfree) {
     serviceUuidStr = NS_ConvertUTF8toUTF16(HANDSFREE_UUID);
@@ -604,6 +675,7 @@ BluetoothHfpManager::Connect(const nsAString& aDeviceObjectPath,
 bool
 BluetoothHfpManager::Listen()
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (gInShutdown) {
@@ -631,17 +703,17 @@ void
 BluetoothHfpManager::Disconnect()
 {
   LOG("[Hfp] %s", __FUNCTION__);
-  NotifySettings(false);
   CloseSocket();
-  mCall = 0;
-  mCallSetup = 0;
-  mCallHeld = 0;
-  Listen();
+  NotifySettings(false);
+  sCINDItems[CINDType::CALL].value = CallState::NO_CALL;
+  sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
+  sCINDItems[CINDType::CALLHELD].value = CallHeldState::NO_CALLHELD;
 }
 
 bool
 BluetoothHfpManager::SendLine(const char* aMessage)
 {
+  LOG("[Hfp] sending '%s'", aMessage);
   const char* kHfpCrlf = "\xd\xa";
   nsAutoCString msg;
 
@@ -652,6 +724,63 @@ BluetoothHfpManager::SendLine(const char* aMessage)
   return SendSocketData(msg);
 }
 
+bool
+BluetoothHfpManager::SendCommand(const char* aCommand, const int aValue)
+{
+  nsAutoCString message;
+  int value = aValue;
+  message += aCommand;
+
+  if (!strcmp(aCommand, "+CIEV: ")) {
+    message.AppendInt(aValue);
+    message += ",";
+    switch (aValue) {
+      case CINDType::CALL:
+        message.AppendInt(sCINDItems[CINDType::CALL].value);
+        break;
+      case CINDType::CALLSETUP:
+        message.AppendInt(sCINDItems[CINDType::CALLSETUP].value);
+        break;
+      case CINDType::CALLHELD:
+			  message.AppendInt(sCINDItems[CINDType::CALLHELD].value);
+        break;
+      default:
+#ifdef DEBUG
+        NS_WARNING("unexpected CINDType for CIEV command");
+#endif        
+        return false;
+    } 
+  } else if (!strcmp(aCommand, "+CIND: ")) {
+    if (aValue) {
+      for (uint8_t i = 1; i < ArrayLength(sCINDItems); i++) {
+        message += "(\"";
+        message += sCINDItems[i].name;
+        message += "\",(";
+        message += sCINDItems[i].range;
+        message += ")";
+        if (i == (ArrayLength(sCINDItems) - 1)) {
+          message +=")";
+          break;
+        }
+        message += "),";
+      }
+    } else {
+      for (uint8_t i = 1; i < ArrayLength(sCINDItems); i++) {
+        message.AppendInt(sCINDItems[i].value);
+        if (i == (ArrayLength(sCINDItems) - 1)) {
+          break;
+        }
+        message += ",";
+      }
+    }
+  } else {
+//  AppendIntegerToString(message, value);
+    message.AppendInt(value);
+  }
+
+  return SendLine(message.get());
+}
+
 /*
  * EnumerateCallState will be called for each call
  */
@@ -659,51 +788,39 @@ void
 BluetoothHfpManager::EnumerateCallState(int aCallIndex, int aCallState,
                                         const char* aNumber, bool aIsActive)
 {
-  // TODO: enums for mCall, mCallSetup, mCallHeld
-  /* mCall - 0: there are no calls in progress
-   *       - 1: at least one call is in progress
-   * mCallSetup - 0: not currently in call set up
-   *            - 1: an incoming call process ongoing
-   *            - 2: an outgoing call set up is ongoing
-   *            - 3: remote party being alerted in an outgoing call
-   * mCallHeld - 0: no calls held
-   *           - 1: call is placed on hold or active/held calls swapped
-   *           - 2: call o hold, no active call
-   */
-
-  if (mCallHeld == 2 && aIsActive) {
-    mCallHeld = 1;
+  if (sCINDItems[CINDType::CALLHELD].value == CallHeldState::ONHOLD_NOACTIVE && aIsActive) {
+    sCINDItems[CINDType::CALLHELD].value = CallHeldState::ONHOLD_ACTIVE;
   }
 
-  if (mCall || mCallSetup) {
+  if (sCINDItems[CINDType::CALL].value || sCINDItems[CINDType::CALLSETUP].value) {
     return;
   }
 
   switch (aCallState) {
     case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
-      mCall = 1;
-      mCallSetup = 3;
+      sCINDItems[CINDType::CALL].value = CallState::IN_PROGRESS;
+      sCINDItems[CINDType::CALLSETUP].value = CallSetupState::OUTGOING_ALERTING;
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
-      mCall = 1;
-      mCallSetup = 1;
+      sCINDItems[CINDType::CALL].value = CallState::IN_PROGRESS;
+      sCINDItems[CINDType::CALLSETUP].value = CallSetupState::INCOMING;
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_CONNECTING:
     case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
     case nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTING:
     case nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED:
     case nsIRadioInterfaceLayer::CALL_STATE_BUSY:
-      mCall = 1;
-      mCallSetup = 2;
+      sCINDItems[CINDType::CALL].value = CallState::IN_PROGRESS;
+      sCINDItems[CINDType::CALLSETUP].value = CallSetupState::OUTGOING;
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_HOLDING:
     case nsIRadioInterfaceLayer::CALL_STATE_HELD:
     case nsIRadioInterfaceLayer::CALL_STATE_RESUMING:
-      mCall = 1;
-      mCallHeld = 2;
+      sCINDItems[CINDType::CALL].value = CallState::IN_PROGRESS;
+      sCINDItems[CINDType::CALLHELD].value = CallHeldState::ONHOLD_NOACTIVE;
     default:
-      mCall = 0;
-      mCallSetup = 0;
+      sCINDItems[CINDType::CALL].value = CallState::NO_CALL;
+      sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
   }
 }
 
@@ -722,7 +839,9 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
   switch (aCallState) {
     case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
       // Send "CallSetup = 1"
-      SendLine("+CIEV: 5,1");
+      sCINDItems[CINDType::CALLSETUP].value = CallSetupState::INCOMING;
+      SendCommand("+CIEV: ", CINDType::CALLSETUP);
+//    SendLine("+CIEV: 5,1");
 
       // Start sending RING indicator to HF
       sStopSendingRingFlag = false;
@@ -735,12 +854,17 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
       // Send "CallSetup = 2"
-      SendLine("+CIEV: 5,2");
+      sCINDItems[CINDType::CALLSETUP].value = CallSetupState::OUTGOING;
+      SendCommand("+CIEV: ", CINDType::CALLSETUP);
+//      SendLine("+CIEV: 5,2");
+      OpenScoSocket(mDevicePath);
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
       // Send "CallSetup = 3"
       if (mCurrentCallIndex == nsIRadioInterfaceLayer::CALL_STATE_DIALING) {
-        SendLine("+CIEV: 5,3");
+        sCINDItems[CINDType::CALLSETUP].value = CallSetupState::OUTGOING_ALERTING;
+        SendCommand("+CIEV: ", CINDType::CALLSETUP);
+//        SendLine("+CIEV: 5,3");
       } else {
 #ifdef DEBUG
         NS_WARNING("Not handling state changed");
@@ -754,8 +878,12 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
           // Continue executing, no break
         case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
           // Send "Call = 1, CallSetup = 0"
-          SendLine("+CIEV: 4,1");
-          SendLine("+CIEV: 5,0");
+          sCINDItems[CINDType::CALL].value = CallState::IN_PROGRESS;
+          SendCommand("+CIEV: ", CINDType::CALL);
+//          SendLine("+CIEV: 4,1");
+          sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
+          SendCommand("+CIEV: ", CINDType::CALLSETUP);
+//          SendLine("+CIEV: 5,0");
           break;
         default:
 #ifdef DEBUG
@@ -773,11 +901,15 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
         case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
         case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
           // Send "CallSetup = 0"
-          SendLine("+CIEV: 5,0");
+          sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
+          SendCommand("+CIEV: ", CINDType::CALLSETUP);
+//          SendLine("+CIEV: 5,0");
           break;
         case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
           // Send "Call = 0"
-          SendLine("+CIEV: 4,0");
+          sCINDItems[CINDType::CALL].value = CallState::NO_CALL;
+          SendCommand("+CIEV: ", CINDType::CALL);
+//          SendLine("+CIEV: 4,0");
           break;
         default:
 #ifdef DEBUG
