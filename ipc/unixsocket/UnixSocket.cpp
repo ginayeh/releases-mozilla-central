@@ -239,14 +239,6 @@ private:
    */
   nsCString mAddress;
 
-  /**
-   * Size of the socket address struct
-   */
-  socklen_t mAddrSize;
-
-  /**
-   * Address struct of the socket currently in use
-   */
   sockaddr mAddr;
 
 };
@@ -428,7 +420,6 @@ void SocketConnectTask::Run() {
 void
 UnixSocketImpl::Accept()
 {
-
   if (!mConnector) {
     NS_WARNING("No connector object available!");
     return;
