@@ -362,6 +362,7 @@ public:
   NS_IMETHOD
   Run()
   {
+    LOG("[U] SocketCloseTask::Run");
     mImpl->mConsumer->CloseSocket();
     return NS_OK;
   }
@@ -416,6 +417,7 @@ public:
 };
 
 void SocketConnectTask::Run() {
+  LOG("[U] SocketConnectTask::Run");
   mImpl->UnsetTask();
   if (mCanceled) {
     return;
@@ -490,6 +492,7 @@ UnixSocketImpl::Accept()
 void
 UnixSocketImpl::Connect()
 {
+  LOG("[U] %s", __FUNCTION__);
   if(mFd.get() < 0)
   {
     mFd = mConnector->Create();
@@ -599,6 +602,7 @@ UnixSocketConsumer::SendSocketData(const nsACString& aStr)
 void
 UnixSocketConsumer::CloseSocket()
 {
+  LOG("[U] %s", __FUNCTION__);
   // Needed due to refcount change
   MOZ_ASSERT(NS_IsMainThread());
   if (!mImpl) {
@@ -725,6 +729,7 @@ UnixSocketConsumer::GetSocketAddr(nsAString& aAddrStr)
 void
 UnixSocketConsumer::NotifySuccess()
 {
+  LOG("[U] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   mConnectionStatus = SOCKET_CONNECTED;
   OnConnectSuccess();
@@ -733,6 +738,7 @@ UnixSocketConsumer::NotifySuccess()
 void
 UnixSocketConsumer::NotifyError()
 {
+  LOG("[U] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   mConnectionStatus = SOCKET_DISCONNECTED;
   OnConnectError();
@@ -741,6 +747,7 @@ UnixSocketConsumer::NotifyError()
 void
 UnixSocketConsumer::NotifyDisconnect()
 {
+  LOG("[U] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   mConnectionStatus = SOCKET_DISCONNECTED;
   OnDisconnect();
@@ -752,8 +759,11 @@ UnixSocketConsumer::ConnectSocket(UnixSocketConnector* aConnector,
 {
   MOZ_ASSERT(aConnector);
   MOZ_ASSERT(NS_IsMainThread());
+  LOG("[U] %s", __FUNCTION__);
+
   if (mImpl) {
     NS_WARNING("Socket already connecting/connected!");
+    LOG("[U] Socket already connecting/connected!");
     return false;
   }
   nsCString addr;
@@ -770,6 +780,7 @@ UnixSocketConsumer::ListenSocket(UnixSocketConnector* aConnector)
 {
   MOZ_ASSERT(aConnector);
   MOZ_ASSERT(NS_IsMainThread());
+  LOG("[U] %s", __FUNCTION__);
   if (mImpl) {
     NS_WARNING("Socket already connecting/connected!");
     return false;
