@@ -2341,14 +2341,26 @@ BluetoothDBusService::Connect(const nsAString& aDeviceAddress,
 {
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
+  nsString errorStr;
+  BluetoothValue v = true;
   if (aProfileId == (uint16_t)(BluetoothServiceUuid::Handsfree >> 32)) {
     BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-    return hfp->Connect(GetObjectPathFromAddress(aAdapterPath, aDeviceAddress), true,
-                        aRunnable);
+    if (!hfp->Connect(GetObjectPathFromAddress(aAdapterPath, aDeviceAddress),
+                      true, aRunnable)) {
+      errorStr.AssignLiteral("Failed to connect with device ");
+      errorStr.AppendLiteral(NS_ConvertUTF16toUTF8(aDeviceAddress).get());
+      DispatchBluetoothReply(aRunnable, v, errorStr);
+      return false;
+    }
   } else if (aProfileId == (uint16_t)(BluetoothServiceUuid::Headset >> 32)) {
     BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-    return hfp->Connect(GetObjectPathFromAddress(aAdapterPath, aDeviceAddress), false,
-                        aRunnable);
+    if (!hfp->Connect(GetObjectPathFromAddress(aAdapterPath, aDeviceAddress),
+                      false, aRunnable)) {
+      errorStr.AssignLiteral("Failed to connect with device ");
+      errorStr.AppendLiteral(NS_ConvertUTF16toUTF8(aDeviceAddress).get());
+      DispatchBluetoothReply(aRunnable, v, errorStr);
+      return false;
+    }
   } else if (aProfileId == (uint16_t)(BluetoothServiceUuid::ObjectPush >> 32)) {
     BluetoothOppManager* opp = BluetoothOppManager::Get();
     return opp->Connect(GetObjectPathFromAddress(aAdapterPath, aDeviceAddress),
@@ -2410,10 +2422,8 @@ public:
     BluetoothScoManager* sco = BluetoothScoManager::Get();
     if (!mConsumer->ConnectSocket(c, NS_ConvertUTF16toUTF8(address).get())) {
       replyError.AssignLiteral("SocketConnectionError");
-      sco->SetConnected(false); 
       return NS_ERROR_FAILURE;
     }
-    sco->SetConnected(true);
 
     nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(address);
     if (NS_FAILED(NS_DispatchToMainThread(task))) {

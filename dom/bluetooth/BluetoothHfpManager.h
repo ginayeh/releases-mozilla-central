@@ -44,7 +44,7 @@ private:
   bool Init();
   void Cleanup();
   void NotifyDialer(const nsAString& aCommand);
-  void NotifySettings(const bool aConnected);
+  void NotifySettings();
   virtual void OnConnectSuccess() MOZ_OVERRIDE;
   virtual void OnConnectError() MOZ_OVERRIDE;
   virtual void OnDisconnect() MOZ_OVERRIDE;
@@ -52,9 +52,7 @@ private:
   int mCurrentVgs;
   int mCurrentCallIndex;
   int mCurrentCallState;
-  bool mConnected;
   nsAutoPtr<BluetoothRilListener> mListener;
-  nsString mDevicePath;
 };
 
 END_BLUETOOTH_NAMESPACE

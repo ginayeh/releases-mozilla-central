@@ -16,10 +16,11 @@
 #include "mozilla/StaticPtr.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "nsContentUtils.h"
-#include "nsIDOMDOMRequest.h"
+#include "nsIAudioManager.h"
 #include "nsIObserverService.h"
-#include "nsISystemMessagesInternal.h"
-#include "nsVariant.h"
+
+#define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
+#define BLUETOOTH_ADDRESS_LENGTH 17
 
 #undef LOG
 #if defined(MOZ_WIDGET_GONK)
@@ -105,7 +106,6 @@ BluetoothScoManagerObserver::Observe(nsISupports* aSubject,
 }
 
 BluetoothScoManager::BluetoothScoManager()
-  : mConnected(false)
 {
 }
 
@@ -179,7 +179,7 @@ BluetoothScoManager::HandleShutdown()
 }
 
 bool
-BluetoothScoManager::Connect(const nsAString& aDeviceObjectPath)
+BluetoothScoManager::Connect(const nsAString& aDevicePath)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -188,10 +188,12 @@ BluetoothScoManager::Connect(const nsAString& aDeviceObjectPath)
     return false;
   }
 
-  if (mConnected) {
-    NS_WARNING("Sco socket has been ready");
-    return true;
+  if (GetConnectionStatus() == SocketConnectionStatus::SOCKET_CONNECTED) {
+    NS_WARNING("Sco socket has been connected");
+    return false;
   }
+
+  CloseSocket();
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -199,7 +201,7 @@ BluetoothScoManager::Connect(const nsAString& aDeviceObjectPath)
     return false;
   }
 
-  nsresult rv = bs->GetScoSocket(aDeviceObjectPath,
+  nsresult rv = bs->GetScoSocket(aDevicePath,
                                  true,
                                  false,
                                  this);
@@ -211,29 +213,58 @@ void
 BluetoothScoManager::Disconnect()
 {
   LOG("[Sco] %s", __FUNCTION__);
-  CloseSocket();
-  mConnected = false;
-}
 
-// FIXME: detect connection in UnixSocketConsumer
-bool
-BluetoothScoManager::GetConnected()
-{
-  return mConnected;
+  if (GetConnectionStatus() == SocketConnectionStatus::SOCKET_DISCONNECTED) {
+    return;
+  }
+
+  CloseSocket();
 }
 
 void
 BluetoothScoManager::OnConnectSuccess()
 {
-  mConnected = true;
+  bdaddr_t bdaddr;
+  socklen_t addr_sz;
+  GetSocketAddr(bdaddr, addr_sz);
+  char* bdaddrStr = new char[BLUETOOTH_ADDRESS_LENGTH+1];
+  get_bdaddr_as_string(bdaddr, bdaddrStr);
+  nsString devicePath = NS_ASSIGN_LITERAL(bdaddrStr);
+
+  nsCOMPtr<nsIObserverService> obs = do_GetService("@mozilla.org/observer-service;1");
+  if (!obs ||
+      (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, devicePath.get())))) {
+    NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
+    return;
+  }
+
+  nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
+  if (!am) {
+    NS_WARNING("Failed to get AudioManager service!");
+  }
+  am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_BT_SCO);
 }
 
 void
 BluetoothScoManager::OnConnectError()
 {
+  CloseSocket();
 }
 
 void
 BluetoothScoManager::OnDisconnect()
 {
+  nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
+  if (!am) {
+    NS_WARNING("Failed to get AudioManager service!");
+    return;
+  }
+  am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_NONE);
+
+  nsCOMPtr<nsIObserverService> obs = do_GetService("@mozilla.org/observer-service;1");
+  if (!obs ||
+      (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, nullptr)))) {
+    NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
+    return;
+  }
 }
