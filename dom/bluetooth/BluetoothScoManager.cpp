@@ -20,10 +20,7 @@
 #include "nsIAudioManager.h"
 #include "nsIObserverService.h"
 
-#include <bluetooth/bluetooth.h>
-
 #define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
-#define BLUETOOTH_ADDRESS_LENGTH 17
 
 #undef LOG
 #if defined(MOZ_WIDGET_GONK)
@@ -278,14 +275,10 @@ void
 BluetoothScoManager::OnConnectSuccess()
 {
   LOG("[Sco] %s", __FUNCTION__);
-  struct sockaddr addr;
-  socklen_t addr_sz;
-  GetSocketAddr(addr, addr_sz);
-  char* bdaddrStr = new char[BLUETOOTH_ADDRESS_LENGTH+1];
-  memcpy(bdaddrStr, &addr, addr_sz);
 
-  // TODO: bug800249, using GetSocketAddr()
-  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(NS_ConvertUTF8toUTF16(bdaddrStr));
+  nsString address;
+  GetSocketAddr(address);
+  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(address);
   if (NS_FAILED(NS_DispatchToMainThread(task))) {
     NS_WARNING("Failed to dispatch to main thread!");
     return;

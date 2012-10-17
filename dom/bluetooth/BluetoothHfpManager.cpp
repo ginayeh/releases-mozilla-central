@@ -23,13 +23,11 @@
 #include "nsIRadioInterfaceLayer.h"
 
 #include <unistd.h> /* usleep() */
-#include <bluetooth/bluetooth.h>
 
 #define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
 #define AUDIO_VOLUME_MASTER "audio.volume.master"
 #define HANDSFREE_UUID mozilla::dom::bluetooth::BluetoothServiceUuidStr::Handsfree
 #define HEADSET_UUID mozilla::dom::bluetooth::BluetoothServiceUuidStr::Headset
-#define BLUETOOTH_ADDRESS_LENGTH 17
 
 #undef LOG
 #if defined(MOZ_WIDGET_GONK)
@@ -348,12 +346,9 @@ BluetoothHfpManager::NotifySettings()
   parameters.AppendElement(BluetoothNamedValue(name, v));
 
   name.AssignLiteral("address");
-  struct sockaddr addr;
-  socklen_t addr_sz;
-  GetSocketAddr(addr, addr_sz);
-  char* bdaddrStr = new char[BLUETOOTH_ADDRESS_LENGTH+1];
-  memcpy(bdaddrStr, &addr, addr_sz);
-  v = NS_ConvertUTF8toUTF16(bdaddrStr);
+  nsString address;
+  GetSocketAddr(address);
+  v = address;
   parameters.AppendElement(BluetoothNamedValue(name, v));
 
   if (!BroadcastSystemMessage(type, parameters)) {
@@ -595,7 +590,9 @@ BluetoothHfpManager::Connect(const nsAString& aDevicePath,
 
   nsCOMPtr<nsIRILContentHelper> ril =
     do_GetService("@mozilla.org/ril/content-helper;1");
-  NS_ENSURE_TRUE(ril, false);
+  if (!ril) {
+    NS_WARNING("Failed to get RIL Content Helper");
+  }
   ril->EnumerateCalls(mListener->GetCallback());
 
   nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
@@ -727,11 +724,7 @@ void
 BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
 {
   nsRefPtr<nsRunnable> sendRingTask;
-
-  struct sockaddr addr;
-  socklen_t addr_sz;
-  char* bdaddrStr = new char[BLUETOOTH_ADDRESS_LENGTH+1];
-
+  nsString address;
   switch (aCallState) {
     case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
       sCINDItems[CINDType::CALLSETUP].value = CallSetupState::INCOMING;
@@ -752,10 +745,10 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
       sCINDItems[CINDType::CALLSETUP].value = CallSetupState::OUTGOING;
       if (!aInitial) {
         SendCommand("+CIEV: ", CINDType::CALLSETUP);
+
+        GetSocketAddr(address);
+        OpenScoSocket(address);
       }
-      GetSocketAddr(addr, addr_sz);
-      memcpy(bdaddrStr, &addr, addr_sz);
-      OpenScoSocket(NS_ConvertUTF8toUTF16(bdaddrStr));
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
       sCINDItems[CINDType::CALLSETUP].value = CallSetupState::OUTGOING_ALERTING;
@@ -765,10 +758,6 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
       if (aInitial) {
-        GetSocketAddr(addr, addr_sz);
-        memcpy(bdaddrStr, &addr, addr_sz);
-        OpenScoSocket(NS_ConvertUTF8toUTF16(bdaddrStr));
-
         sCINDItems[CINDType::CALL].value = CallState::IN_PROGRESS;
         sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
       } else {
@@ -777,13 +766,12 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
             // Incoming call, no break
             sStopSendingRingFlag = true;
 
-            GetSocketAddr(addr, addr_sz);
-            memcpy(bdaddrStr, &addr, addr_sz);
-            OpenScoSocket(NS_ConvertUTF8toUTF16(bdaddrStr));
+            GetSocketAddr(address);
+            OpenScoSocket(address);
           case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
             // Outgoing call
             sCINDItems[CINDType::CALL].value = CallState::IN_PROGRESS;
-			SendCommand("+CIEV: ", CINDType::CALL);
+            SendCommand("+CIEV: ", CINDType::CALL);
             sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
             SendCommand("+CIEV: ", CINDType::CALLSETUP);
             break;
@@ -820,12 +808,12 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
         CloseScoSocket();
       }
       break;
-    case nsIRadioInterfaceLayer::CALL_STATE_HOLDING:
+/*    case nsIRadioInterfaceLayer::CALL_STATE_HOLDING:
     case nsIRadioInterfaceLayer::CALL_STATE_HELD:
     case nsIRadioInterfaceLayer::CALL_STATE_RESUMING:
       sCINDItems[CINDType::CALL].value = CallState::IN_PROGRESS;
       sCINDItems[CINDType::CALLHELD].value = CallHeldState::ONHOLD_NOACTIVE;
-      break;
+      break;*/
     default:
 #ifdef DEBUG
       NS_WARNING("Not handling state changed");
@@ -888,8 +876,9 @@ BluetoothHfpManager::OnConnectSuccess()
   if (mCurrentCallState == nsIRadioInterfaceLayer::CALL_STATE_CONNECTED ||
       mCurrentCallState == nsIRadioInterfaceLayer::CALL_STATE_DIALING ||
       mCurrentCallState == nsIRadioInterfaceLayer::CALL_STATE_ALERTING) {
-    // TODO: bug800249, using GetSocketAddr()
-    OpenScoSocket(mDevicePath);
+    nsString address;
+    GetSocketAddr(address);
+    OpenScoSocket(address);
   }
 
   NotifySettings();

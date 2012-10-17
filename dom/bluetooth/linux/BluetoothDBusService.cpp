@@ -2367,11 +2367,11 @@ class CreateBluetoothScoSocket : public nsRunnable
 {
 public: 
   CreateBluetoothScoSocket(UnixSocketConsumer* aConsumer,
-                           const nsAString& aObjectPath,
+                           const nsAString& aAddress,
                            bool aAuth,
                            bool aEncrypt)
     : mConsumer(aConsumer),
-      mObjectPath(aObjectPath),
+      mAddress(aAddress),
       mAuth(aAuth),
       mEncrypt(aEncrypt)
   {
@@ -2382,13 +2382,12 @@ public:
   {
     MOZ_ASSERT(!NS_IsMainThread());
 
-    nsString address = GetAddressFromObjectPath(mObjectPath);
     nsString replyError;
     BluetoothUnixSocketConnector* c =
       new BluetoothUnixSocketConnector(BluetoothSocketType::SCO, -1,
                                        mAuth, mEncrypt);
 
-    if (!mConsumer->ConnectSocket(c, NS_ConvertUTF16toUTF8(address).get())) {
+    if (!mConsumer->ConnectSocket(c, NS_ConvertUTF16toUTF8(mAddress).get())) {
       LOG("[B] ConnectSocket Failed");
       replyError.AssignLiteral("SocketConnectionError");
       return NS_ERROR_FAILURE;
@@ -2400,7 +2399,7 @@ public:
 
 private:
   nsRefPtr<UnixSocketConsumer> mConsumer;
-  nsString mObjectPath;
+  nsString mAddress;
   bool mAuth;
   bool mEncrypt;
 };
