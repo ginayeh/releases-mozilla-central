@@ -2552,7 +2552,7 @@ BluetoothDBusService::GetSocketViaService(const nsAString& aObjectPath,
 }
 
 nsresult
-BluetoothDBusService::GetScoSocket(const nsAString& aObjectPath,
+BluetoothDBusService::GetScoSocket(const nsAString& aAddress,
                                    bool aAuth,
                                    bool aEncrypt,
                                    mozilla::ipc::UnixSocketConsumer* aConsumer)
@@ -2565,7 +2565,7 @@ BluetoothDBusService::GetScoSocket(const nsAString& aObjectPath,
   }
 
   nsRefPtr<nsRunnable> func(new CreateBluetoothScoSocket(aConsumer,
-                                                         aObjectPath,
+                                                         aAddress,
                                                          aAuth,
                                                          aEncrypt));
   if (NS_FAILED(mBluetoothCommandThread->Dispatch(func, NS_DISPATCH_NORMAL))) {

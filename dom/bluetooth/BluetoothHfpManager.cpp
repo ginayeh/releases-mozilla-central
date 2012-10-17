@@ -746,8 +746,10 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
       if (!aInitial) {
         SendCommand("+CIEV: ", CINDType::CALLSETUP);
 
-        GetSocketAddr(address);
-        OpenScoSocket(address);
+        nsString tmpAddr;
+        GetSocketAddr(tmpAddr);
+        LOG("[Hfp] GetSocketAddr: %s", NS_ConvertUTF16toUTF8(tmpAddr).get());
+        OpenScoSocket(tmpAddr);
       }
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
