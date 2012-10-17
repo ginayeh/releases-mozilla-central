@@ -241,6 +241,18 @@ private:
 
   sockaddr mAddr;
 
+<<<<<<< HEAD
+=======
+  /**
+   * Size of the socket address struct
+   */
+  socklen_t mAddrSize;
+
+  /**
+   * Address struct of the socket currently in use
+   */
+  sockaddr mAddr;
+>>>>>>> 4a19d5d... Bug 800249 patch 2
 };
 
 static void
