@@ -611,6 +611,8 @@ UnixSocketConsumer::CloseSocket()
   if (!mImpl) {
     return;
   }
+
+  LOG("[U] before close, GetConnectionStatus: %d", mConnectionStatus);
   UnixSocketImpl* impl = mImpl;
   // To make sure the owner doesn't die on the IOThread, remove pointer here
   mImpl = nullptr;
@@ -620,6 +622,11 @@ UnixSocketConsumer::CloseSocket()
   XRE_GetIOMessageLoop()->PostTask(FROM_HERE,
                                    NewRunnableFunction(DestroyImpl,
                                                        impl));
+  if (mConnectionStatus == 1) {
+    LOG("[U] close server socket!");
+  } else {
+    LOG("[U] close client socket!");
+  }
   NotifyDisconnect();
 }
 
@@ -732,27 +739,27 @@ UnixSocketConsumer::GetSocketAddr(nsAString& aAddrStr)
 void
 UnixSocketConsumer::NotifySuccess()
 {
-  LOG("[U] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   mConnectionStatus = SOCKET_CONNECTED;
+  LOG("[U] %s, GetConnectionStatus(): %d", __FUNCTION__, mConnectionStatus);
   OnConnectSuccess();
 }
 
 void
 UnixSocketConsumer::NotifyError()
 {
-  LOG("[U] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   mConnectionStatus = SOCKET_DISCONNECTED;
+  LOG("[U] %s, GetConnectionStatus(): %d", __FUNCTION__, mConnectionStatus);
   OnConnectError();
 }
 
 void
 UnixSocketConsumer::NotifyDisconnect()
 {
-  LOG("[U] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   mConnectionStatus = SOCKET_DISCONNECTED;
+  LOG("[U] %s, GetConnectionStatus(): %d", __FUNCTION__, mConnectionStatus);
   OnDisconnect();
 }
 

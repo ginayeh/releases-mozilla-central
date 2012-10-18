@@ -38,6 +38,8 @@ private:
   virtual void OnConnectSuccess() MOZ_OVERRIDE;
   virtual void OnConnectError() MOZ_OVERRIDE;
   virtual void OnDisconnect() MOZ_OVERRIDE;
+
+  nsString mDeviceAddres;
 };
 
 END_BLUETOOTH_NAMESPACE

@@ -229,7 +229,7 @@ BluetoothScoManager::HandleShutdown()
 }
 
 bool
-BluetoothScoManager::Connect(const nsAString& aDevicePath)
+BluetoothScoManager::Connect(const nsAString& aDeviceAddress)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -245,13 +245,15 @@ BluetoothScoManager::Connect(const nsAString& aDevicePath)
     return false;
   }
 
+  mDeviceAddress = aDeviceAddress;
+
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
     return false;
   }
 
-  nsresult rv = bs->GetScoSocket(aDevicePath,
+  nsresult rv = bs->GetScoSocket(aDeviceAddress,
                                  true,
                                  false,
                                  this);
@@ -278,7 +280,9 @@ BluetoothScoManager::OnConnectSuccess()
 
   nsString address;
   GetSocketAddr(address);
-  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(address);
+//  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(address);
+  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(mDeviceAddress);
+  
   if (NS_FAILED(NS_DispatchToMainThread(task))) {
     NS_WARNING("Failed to dispatch to main thread!");
     return;
@@ -297,7 +301,6 @@ BluetoothScoManager::OnDisconnect()
 {
   LOG("[Sco] %s", __FUNCTION__);
   
-  // TODO: bug800249, using GetSocketAddr()
   nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(NS_ConvertUTF8toUTF16(""));
   if (NS_FAILED(NS_DispatchToMainThread(task))) {
     NS_WARNING("Failed to dispatch to main thread!");
