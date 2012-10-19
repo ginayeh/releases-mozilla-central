@@ -749,9 +749,14 @@ public:
   NS_IMETHOD
   Run()
   {
-    BluetoothHfpManager* h = BluetoothHfpManager::Get();
-    if (h) {
-      h->Listen();
+    BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+    if (hfp) {
+      hfp->Listen();
+    }
+
+    BluetoothScoManager* sco = BluetoothScoManager::Get();
+    if (sco) {
+      sco->Listen();
     }
 
     BluetoothOppManager* opp = BluetoothOppManager::Get();

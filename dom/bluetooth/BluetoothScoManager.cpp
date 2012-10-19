@@ -240,12 +240,14 @@ BluetoothScoManager::Connect(const nsAString& aDeviceAddress)
     return false;
   }
 
-  if (GetConnectionStatus() == SocketConnectionStatus::SOCKET_CONNECTED) {
+  mCurrentSocketStatus = GetConnectionStatus();
+  LOG("[Sco] %s, mCurrentSocketStatus = %d", __FUNCTION__, mCurrentSocketStatus);
+  if (mCurrentSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
     NS_WARNING("Sco socket has been connected");
     return false;
   }
 
-//  mDeviceAddress = aDeviceAddress;
+  CloseSocket();
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -261,6 +263,36 @@ BluetoothScoManager::Connect(const nsAString& aDeviceAddress)
   return NS_FAILED(rv) ? false : true;
 }
 
+bool
+BluetoothScoManager::Listen()
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  LOG("[Sco] %s", __FUNCTION__);
+
+  if (gInShutdown) {
+    MOZ_ASSERT(false, "Listen called while in shutdown!");
+    return false;
+  }
+
+  mCurrentSocketStatus = GetConnectionStatus();
+  LOG("[Sco] %s, mCurrentSocketStatus = %d", __FUNCTION__, mCurrentSocketStatus);
+
+  CloseSocket();
+
+  BluetoothService* bs = BluetoothService::Get();
+  if (!bs) {
+    NS_WARNING("BluetoothService not available!");
+    return false;
+  }
+
+  nsresult rv = bs->ListenSocketViaService(-1,
+                                           BluetoothSocketType::SCO,
+                                           true,
+                                           false,
+                                           this);
+  return NS_FAILED(rv) ? false : true;
+}
+
 void
 BluetoothScoManager::Disconnect()
 {
@@ -271,17 +303,18 @@ BluetoothScoManager::Disconnect()
   }
 
   CloseSocket();
+  Listen();
 }
 
 void
 BluetoothScoManager::OnConnectSuccess()
 {
-  LOG("[Sco] %s", __FUNCTION__);
+  mCurrentSocketStatus = GetConnectionStatus();
+  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
 
   nsString address;
   GetSocketAddr(address);
   nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(address);
-//  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(mDeviceAddress);
   
   if (NS_FAILED(NS_DispatchToMainThread(task))) {
     NS_WARNING("Failed to dispatch to main thread!");
@@ -292,15 +325,23 @@ BluetoothScoManager::OnConnectSuccess()
 void
 BluetoothScoManager::OnConnectError()
 {
-  LOG("[Sco] %s", __FUNCTION__);
+  mCurrentSocketStatus = GetConnectionStatus();
+  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
   CloseSocket();
+//  Listen();
 }
 
 void
 BluetoothScoManager::OnDisconnect()
 {
-  LOG("[Sco] %s", __FUNCTION__);
-  
+  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
+  if (mCurrentSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
+    Listen();
+  }
+
+  mCurrentSocketStatus = GetConnectionStatus();
+  LOG("[Sco] mCurrentSocketStatus: %d", mCurrentSocketStatus);
+
   nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(NS_ConvertUTF8toUTF16(""));
   if (NS_FAILED(NS_DispatchToMainThread(task))) {
     NS_WARNING("Failed to dispatch to main thread!");
