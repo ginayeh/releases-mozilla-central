@@ -484,7 +484,21 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     SendLine("+CHLD: (0,1,2,3)");
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CHLD=", 8)) {
-    // FIXME:
+    int chld = msg[8] - '0';
+    // only basic
+    switch(chld) {
+      case 1:
+        NotifyDialer(NS_LITERAL_STRING("CHUP+ATA"));
+        break;
+      case 2:
+        NotifyDialer(NS_LITERAL_STRING("HOLD+ATA"));
+        break;
+      default:
+#ifdef DEBUG
+        NS_WARNING("Not handling AT+CHLD command");
+#endif
+        break;
+    }
     SendLine("OK");
   } else if (!strncmp(msg, "AT+VGS=", 7)) {
     // HS volume range: [0, 15]
