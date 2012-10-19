@@ -55,7 +55,7 @@ private:
   int mCurrentCallState;
   int mCurrentSocketStatus;
 
-  nsString mDevicePath;
+//  nsString mDevicePath;
   nsAutoPtr<BluetoothRilListener> mListener;
 };
 

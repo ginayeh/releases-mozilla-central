@@ -114,7 +114,7 @@ public:
         NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
         return NS_ERROR_FAILURE;
       }
-	}
+    }
 
     LOG("[Sco] NotifyObservers");
 
@@ -122,12 +122,12 @@ public:
     if (!am) {
       LOG("[Sco] Failed to get AudioManager service!");
       NS_WARNING("Failed to get AudioManager service!");
-	  return NS_ERROR_FAILURE;
+      return NS_ERROR_FAILURE;
     }
     am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_BT_SCO);
 	LOG("[Sco] SetForceForUse");
 
-	return NS_OK;
+    return NS_OK;
   }
 private:
   nsString mObjectPath;
@@ -245,7 +245,7 @@ BluetoothScoManager::Connect(const nsAString& aDeviceAddress)
     return false;
   }
 
-  mDeviceAddress = aDeviceAddress;
+//  mDeviceAddress = aDeviceAddress;
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -280,8 +280,8 @@ BluetoothScoManager::OnConnectSuccess()
 
   nsString address;
   GetSocketAddr(address);
-//  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(address);
-  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(mDeviceAddress);
+  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(address);
+//  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(mDeviceAddress);
   
   if (NS_FAILED(NS_DispatchToMainThread(task))) {
     NS_WARNING("Failed to dispatch to main thread!");

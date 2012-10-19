@@ -346,10 +346,9 @@ BluetoothHfpManager::NotifySettings()
   parameters.AppendElement(BluetoothNamedValue(name, v));
 
   name.AssignLiteral("address");
-//  nsString address;
-//  GetSocketAddr(address);
-//  v = address;
-  v = GetAddressFromObjectPath(mDevicePath);
+  nsString address;
+  GetSocketAddr(address);
+  v = address;
   parameters.AppendElement(BluetoothNamedValue(name, v));
 
   if (!BroadcastSystemMessage(type, parameters)) {
@@ -579,7 +578,7 @@ BluetoothHfpManager::Connect(const nsAString& aDevicePath,
   LOG("[Hfp] %s, after close socket, mCurrentSocketStatus() = %d", __FUNCTION__, (uint32_t)GetConnectionStatus());
 
   // FIXME
-  mDevicePath = aDevicePath;
+//  mDevicePath = aDevicePath;
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -736,6 +735,7 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
 {
   nsRefPtr<nsRunnable> sendRingTask;
   nsString address;
+
   switch (aCallState) {
     case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
       sCINDItems[CINDType::CALLSETUP].value = CallSetupState::INCOMING;
@@ -759,8 +759,7 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
 
         GetSocketAddr(address);
         LOG("[Hfp] GetSocketAddr: %s", NS_ConvertUTF16toUTF8(address).get());
-//        OpenScoSocket(address);
-        OpenScoSocket(GetAddressFromObjectPath(mDevicePath));
+        OpenScoSocket(address);
       }
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
@@ -780,8 +779,7 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
             sStopSendingRingFlag = true;
 
             GetSocketAddr(address);
-//            OpenScoSocket(address);
-            OpenScoSocket(GetAddressFromObjectPath(mDevicePath));
+            OpenScoSocket(address);
           case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
             // Outgoing call
             sCINDItems[CINDType::CALL].value = CallState::IN_PROGRESS;
@@ -893,8 +891,7 @@ BluetoothHfpManager::OnConnectSuccess()
       mCurrentCallState == nsIRadioInterfaceLayer::CALL_STATE_ALERTING) {
     nsString address;
     GetSocketAddr(address);
-//    OpenScoSocket(address);
-    OpenScoSocket(GetAddressFromObjectPath(mDevicePath));
+    OpenScoSocket(address);
   }
 
   NotifySettings();

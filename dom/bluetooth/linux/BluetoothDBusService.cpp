@@ -2365,7 +2365,7 @@ BluetoothDBusService::Disconnect(const uint16_t aProfileId,
 
 class CreateBluetoothScoSocket : public nsRunnable
 {
-public: 
+public:
   CreateBluetoothScoSocket(UnixSocketConsumer* aConsumer,
                            const nsAString& aAddress,
                            bool aAuth,

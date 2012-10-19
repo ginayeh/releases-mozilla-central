@@ -239,10 +239,6 @@ private:
    */
   nsCString mAddress;
 
-  sockaddr mAddr;
-
-<<<<<<< HEAD
-=======
   /**
    * Size of the socket address struct
    */
@@ -252,7 +248,7 @@ private:
    * Address struct of the socket currently in use
    */
   sockaddr mAddr;
->>>>>>> 4a19d5d... Bug 800249 patch 2
+
 };
 
 static void
@@ -432,6 +428,7 @@ void SocketConnectTask::Run() {
 void
 UnixSocketImpl::Accept()
 {
+
   if (!mConnector) {
     NS_WARNING("No connector object available!");
     return;
@@ -728,6 +725,7 @@ UnixSocketImpl::OnFileCanWriteWithoutBlocking(int aFd)
 void
 UnixSocketConsumer::GetSocketAddr(nsAString& aAddrStr)
 {
+  LOG("[ipc] %s", __FUNCTION__);
   if (!mImpl || mConnectionStatus != SOCKET_CONNECTED) {
     NS_WARNING("No socket currently open!");
     aAddrStr = nsString();

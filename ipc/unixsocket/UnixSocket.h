@@ -228,6 +228,7 @@ public:
    * Get the current sockaddr for the socket
    */
   void GetSocketAddr(nsAString& aAddrStr);
+
 private:
   UnixSocketImpl* mImpl;
   SocketConnectionStatus mConnectionStatus;

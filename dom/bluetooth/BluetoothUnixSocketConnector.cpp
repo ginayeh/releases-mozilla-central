@@ -61,10 +61,16 @@ int get_bdaddr(const char *str, bdaddr_t *ba)
 }
 
 static
-void get_bdaddr_as_string(const bdaddr_t *ba, char *str) {
-    const uint8_t *b = (const uint8_t *)ba;
-    sprintf(str, "%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X",
-            b[5], b[4], b[3], b[2], b[1], b[0]);
+void get_bdaddr_as_string(const bdaddr_t *ba, char *str)
+{
+  const uint8_t *b = (const uint8_t *)ba;
+  LOG("[U] ");
+  for (int i = 0; i < 10; i++) {
+    LOG("[U] %d: %c => %X", i, b[i], b[i]);
+  }
+  sprintf(str, "%2.2X:%2.2X:%2.2X:%2.2X:%2.2X:%2.2X",
+          b[5], b[4], b[3], b[2], b[1], b[0]);
+  LOG("[U] str: %s", str);
 }
 
 BluetoothUnixSocketConnector::BluetoothUnixSocketConnector(
@@ -190,7 +196,11 @@ void
 BluetoothUnixSocketConnector::GetSocketAddr(const sockaddr& aAddr,
                                             nsAString& aAddrStr)
 {
+  LOG("[U] %s", __FUNCTION__);
+  for (int i = 0; i < 14; i++) {
+    LOG("[U] %d: %d => %X", i, aAddr.sa_data[i], aAddr.sa_data[i]);
+  }
   char addr[18];
-  get_bdaddr_as_string((bdaddr_t*)&aAddr, addr);
+  get_bdaddr_as_string((bdaddr_t*)aAddr.sa_data, addr);
   aAddrStr.AssignASCII(addr);
 }
