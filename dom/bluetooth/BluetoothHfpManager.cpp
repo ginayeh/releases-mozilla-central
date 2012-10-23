@@ -162,6 +162,7 @@ namespace {
   bool gInShutdown = false;
   static nsCOMPtr<nsIThread> sHfpCommandThread;
   static bool sStopSendingRingFlag = true;
+  static bool sReceiveVgsFlag = false;
 
   static int kRingInterval = 3000000;  //unit: us
 } // anonymous namespace
@@ -240,10 +241,22 @@ CloseScoSocket()
 }
 
 BluetoothHfpManager::BluetoothHfpManager()
-  : mCurrentVgs(-1)
-  , mCurrentCallIndex(0)
+  : mCurrentCallIndex(0)
   , mCurrentCallState(nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED)
 {
+  float volume;
+  nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
+  if (!am) {
+    NS_WARNING("Failed to get AudioManager Service!");
+    return;
+  }
+  am->GetMasterVolume(&volume);
+  LOG("[Hfp] getMasterVolume: %f", volume);
+
+  // AG volume range: [0.0, 1.0]
+  // HS volume range: [0, 15]
+  mCurrentVgs = floor(volume * 15);
+
   sCINDItems[CINDType::CALL].value = CallState::NO_CALL;
   sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
   sCINDItems[CINDType::CALLHELD].value = CallHeldState::NO_CALLHELD;
@@ -378,10 +391,6 @@ BluetoothHfpManager::HandleVolumeChanged(const nsAString& aData)
   LOG("[Hfp] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (GetConnectionStatus() != SocketConnectionStatus::SOCKET_CONNECTED) {
-    return NS_OK;
-  }
-
   // The string that we're interested in will be a JSON string that looks like:
   //  {"key":"volumeup", "value":1.0}
   //  {"key":"volumedown", "value":0.2}
@@ -435,7 +444,18 @@ BluetoothHfpManager::HandleVolumeChanged(const nsAString& aData)
   // AG volume range: [0.0, 1.0]
   // HS volume range: [0, 15]
   float volume = value.toNumber();
-  mCurrentVgs = ceil(volume * 15);
+  mCurrentVgs = floor(volume * 15);
+
+  LOG("[Hfp] mCurrentVgs: %d", mCurrentVgs);
+
+  if (sReceiveVgsFlag) {
+    sReceiveVgsFlag = false;
+    return NS_OK;
+  }
+
+  if (GetConnectionStatus() != SocketConnectionStatus::SOCKET_CONNECTED) {
+    return NS_OK;
+  }
 
   SendCommand("+VGS: ", mCurrentVgs);
 
@@ -483,30 +503,43 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
   } else if (!strncmp(msg, "AT+CHLD=", 8)) {
     SendLine("OK");
   } else if (!strncmp(msg, "AT+VGS=", 7)) {
-    // HS volume range: [0, 15]
-    int newVgs = msg[7] - '0';
+    sReceiveVgsFlag = true;
+    int index = 7;
+    int length = strlen(msg) - index;
+    LOG("[Hfp] length: %d", length);
 
-    if (strlen(msg) > 8) {
+    // HS volume range: [0, 15]
+    int newVgs = msg[index++] - '0';
+//    LOG("[Hfp] initial newVgs: %d", newVgs);
+    while (length--) {
+      char tmp = msg[index++];
+//      LOG("[Hfp] tmp: %c", tmp);
+      if (tmp < '0'|| tmp > '9') {
+        continue;
+      }
       newVgs *= 10;
-      newVgs += (msg[8] - '0');
+      newVgs += tmp - '0';
+//      LOG("[Hfp] newVgs: %d", newVgs);
+    }
+    LOG("[Hfp] final newVgs: %d", newVgs);
+
+    if (newVgs == mCurrentVgs) {
+      SendLine("OK");
+      return;
     }
 
 #ifdef DEBUG
     NS_ASSERTION(newVgs >= 0 && newVgs <= 15, "Received invalid VGS value");
 #endif
 
-    // Currently, we send volume up/down commands to represent that
-    // volume has been changed by Bluetooth headset, and that will affect
-    // the main stream volume of our device. In the future, we may want to
-    // be able to set volume by stream.
+    // HS volume range: [0, 15]
+    // sound_manager volume range: [0, 10]
+    nsString data;
+    int volume;
     nsCOMPtr<nsIObserverService> os = mozilla::services::GetObserverService();
-    if (newVgs > mCurrentVgs) {
-      os->NotifyObservers(nullptr, "bluetooth-volume-change", NS_LITERAL_STRING("up").get());
-    } else if (newVgs < mCurrentVgs) {
-      os->NotifyObservers(nullptr, "bluetooth-volume-change", NS_LITERAL_STRING("down").get());
-    }
-
-    mCurrentVgs = newVgs;
+    volume = ceil((float)newVgs / 15.0 * 10.0);
+    data.AppendInt(volume);
+    os->NotifyObservers(nullptr, "bluetooth-volume-change", data.get());
 
     SendLine("OK");
   } else if (!strncmp(msg, "AT+BLDN", 7)) {

@@ -507,13 +507,11 @@ Services.obs.addObserver(function onWebappsReady(subject, topic, data) {
 }, 'webapps-registry-ready', false);
 
 Services.obs.addObserver(function onBluetoothVolumeChange(subject, topic, data) {
-  if (data == 'up') {
-    shell.sendChromeEvent({ type: 'volume-up-button-press' });
-    shell.sendChromeEvent({ type: 'volume-up-button-release' });
-  } else if (data == 'down') {
-    shell.sendChromeEvent({ type: 'volume-down-button-press' });
-    shell.sendChromeEvent({ type: 'volume-down-button-release' });
-  }
+  dump("[shell] got bluetooth-volume-change, data: " + data);
+  shell.sendChromeEvent({
+    type: "volumeset",
+    value: data
+  });
 }, 'bluetooth-volume-change', false);
 
 (function Repl() {
