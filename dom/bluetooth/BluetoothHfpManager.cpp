@@ -244,18 +244,6 @@ BluetoothHfpManager::BluetoothHfpManager()
   , mCurrentCallState(nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED)
   , mReceiveVgsFlag(false)
 {
-  float volume;
-  nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
-  if (!am) {
-    NS_WARNING("Failed to get AudioManager Service!");
-  }
-  am->GetMasterVolume(&volume);
-  LOG("[Hfp] getMasterVolume: %f", volume);
-
-  // AG volume range: [0.0, 1.0]
-  // HS volume range: [0, 15]
-  mCurrentVgs = floor(volume * 15);
-
   sCINDItems[CINDType::CALL].value = CallState::NO_CALL;
   sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
   sCINDItems[CINDType::CALLHELD].value = CallHeldState::NO_CALLHELD;
@@ -281,6 +269,19 @@ BluetoothHfpManager::Init()
       return false;
     }
   }
+
+  float volume;
+  nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
+  if (!am) {
+    NS_WARNING("Failed to get AudioManager Service!");
+    return false;
+  }
+  am->GetMasterVolume(&volume);
+  LOG("[Hfp] getMasterVolume: %f", volume);
+
+  // AG volume range: [0.0, 1.0]
+  // HS volume range: [0, 15]
+  mCurrentVgs = floor(volume * 15);
 
   return true;
 }
@@ -503,18 +504,13 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     SendLine("OK");
   } else if (!strncmp(msg, "AT+VGS=", 7)) {
     mReceiveVgsFlag = true;
-    int index = 7;
-    int length = strlen(msg) - index - 1;
-    LOG("[Hfp] length: %d", length);
 
-    // HS volume range: [0, 15]
-    nsCString vgsStr;
-    while (length--) {
-      vgsStr.Append(msg[index++]);
-    }
+    int length = strlen(msg) - 8;
+    nsAutoCString vgsString(nsDependentCSubstring(msg+7, length));
+    LOG("[Hfp] vgsString: %s, len = %d", vgsString.get(), vgsString.Length());
 
     nsresult rv;
-    int newVgs = vgsStr.ToInteger(&rv);
+    int newVgs = vgsString.ToInteger(&rv);
     if (NS_FAILED(rv)) {
       LOG("[Hfp] Failed in ToInteger()");
       NS_WARNING("Failed to extract volume value from bluetooth headset!");
