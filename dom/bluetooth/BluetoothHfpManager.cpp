@@ -162,7 +162,6 @@ namespace {
   bool gInShutdown = false;
   static nsCOMPtr<nsIThread> sHfpCommandThread;
   static bool sStopSendingRingFlag = true;
-  static bool sReceiveVgsFlag = false;
 
   static int kRingInterval = 3000000;  //unit: us
 } // anonymous namespace
@@ -243,12 +242,12 @@ CloseScoSocket()
 BluetoothHfpManager::BluetoothHfpManager()
   : mCurrentCallIndex(0)
   , mCurrentCallState(nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED)
+  , mReceiveVgsFlag(false)
 {
   float volume;
   nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
   if (!am) {
     NS_WARNING("Failed to get AudioManager Service!");
-    return;
   }
   am->GetMasterVolume(&volume);
   LOG("[Hfp] getMasterVolume: %f", volume);
@@ -448,8 +447,8 @@ BluetoothHfpManager::HandleVolumeChanged(const nsAString& aData)
 
   LOG("[Hfp] mCurrentVgs: %d", mCurrentVgs);
 
-  if (sReceiveVgsFlag) {
-    sReceiveVgsFlag = false;
+  if (mReceiveVgsFlag) {
+    mReceiveVgsFlag = false;
     return NS_OK;
   }
 
@@ -503,23 +502,22 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
   } else if (!strncmp(msg, "AT+CHLD=", 8)) {
     SendLine("OK");
   } else if (!strncmp(msg, "AT+VGS=", 7)) {
-    sReceiveVgsFlag = true;
+    mReceiveVgsFlag = true;
     int index = 7;
-    int length = strlen(msg) - index;
+    int length = strlen(msg) - index - 1;
     LOG("[Hfp] length: %d", length);
 
     // HS volume range: [0, 15]
-    int newVgs = msg[index++] - '0';
-//    LOG("[Hfp] initial newVgs: %d", newVgs);
+    nsCString vgsStr;
     while (length--) {
-      char tmp = msg[index++];
-//      LOG("[Hfp] tmp: %c", tmp);
-      if (tmp < '0'|| tmp > '9') {
-        continue;
-      }
-      newVgs *= 10;
-      newVgs += tmp - '0';
-//      LOG("[Hfp] newVgs: %d", newVgs);
+      vgsStr.Append(msg[index++]);
+    }
+
+    nsresult rv;
+    int newVgs = vgsStr.ToInteger(&rv);
+    if (NS_FAILED(rv)) {
+      LOG("[Hfp] Failed in ToInteger()");
+      NS_WARNING("Failed to extract volume value from bluetooth headset!");
     }
     LOG("[Hfp] final newVgs: %d", newVgs);
 
@@ -679,6 +677,7 @@ BluetoothHfpManager::Disconnect()
 bool
 BluetoothHfpManager::SendLine(const char* aMessage)
 {
+  LOG("[Hfp] SendLine '%s'", aMessage);
   const char* kHfpCrlf = "\xd\xa";
   nsAutoCString msg;
 
