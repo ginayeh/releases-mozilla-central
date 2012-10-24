@@ -44,6 +44,12 @@ using namespace mozilla;
 using namespace mozilla::ipc;
 USING_BLUETOOTH_NAMESPACE
 
+enum SocketType {
+  UNKNOWN = 0,
+  CONNECTING = 1,
+  LISTENING = 2
+};
+
 class mozilla::dom::bluetooth::BluetoothScoManagerObserver : public nsIObserver
 {
 public:
@@ -83,55 +89,35 @@ public:
   }
 };
 
-class NotifyAudioManagerTask : public nsRunnable {
-public:
-  NotifyAudioManagerTask(nsString aObjectPath) :
-    mObjectPath(aObjectPath)
-  {
+void
+BluetoothScoManager::NotifyAudioManager(const nsAString& aAddress) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  nsCOMPtr<nsIObserverService> obs = do_GetService("@mozilla.org/observer-service;1");
+  if (!obs) {
+    NS_WARNING("Failed to get observser service!");
+    return;
   }
 
-  NS_IMETHOD
-  Run()
-  {
-    LOG("[Sco] NotifyAudioManagerTask::Run");
-    MOZ_ASSERT(NS_IsMainThread());
-
-    nsCOMPtr<nsIObserverService> obs = do_GetService("@mozilla.org/observer-service;1");
-    if (!obs) {
-      NS_WARNING("Failed to get observser service!");
-      return NS_ERROR_FAILURE;
+  if (aAddress.IsEmpty()) {
+    if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, nullptr))) {
+      NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
+      return;
     }
-
-    if (mObjectPath.IsEmpty()) {
-      if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, nullptr))) {
-        LOG("[Sco] Failed to notify bluetooth-sco-status-changed observsers!");
-        NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
-        return NS_ERROR_FAILURE;
-      }
-    } else {
-      if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, mObjectPath.get()))) {
-        LOG("[Sco] Failed to notify bluetooth-sco-status-changed observsers!");
-        NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
-        return NS_ERROR_FAILURE;
-      }
+  } else {
+    if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, aAddress.BeginReading()))) {
+      NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
+      return;
     }
-
-    LOG("[Sco] NotifyObservers");
-
-    nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
-    if (!am) {
-      LOG("[Sco] Failed to get AudioManager service!");
-      NS_WARNING("Failed to get AudioManager service!");
-      return NS_ERROR_FAILURE;
-    }
-    am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_BT_SCO);
-	LOG("[Sco] SetForceForUse");
-
-    return NS_OK;
   }
-private:
-  nsString mObjectPath;
-};
+
+  nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
+  if (!am) {
+    NS_WARNING("Failed to get AudioManager service!");
+    return;
+  }
+  am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_BT_SCO);
+}
 
 NS_IMPL_ISUPPORTS1(BluetoothScoManagerObserver, nsIObserver)
 
@@ -156,6 +142,7 @@ BluetoothScoManagerObserver::Observe(nsISupports* aSubject,
 }
 
 BluetoothScoManager::BluetoothScoManager()
+  : mSocketType(SocketType::UNKNOWN)
 {
 }
 
@@ -240,9 +227,7 @@ BluetoothScoManager::Connect(const nsAString& aDeviceAddress)
     return false;
   }
 
-  mCurrentSocketStatus = GetConnectionStatus();
-  LOG("[Sco] %s, mCurrentSocketStatus = %d", __FUNCTION__, mCurrentSocketStatus);
-  if (mCurrentSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
+  if (GetConnectionStatus() == SocketConnectionStatus::SOCKET_CONNECTED) {
     NS_WARNING("Sco socket has been connected");
     return false;
   }
@@ -274,10 +259,9 @@ BluetoothScoManager::Listen()
     return false;
   }
 
-//  mCurrentSocketStatus = GetConnectionStatus();
-//  LOG("[Sco] %s, mCurrentSocketStatus = %d", __FUNCTION__, mCurrentSocketStatus);
-
   CloseSocket();
+
+  mSocketType = SocketType::LISTENING;
 
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
@@ -303,48 +287,33 @@ BluetoothScoManager::Disconnect()
   }
 
   CloseSocket();
-//  Listen();
 }
 
 void
 BluetoothScoManager::OnConnectSuccess()
 {
-//  mCurrentSocketStatus = GetConnectionStatus();
-//  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
+  mSocketType = SocketType::CONNECTING;
 
   nsString address;
   GetSocketAddr(address);
-  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(address);
-  
-  if (NS_FAILED(NS_DispatchToMainThread(task))) {
-    NS_WARNING("Failed to dispatch to main thread!");
-    return;
-  }
+  NotifyAudioManager(address);
 }
 
 void
 BluetoothScoManager::OnConnectError()
 {
-//  mCurrentSocketStatus = GetConnectionStatus();
-//  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
   CloseSocket();
-//  Listen();
+  mSocketType = SocketType::UNKNOWN;
+  Listen();
 }
 
 void
 BluetoothScoManager::OnDisconnect()
 {
-//  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
-/*  if (mCurrentSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
+  if (mSocketType == SocketType::CONNECTING) {
     Listen();
-  }*/
 
-//  mCurrentSocketStatus = GetConnectionStatus();
-//  LOG("[Sco] mCurrentSocketStatus: %d", mCurrentSocketStatus);
-
-  nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(NS_ConvertUTF8toUTF16(""));
-  if (NS_FAILED(NS_DispatchToMainThread(task))) {
-    NS_WARNING("Failed to dispatch to main thread!");
-    return;
+    nsString address = NS_LITERAL_STRING("");
+    NotifyAudioManager(address);
   }
 }

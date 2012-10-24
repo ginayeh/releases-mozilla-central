@@ -35,12 +35,12 @@ private:
   bool Init();
   void Cleanup();
   nsresult HandleShutdown();
-  void CreateScoSocket(const nsAString& aDevicePath);
+  void NotifyAudioManager(const nsAString& aAddress);
   virtual void OnConnectSuccess() MOZ_OVERRIDE;
   virtual void OnConnectError() MOZ_OVERRIDE;
   virtual void OnDisconnect() MOZ_OVERRIDE;
 
-  int mCurrentSocketStatus;
+  int mSocketType;
 };
 
 END_BLUETOOTH_NAMESPACE
