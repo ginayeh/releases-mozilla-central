@@ -274,8 +274,8 @@ BluetoothScoManager::Listen()
     return false;
   }
 
-  mCurrentSocketStatus = GetConnectionStatus();
-  LOG("[Sco] %s, mCurrentSocketStatus = %d", __FUNCTION__, mCurrentSocketStatus);
+//  mCurrentSocketStatus = GetConnectionStatus();
+//  LOG("[Sco] %s, mCurrentSocketStatus = %d", __FUNCTION__, mCurrentSocketStatus);
 
   CloseSocket();
 
@@ -303,14 +303,14 @@ BluetoothScoManager::Disconnect()
   }
 
   CloseSocket();
-  Listen();
+//  Listen();
 }
 
 void
 BluetoothScoManager::OnConnectSuccess()
 {
-  mCurrentSocketStatus = GetConnectionStatus();
-  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
+//  mCurrentSocketStatus = GetConnectionStatus();
+//  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
 
   nsString address;
   GetSocketAddr(address);
@@ -325,8 +325,8 @@ BluetoothScoManager::OnConnectSuccess()
 void
 BluetoothScoManager::OnConnectError()
 {
-  mCurrentSocketStatus = GetConnectionStatus();
-  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
+//  mCurrentSocketStatus = GetConnectionStatus();
+//  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
   CloseSocket();
 //  Listen();
 }
@@ -334,13 +334,13 @@ BluetoothScoManager::OnConnectError()
 void
 BluetoothScoManager::OnDisconnect()
 {
-  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
-  if (mCurrentSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
+//  LOG("[Sco] %s, mCurrentSocketStatus: %d", __FUNCTION__, mCurrentSocketStatus);
+/*  if (mCurrentSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
     Listen();
-  }
+  }*/
 
-  mCurrentSocketStatus = GetConnectionStatus();
-  LOG("[Sco] mCurrentSocketStatus: %d", mCurrentSocketStatus);
+//  mCurrentSocketStatus = GetConnectionStatus();
+//  LOG("[Sco] mCurrentSocketStatus: %d", mCurrentSocketStatus);
 
   nsRefPtr<NotifyAudioManagerTask> task = new NotifyAudioManagerTask(NS_ConvertUTF8toUTF16(""));
   if (NS_FAILED(NS_DispatchToMainThread(task))) {
