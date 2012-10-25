@@ -53,6 +53,7 @@ private:
   int mCurrentVgs;
   int mCurrentCallIndex;
   int mCurrentCallState;
+  nsString mDevicePath;
   nsAutoPtr<BluetoothRilListener> mListener;
 };
 
