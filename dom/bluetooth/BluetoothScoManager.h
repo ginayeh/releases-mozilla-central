@@ -40,7 +40,7 @@ private:
   virtual void OnConnectError() MOZ_OVERRIDE;
   virtual void OnDisconnect() MOZ_OVERRIDE;
 
-  int mSocketType;
+  int mSocketStatus;
 };
 
 END_BLUETOOTH_NAMESPACE

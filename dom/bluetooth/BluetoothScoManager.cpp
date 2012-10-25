@@ -44,12 +44,6 @@ using namespace mozilla;
 using namespace mozilla::ipc;
 USING_BLUETOOTH_NAMESPACE
 
-enum SocketType {
-  UNKNOWN = 0,
-  CONNECTING = 1,
-  LISTENING = 2
-};
-
 class mozilla::dom::bluetooth::BluetoothScoManagerObserver : public nsIObserver
 {
 public:
@@ -142,13 +136,14 @@ BluetoothScoManagerObserver::Observe(nsISupports* aSubject,
 }
 
 BluetoothScoManager::BluetoothScoManager()
-  : mSocketType(SocketType::UNKNOWN)
 {
 }
 
 bool
 BluetoothScoManager::Init()
 {
+  mSocketStatus = GetConnectionStatus();
+
   sScoObserver = new BluetoothScoManagerObserver();
   if (sScoObserver->Init()) {
     NS_WARNING("Cannot set up SCO observers!");
@@ -261,8 +256,6 @@ BluetoothScoManager::Listen()
 
   CloseSocket();
 
-  mSocketType = SocketType::LISTENING;
-
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -274,6 +267,9 @@ BluetoothScoManager::Listen()
                                            true,
                                            false,
                                            this);
+
+  mSocketStatus = GetConnectionStatus();
+
   return NS_FAILED(rv) ? false : true;
 }
 
@@ -292,25 +288,25 @@ BluetoothScoManager::Disconnect()
 void
 BluetoothScoManager::OnConnectSuccess()
 {
-  mSocketType = SocketType::CONNECTING;
-
   nsString address;
   GetSocketAddr(address);
   NotifyAudioManager(address);
+
+  mSocketStatus = GetConnectionStatus();
 }
 
 void
 BluetoothScoManager::OnConnectError()
 {
   CloseSocket();
-  mSocketType = SocketType::UNKNOWN;
+  mSocketStatus = GetConnectionStatus();
   Listen();
 }
 
 void
 BluetoothScoManager::OnDisconnect()
 {
-  if (mSocketType == SocketType::CONNECTING) {
+  if (mSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
     Listen();
 
     nsString address = NS_LITERAL_STRING("");
