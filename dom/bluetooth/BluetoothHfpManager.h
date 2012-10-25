@@ -34,7 +34,7 @@ public:
                         const char* aNumber, bool aIsActive);
   void EnumerateCallState(int aCallIndex, int aCallState,
                           const char* aNumber, bool aIsActive);
-  void SetupCIND(int aCallIndex, int aCallState, bool aInitial);
+  void SetupCIND(int aCallIndex, int aCallState, const char* aNumber, bool aIsActive, bool aInitial);
   bool Listen();
 
 private:
@@ -50,12 +50,14 @@ private:
   virtual void OnConnectError() MOZ_OVERRIDE;
   virtual void OnDisconnect() MOZ_OVERRIDE;
 
+  void PrintCallStateArray();
+
   int mCurrentVgs;
   int mCurrentCallIndex;
-  int mCurrentCallState;
   bool mReceiveVgsFlag;
   nsString mDevicePath;
   enum mozilla::ipc::SocketConnectionStatus mSocketStatus;
+  nsTArray<int> mCurrentCallStateArray;
   nsAutoPtr<BluetoothRilListener> mListener;
 };
 
