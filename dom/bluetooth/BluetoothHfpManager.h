@@ -53,7 +53,7 @@ private:
   int mCurrentVgs;
   int mCurrentCallIndex;
   int mCurrentCallState;
-  int mSocketType;
+  int mSocketStatus;
 
   nsAutoPtr<BluetoothRilListener> mListener;
 };

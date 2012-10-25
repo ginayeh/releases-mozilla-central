@@ -100,12 +100,6 @@ enum CINDType {
   ROAM,
 };
 
-enum SocketType {
-  UNKNOWN = 0,
-  CONNECTING = 1,
-  LISTENING = 2
-};
-
 static CINDItem sCINDItems[] = {
   {},
   {"battchg", "0-5", 5},
@@ -248,7 +242,6 @@ CloseScoSocket()
 BluetoothHfpManager::BluetoothHfpManager()
   : mCurrentVgs(-1)
   , mCurrentCallIndex(0)
-  , mSocketType(SocketType::UNKNOWN)
   , mCurrentCallState(nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED)
 {
   sCINDItems[CINDType::CALL].value = CallState::NO_CALL;
@@ -260,6 +253,9 @@ bool
 BluetoothHfpManager::Init()
 {
   LOG("[Hfp] %s", __FUNCTION__);
+
+  mSocketStatus = GetConnectionStatus();
+
   sHfpObserver = new BluetoothHfpManagerObserver();
   if (!sHfpObserver->Init()) {
     NS_WARNING("Cannot set up Hfp Observers!");
@@ -627,9 +623,6 @@ BluetoothHfpManager::Listen()
 
   CloseSocket();
 
-  mSocketType = SocketType::LISTENING;
-  LOG("[Hfp] mSocketType: %d", mSocketType);
-
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -641,6 +634,10 @@ BluetoothHfpManager::Listen()
                                            true,
                                            false,
                                            this);
+
+  mSocketStatus = GetConnectionStatus();
+  LOG("[Hfp] mSocketStatus: %d", mSocketStatus);
+
   return NS_FAILED(rv) ? false : true;
 }
 
@@ -889,8 +886,8 @@ BluetoothHfpManager::OnConnectSuccess()
     OpenScoSocket(address);
   }
 
-  mSocketType = SocketType::CONNECTING;
-  LOG("[Hfp] mSocketType: %d", mSocketType);
+  mSocketStatus = GetConnectionStatus();
+  LOG("[Hfp] mSocketStatus: %d", mSocketStatus);
 
   NotifySettings();
 }
@@ -900,18 +897,18 @@ BluetoothHfpManager::OnConnectError()
 {
   LOG("[Hfp] %s", __FUNCTION__);
   CloseSocket();
+  mSocketStatus = GetConnectionStatus();
   // If connecting for some reason didn't work, restart listening
-  mSocketType = SocketType::UNKNOWN;
-  LOG("[Hfp] mSocketType: %d", mSocketType);
+  LOG("[Hfp] mSocketStatus: %d", mSocketStatus);
   Listen();
 }
 
 void
 BluetoothHfpManager::OnDisconnect()
 {
-  LOG("[Hfp] %s, mSocketType: %d", __FUNCTION__, mSocketType);
+  LOG("[Hfp] %s, mSocketStatus: %d", __FUNCTION__, mSocketStatus);
 
-  if (mSocketType == SocketType::CONNECTING) {
+  if (mSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
     Listen();
     NotifySettings();
   }
