@@ -53,7 +53,7 @@ private:
   int mCurrentVgs;
   int mCurrentCallIndex;
   int mCurrentCallState;
-  int mSocketStatus;
+  enum mozilla::ipc::SocketConnectionStatus mSocketStatus;
 
   nsAutoPtr<BluetoothRilListener> mListener;
 };
