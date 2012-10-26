@@ -602,7 +602,7 @@ BluetoothHfpManager::Connect(const nsAString& aDevicePath,
                                         serviceUuidStr,
                                         BluetoothSocketType::RFCOMM,
                                         true,
-                                        false,
+                                        true,
                                         this,
                                         runnable);
 
