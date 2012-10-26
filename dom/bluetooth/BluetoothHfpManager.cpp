@@ -498,6 +498,30 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     SendLine("+CHLD: (0,1,2,3)");
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CHLD=", 8)) {
+    int length = strlen(msg) - 9;
+    nsAutoCString chldString(nsDependentCSubstring(msg+8, length));
+
+    nsresult rv;
+    int chld = chldString.ToInteger(&rv);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("Failed to extract volume value from bluetooth headset!");
+    }
+
+    switch(chld) {
+      case 1:
+        // Releases active calls and accepts the other (held or waiting) call
+        NotifyDialer(NS_LITERAL_STRING("CHUP+ATA"));
+        break;
+      case 2:
+        // Places active calls on hold and accepts the other (held or waiting) call
+        NotifyDialer(NS_LITERAL_STRING("CHLD+ATA"));
+        break;
+      default:
+#ifdef DEBUG
+        NS_WARNING("Not handling chld value");
+#endif
+        break;
+    }
     SendLine("OK");
   } else if (!strncmp(msg, "AT+VGS=", 7)) {
     mReceiveVgsFlag = true;
@@ -738,12 +762,31 @@ BluetoothHfpManager::SendCommand(const char* aCommand, const int aValue)
 }
 
 void
+BluetoothHfpManager::PrintCallStateArray()
+{
+  for(int i = 0; i < mCurrentCallStateArray.Length(); i++) {
+    LOG("[Hfp] mCurrentCallStateArray[%d]: %d", i, mCurrentCallStateArray[i]);
+  }
+}
+
+void
 BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
 {
   LOG("[Hfp] %s", __FUNCTION__);
   nsRefPtr<nsRunnable> sendRingTask;
   nsString address;
 
+  LOG("[Hfp] %s, mCurrentCallStateArray.Length(): %d", __FUNCTION__, mCurrentCallStateArray.Length());
+  while (aCallIndex >= mCurrentCallStateArray.Length()) {
+    mCurrentCallStateArray.AppendElement((int)nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED);
+    LOG("[Hfp] AppendElement");
+  }
+  LOG("[Hfp] mCurrentCallStateArray.Length(): %d", mCurrentCallStateArray.Length());
+  LOG("[Hfp] aCallIndex: %d, aCallState: %d", aCallIndex, aCallState);
+  LOG("[Hfp] mCurrentCallIndex: %d", mCurrentCallIndex);
+
+  int currentCallState = mCurrentCallStateArray[aCallIndex];
+  PrintCallStateArray();
   switch (aCallState) {
     case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
       sCINDItems[CINDType::CALLSETUP].value = CallSetupState::INCOMING;
