@@ -340,6 +340,8 @@ BluetoothHfpManager::Get()
 void
 BluetoothHfpManager::NotifySettings()
 {
+  LOG("[Hfp] %s", __FUNCTION__);
+
   nsString type, name;
   BluetoothValue v;
   InfallibleTArray<BluetoothNamedValue> parameters;
@@ -367,6 +369,8 @@ BluetoothHfpManager::NotifySettings()
 void
 BluetoothHfpManager::NotifyDialer(const nsAString& aCommand)
 {
+  LOG("[Hfp] %s", __FUNCTION__);
+
   nsString type, name, command;
   command = aCommand;
   InfallibleTArray<BluetoothNamedValue> parameters;
@@ -625,6 +629,7 @@ BluetoothHfpManager::Connect(const nsAString& aDevicePath,
 bool
 BluetoothHfpManager::Listen()
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (gInShutdown) {
@@ -666,6 +671,7 @@ BluetoothHfpManager::Disconnect()
 bool
 BluetoothHfpManager::SendLine(const char* aMessage)
 {
+  LOG("[Hfp] %s '%s'", __FUNCTION__, aMessage);
   const char* kHfpCrlf = "\xd\xa";
   nsAutoCString msg;
 
@@ -838,6 +844,7 @@ void
 BluetoothHfpManager::EnumerateCallState(int aCallIndex, int aCallState,
                                         const char* aNumber, bool aIsActive)
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   if (aIsActive &&
       (sCINDItems[CINDType::CALLHELD].value == CallHeldState::ONHOLD_NOACTIVE)) {
     sCINDItems[CINDType::CALLHELD].value = CallHeldState::ONHOLD_ACTIVE;
@@ -859,6 +866,7 @@ void
 BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
                                       const char* aNumber, bool aIsActive)
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   if (GetConnectionStatus() != SocketConnectionStatus::SOCKET_CONNECTED) {
     return;
   }
@@ -869,6 +877,7 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
 void
 BluetoothHfpManager::OnConnectSuccess()
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   // Cache device path for NotifySettings() since we can't get socket address
   // when a headset disconnect with us
   GetSocketAddr(mDevicePath);
@@ -887,6 +896,7 @@ BluetoothHfpManager::OnConnectSuccess()
 void
 BluetoothHfpManager::OnConnectError()
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   CloseSocket();
   mSocketStatus = GetConnectionStatus();
   // If connecting for some reason didn't work, restart listening
@@ -896,6 +906,7 @@ BluetoothHfpManager::OnConnectError()
 void
 BluetoothHfpManager::OnDisconnect()
 {
+  LOG("[Hfp] %s", __FUNCTION__);
   if (mSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
     Listen();
     NotifySettings();
