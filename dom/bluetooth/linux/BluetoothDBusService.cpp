@@ -2090,6 +2090,8 @@ GetDeviceServiceChannel(const nsAString& aObjectPath,
   nsCString tempPattern = NS_ConvertUTF16toUTF8(aPattern);
   const char* pattern = tempPattern.get();
 
+  LOG("[B] aObjectPath: %s", NS_ConvertUTF16toUTF8(aObjectPath).get());
+  LOG("[B] aPattern: %s", NS_ConvertUTF16toUTF8(aPattern).get());
   DBusMessage *reply =
     dbus_func_args(gThreadConnection->GetConnection(),
                    NS_ConvertUTF16toUTF8(aObjectPath).get(),
@@ -2097,8 +2099,9 @@ GetDeviceServiceChannel(const nsAString& aObjectPath,
                    DBUS_TYPE_STRING, &pattern,
                    DBUS_TYPE_UINT16, &aAttributeId,
                    DBUS_TYPE_INVALID);
-
-  return reply ? dbus_returns_int32(reply) : -1;
+  int tmp = reply ? dbus_returns_int32(reply) : -1;
+  LOG("[B] reply: %d", tmp);
+  return tmp;
 #else
   // FIXME/Bug 793977 qdot: Just return something for desktop, until we have a
   // parser for the GetServiceAttributes xml block

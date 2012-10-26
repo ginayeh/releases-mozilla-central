@@ -83,7 +83,9 @@ public:
 };
 
 void
-BluetoothScoManager::NotifyAudioManager(const nsAString& aAddress) {
+BluetoothScoManager::NotifyAudioManager(const nsAString& aAddress)
+{
+  LOG("[Sco] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIObserverService> obs = do_GetService("@mozilla.org/observer-service;1");
@@ -166,6 +168,7 @@ BluetoothScoManager::Cleanup()
 BluetoothScoManager*
 BluetoothScoManager::Get()
 {
+  LOG("[Sco] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   // If we already exist, exit early
@@ -212,6 +215,7 @@ BluetoothScoManager::HandleShutdown()
 bool
 BluetoothScoManager::Connect(const nsAString& aDeviceAddress)
 {
+  LOG("[Sco] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (gInShutdown) {
@@ -283,6 +287,7 @@ BluetoothScoManager::Disconnect()
 void
 BluetoothScoManager::OnConnectSuccess()
 {
+  LOG("[Sco] %s", __FUNCTION__);
   nsString address;
   GetSocketAddr(address);
   NotifyAudioManager(address);
@@ -293,6 +298,7 @@ BluetoothScoManager::OnConnectSuccess()
 void
 BluetoothScoManager::OnConnectError()
 {
+  LOG("[Sco] %s", __FUNCTION__);
   CloseSocket();
   mSocketStatus = GetConnectionStatus();
   Listen();
@@ -301,6 +307,7 @@ BluetoothScoManager::OnConnectError()
 void
 BluetoothScoManager::OnDisconnect()
 {
+  LOG("[Sco] %s", __FUNCTION__);
   if (mSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
     Listen();
 
