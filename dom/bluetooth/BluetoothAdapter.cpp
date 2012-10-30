@@ -7,7 +7,6 @@
 #include "base/basictypes.h"
 #include "BluetoothAdapter.h"
 #include "BluetoothDevice.h"
-#include "BluetoothPropertyEvent.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothService.h"
 #include "BluetoothServiceUuid.h"
@@ -148,7 +147,6 @@ static int kCreatePairedDeviceTimeout = 50000; // unit: msec
 
 BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow* aOwner, const BluetoothValue& aValue)
     : BluetoothPropertyContainer(BluetoothObjectType::TYPE_ADAPTER)
-    , mEnabled(false)
     , mDiscoverable(false)
     , mDiscovering(false)
     , mPairable(false)
@@ -172,8 +170,6 @@ BluetoothAdapter::~BluetoothAdapter()
   BluetoothService* bs = BluetoothService::Get();
   // We can be null on shutdown, where this might happen
   if (bs) {
-    // XXXbent I don't see anything about LOCAL_AGENT_PATH or REMOTE_AGENT_PATH
-    //         here. Probably a bug? Maybe use UnregisterAll.
     bs->UnregisterBluetoothSignalHandler(mPath, this);
   }
   Unroot();
@@ -247,8 +243,6 @@ BluetoothAdapter::SetPropertyByValue(const BluetoothNamedValue& aValue)
     mAddress = value.get_nsString();
   } else if (name.EqualsLiteral("Path")) {
     mPath = value.get_nsString();
-  } else if (name.EqualsLiteral("Enabled")) {
-    mEnabled = value.get_bool();
   } else if (name.EqualsLiteral("Discoverable")) {
     mDiscoverable = value.get_bool();
   } else if (name.EqualsLiteral("Discovering")) {
@@ -349,21 +343,6 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     e->InitBluetoothDeviceAddressEvent(NS_LITERAL_STRING("devicedisappeared"),
                                        false, false, deviceAddress);
     DispatchTrustedEvent(e);
-  } else if (aData.name().EqualsLiteral("DeviceCreated")) {
-	  LOG("[A] Receive event - DeviceCreated");
-    NS_ASSERTION(aData.value().type() == BluetoothValue::TArrayOfBluetoothNamedValue,
-                 "DeviceCreated: Invalid value type");
-
-    nsRefPtr<BluetoothDevice> device = BluetoothDevice::Create(GetOwner(),
-                                                               GetPath(),
-                                                               aData.value());
-    nsCOMPtr<nsIDOMEvent> event;
-    NS_NewDOMBluetoothDeviceEvent(getter_AddRefs(event), nullptr, nullptr);
-
-    nsCOMPtr<nsIDOMBluetoothDeviceEvent> e = do_QueryInterface(event);
-    e->InitBluetoothDeviceEvent(NS_LITERAL_STRING("devicecreated"),
-                                false, false, device);
-    DispatchTrustedEvent(e);
   } else if (aData.name().EqualsLiteral("PropertyChanged")) {
 	  LOG("[A] Receive event - PropertyChanged");
     PrintProperty(aData.name(), aData.value());
@@ -376,8 +355,6 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     BluetoothNamedValue v = arr[0];
 
     SetPropertyByValue(v);
-    nsRefPtr<BluetoothPropertyEvent> e = BluetoothPropertyEvent::Create(v.name());
-    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("propertychanged"));
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -443,14 +420,6 @@ BluetoothAdapter::StopDiscovery(nsIDOMDOMRequest** aRequest)
 {
 	LOGV("[A] %s", __FUNCTION__);
   return StartStopDiscovery(false, aRequest);
-}
-
-NS_IMETHODIMP
-BluetoothAdapter::GetEnabled(bool* aEnabled)
-{
-	LOGV("[A] %s", __FUNCTION__);
-  *aEnabled = mEnabled;
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -981,12 +950,5 @@ BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
   return NS_OK;
 }
 
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisappeared)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicecreated)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestconfirmation)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpincode)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpasskey)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, authorize)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, cancel)

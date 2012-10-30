@@ -6,7 +6,6 @@
 
 #include "base/basictypes.h"
 #include "BluetoothDevice.h"
-#include "BluetoothPropertyEvent.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothService.h"
 #include "BluetoothUtils.h"
@@ -250,13 +249,6 @@ BluetoothDevice::Notify(const BluetoothSignal& aData)
     PrintProperty(name, v.value());
 
     SetPropertyByValue(v);
-    if (name.EqualsLiteral("Connected")) {
-      DispatchTrustedEvent(mConnected ? NS_LITERAL_STRING("connected")
-                           : NS_LITERAL_STRING("disconnected"));
-    } else {
-      nsRefPtr<BluetoothPropertyEvent> e = BluetoothPropertyEvent::Create(name);
-      e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("propertychanged"));
-    }
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -339,7 +331,3 @@ BluetoothDevice::GetServices(JSContext* aCx, jsval* aServices)
   }
   return NS_OK;
 }
-
-NS_IMPL_EVENT_HANDLER(BluetoothDevice, propertychanged)
-NS_IMPL_EVENT_HANDLER(BluetoothDevice, connected)
-NS_IMPL_EVENT_HANDLER(BluetoothDevice, disconnected)
