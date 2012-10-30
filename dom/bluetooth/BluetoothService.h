@@ -166,20 +166,6 @@ public:
                          BluetoothReplyRunnable* aRunnable) = 0;
 
   /**
-   * Fetches the propertes for the specified object
-   *
-   * @param aType Type of the object (see BluetoothObjectType in BluetoothCommon.h)
-   * @param aPath Path of the object
-   * @param aRunnable Runnable to return to after receiving callback
-   *
-   * @return NS_OK on function run, NS_ERROR_FAILURE otherwise
-   */
-  virtual nsresult
-  GetProperties(BluetoothObjectType aType,
-                const nsAString& aPath,
-                BluetoothReplyRunnable* aRunnable) = 0;
-
-  /** 
    * Fetches the propertes for the specified device
    *
    * @param aSignal BluetoothSignal to be distrubuted after retrieving device properties
