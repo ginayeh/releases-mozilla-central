@@ -356,7 +356,6 @@ BluetoothHfpManager::NotifySettings()
   parameters.AppendElement(BluetoothNamedValue(name, v));
 
   name.AssignLiteral("address");
-  GetSocketAddr(mDevicePath);
   v = mDevicePath;
   parameters.AppendElement(BluetoothNamedValue(name, v));
 
@@ -821,7 +820,32 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
 #endif
             break;
         }
-        CloseScoSocket();
+
+        if (aCallIndex == mCurrentCallIndex) {
+#ifdef DEBUG
+          NS_ASSERTION(mCurrentCallStateArray.Length() > aCallIndex,
+            "Call index out of bounds!");
+#endif
+          mCurrentCallStateArray[aCallIndex] = aCallState;
+
+          // Find the first non-disconnected call (like connected, held),
+          // and update mCurrentCallIndex
+          int c;
+          for (c = 1; c < mCurrentCallStateArray.Length(); c++) {
+            if (mCurrentCallStateArray[c] != nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED) {
+              mCurrentCallIndex = c;
+              LOG("[Hfp] not all disconnected, mCurrentCallStateArray[%d]: %d", c, mCurrentCallStateArray[c]);
+              break;
+            }
+          }
+
+          // There is no call 
+          if (c == mCurrentCallStateArray.Length()) {
+            LOG("[Hfp] all disconnected");
+            mCurrentCallIndex = 0;
+            CloseScoSocket();
+          } 
+        }
       }
       break;
     default:
@@ -829,6 +853,7 @@ BluetoothHfpManager::SetupCIND(int aCallIndex, int aCallState, bool aInitial)
       NS_WARNING("Not handling state changed");
       sCINDItems[CINDType::CALL].value = CallState::NO_CALL;
       sCINDItems[CINDType::CALLSETUP].value = CallSetupState::NO_CALLSETUP;
+      sCINDItems[CINDType::CALLHELD].value = CallHeldState::NO_CALLHELD;
 #endif
       break;
   }
@@ -845,13 +870,16 @@ BluetoothHfpManager::EnumerateCallState(int aCallIndex, int aCallState,
                                         const char* aNumber, bool aIsActive)
 {
   LOG("[Hfp] %s", __FUNCTION__);
-  if (aIsActive &&
-      (sCINDItems[CINDType::CALLHELD].value == CallHeldState::ONHOLD_NOACTIVE)) {
-    sCINDItems[CINDType::CALLHELD].value = CallHeldState::ONHOLD_ACTIVE;
-  }
+  SetupCIND(aCallIndex, aCallState, true);
 
-  if (sCINDItems[CINDType::CALL].value || sCINDItems[CINDType::CALLSETUP].value) {
-    return;
+  LOG("[Hfp] CALL: %d, CALLSETUP: %d", sCINDItems[CINDType::CALL].value, sCINDItems[CINDType::CALLSETUP].value);
+
+  if (sCINDItems[CINDType::CALL].value == CallState::IN_PROGRESS ||
+      sCINDItems[CINDType::CALLSETUP].value == CallSetupState::OUTGOING ||
+      sCINDItems[CINDType::CALLSETUP].value == CallSetupState::OUTGOING_ALERTING) {
+    nsString address;
+    GetSocketAddr(address);
+    OpenScoSocket(address);
   }
 
   SetupCIND(aCallIndex, aCallState, true);
@@ -881,14 +909,14 @@ BluetoothHfpManager::OnConnectSuccess()
   // Cache device path for NotifySettings() since we can't get socket address
   // when a headset disconnect with us
   GetSocketAddr(mDevicePath);
-
-  if (mCurrentCallState == nsIRadioInterfaceLayer::CALL_STATE_CONNECTED ||
-      mCurrentCallState == nsIRadioInterfaceLayer::CALL_STATE_DIALING ||
-      mCurrentCallState == nsIRadioInterfaceLayer::CALL_STATE_ALERTING) {
-    OpenScoSocket(mDevicePath);
-  }
-
   mSocketStatus = GetConnectionStatus();
+
+  nsCOMPtr<nsIRILContentHelper> ril =
+    do_GetService("@mozilla.org/ril/content-helper;1");
+  if (!ril) {
+    MOZ_ASSERT("Failed to get RIL Content Helper");
+  }
+  ril->EnumerateCalls(mListener->GetCallback());
 
   NotifySettings();
 }
