@@ -116,34 +116,6 @@ private:
   nsRefPtr<BluetoothManager> mManagerPtr;
 };
 
-class ToggleBtResultTask : public nsRunnable
-{
-public:
-  ToggleBtResultTask(BluetoothManager* aManager, bool aEnabled)
-    : mManagerPtr(aManager),
-      mEnabled(aEnabled)
-  {
-  }
-
-  NS_IMETHOD Run()
-  {
-    LOG("[M] ToggleBtResultTask::Run");
-    MOZ_ASSERT(NS_IsMainThread());
-
-    mManagerPtr->FireEnabledDisabledEvent(mEnabled);
-
-    // mManagerPtr must be null before returning to prevent the background
-    // thread from racing to release it during the destruction of this runnable.
-    mManagerPtr = nullptr;
-
-    return NS_OK;
-  }
-
-private:
-  nsRefPtr<BluetoothManager> mManagerPtr;
-  bool mEnabled;
-};
-
 nsresult
 BluetoothManager::FireEnabledDisabledEvent(bool aEnabled)
 {
