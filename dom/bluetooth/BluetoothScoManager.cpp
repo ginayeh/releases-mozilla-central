@@ -239,7 +239,7 @@ BluetoothScoManager::Connect(const nsAString& aDeviceAddress)
 
   nsresult rv = bs->GetScoSocket(aDeviceAddress,
                                  true,
-                                 false,
+                                 true,
                                  this);
 
   return NS_FAILED(rv) ? false : true;
