@@ -34,7 +34,7 @@ public:
                         const char* aNumber, bool aIsActive);
   void EnumerateCallState(int aCallIndex, int aCallState,
                           const char* aNumber, bool aIsActive);
-  void SetupCIND(int aCallIndex, int aCallState, const char* aNumber, bool aIsActive, bool aInitial);
+  void SetupCIND(int aCallIndex, int aCallState, bool aInitial);
   bool Listen();
 
 private:

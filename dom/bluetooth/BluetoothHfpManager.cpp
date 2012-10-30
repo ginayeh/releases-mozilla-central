@@ -562,7 +562,6 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
       NS_WARNING("Failed to extract volume value from bluetooth headset!");
     }
 
-    int newVgs = ExtractCommandValue(msg, 7);
     if (newVgs == mCurrentVgs) {
       SendLine("OK");
       return;
@@ -983,7 +982,7 @@ BluetoothHfpManager::CallStateChanged(int aCallIndex, int aCallState,
     return;
   }
 
-  SetupCIND(aCallIndex, aCallState, aNumber, aIsActive, false);
+  SetupCIND(aCallIndex, aCallState, false);
 }
 
 void
