@@ -13,29 +13,103 @@ interface nsIDOMBluetoothDevice;
 [scriptable, builtinclass, uuid(1f5fbc49-97a6-4031-9d12-34230498ee7a)]
 interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 {
+  /**
+   * Bluetooth name. It can be changed by calling setName.
+   */
+  readonly attribute DOMString name;
+
+  /**
+   * Bluetooth address, unique for each device, format: xx:xx:xx:xx:xx:xx
+   */
   readonly attribute DOMString address;
+
+  /**
+   * The bluetooth class of device
+   */
   [binaryname(AdapterClass)] readonly attribute unsigned long class;
+
+  /**
+   * Indicates that discovery procedure is active. The discovery procedure can
+   * be started by calling startDiscovery() and stop by calling stopDiscovery()
+   */
   readonly attribute bool discovering;
 
-  [implicit_jscontext]
-  readonly attribute jsval devices;
-
-  [implicit_jscontext]
-  readonly attribute jsval uuids;
-  
-  readonly attribute DOMString name;
+  /**
+   * Indicates that the adapter is visible or hide to other bluetooth devices.
+   * It can be set by calling setDiscoverable()
+   */
   readonly attribute bool discoverable;
-  // Unit: sec
+
+  /**
+   * Back to non-discoverable mode after the time expired (Unit: sec). It can
+   * be set by calling setDiscoverableTimeout()
+   */
   readonly attribute unsigned long discoverableTimeout;
 
+  /**
+   * Array of bluetooth devices
+   */
+  [implicit_jscontext] readonly attribute jsval devices;
+
+  /**
+   * Array of bluetooth service uuids
+   */
+  [implicit_jscontext] readonly attribute jsval uuids;
+
+  /**
+   * Fired when discoverying and any device is discovered
+   */
+  [implicit_jscontext] attribute jsval ondevicefound;
+
+  /**
+   * Fired when any device is out of discoverable range
+   */
+  [implicit_jscontext] attribute jsval ondevicedisappeared;
+
+  /**
+   * Functions for manipulating attributes.
+   */
   nsIDOMDOMRequest setName(in DOMString name);
   nsIDOMDOMRequest setDiscoverable(in bool discoverable);
   nsIDOMDOMRequest setDiscoverableTimeout(in unsigned long timeout);
   nsIDOMDOMRequest startDiscovery();
   nsIDOMDOMRequest stopDiscovery();
+
+  /**
+   * Pair/Unpair with a device
+   *
+   * @param aDevice
+   *        an instance of nsIDOMBluetoothDevice
+   *
+   * If the command is successfully sent to dbus and started, the request's
+   * onsuccess will be called
+   *
+   * Otherwise, the request's onerror will be called
+   */
   nsIDOMDOMRequest pair(in nsIDOMBluetoothDevice aDevice);
   nsIDOMDOMRequest unpair(in nsIDOMBluetoothDevice aDevice);
+
+  /**
+   * Get an array of paired devices
+   *
+   * If successful, the request's onsuccess will be called, and the request's
+   * result will be an array of paired devices
+   *
+   * Otherwise, the request's onerror will be called
+   */
   nsIDOMDOMRequest getPairedDevices();
+
+  /**
+   * Set pairing information
+   *
+   * @param aDeviceAddress Device address
+   * @param aPinCode A string of 1-16 characters length
+   * @param aPasskey A numeric value between 0-999999
+   *
+   * If successful, the request's onsuccess will be called
+   *
+   * Otherwise, the request's onerror will be called
+   */
   nsIDOMDOMRequest setPinCode(in DOMString aDeviceAddress, in DOMString aPinCode);
   nsIDOMDOMRequest setPasskey(in DOMString aDeviceAddress, in unsigned long aPasskey);
   nsIDOMDOMRequest setPairingConfirmation(in DOMString aDeviceAddress, in bool aConfirmation);
@@ -48,17 +122,19 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
    *  
    * @param aDeviceAddress Remote device address
    * @param aProfile 2-octets service UUID
+   *
+   * If successful, the request's onsuccess will be called
+   *
+   * Otherwise, the request's onerror will be called
    */
   nsIDOMDOMRequest connect(in DOMString aDeviceAddress, in unsigned short aProfile);
   nsIDOMDOMRequest disconnect(in unsigned short aProfile);
 
-  // One device can only send one file at a time
+  /**
+   *
+   *
+   */
   nsIDOMDOMRequest sendFile(in DOMString aDeviceAddress, in nsIDOMBlob aBlob);
   nsIDOMDOMRequest stopSendingFile(in DOMString aDeviceAddress);
   nsIDOMDOMRequest confirmReceivingFile(in DOMString aDeviceAddress, in bool aConfirmation);
-
-  // Fired when discoverying and any device is discovered.
-  [implicit_jscontext] attribute jsval ondevicefound;
-  // Fired when any device is out of discoverable range.
-  [implicit_jscontext] attribute jsval ondevicedisappeared;
 };

@@ -9,12 +9,46 @@
 [scriptable, builtinclass, uuid(3a063419-2aee-4ca1-bc3c-1fa0e5fb599e)]
 interface nsIDOMBluetoothDevice : nsIDOMEventTarget
 {
-  readonly attribute DOMString address;
+  /**
+   * Bluetooth name of the remote device
+   */
   readonly attribute DOMString name;
+
+  /**
+   * Bluetooth address of the remote device, unique for each device.
+   * Format: xx:xx:xx:xx:xx:xx
+   */
+  readonly attribute DOMString address;
+
+  /**
+   * Proposed icon name according to the freedesktop.org icon naming
+   * specification
+   */
   readonly attribute DOMString icon;
+
+  /**
+   * The bluetooth class of device of the remote device
+   */
   [binaryname(DeviceClass)] readonly attribute unsigned long class;
+
+  /**
+   * Array of bluetooth service uuids(128-bit) represents the available remote
+   * services
+   */
   [implicit_jscontext] readonly attribute jsval uuids;
+
+  /**
+   * Array of object path represents characteristics based services
+   */
   [implicit_jscontext] readonly attribute jsval services;
+
+  /**
+   * Indicates if the remote device is (ACL-level) connected
+   */
   readonly attribute bool connected;
+
+  /**
+   * Indicates if the remote device is paired
+   */
   readonly attribute bool paired;
 };

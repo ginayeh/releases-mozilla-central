@@ -581,7 +581,8 @@ BluetoothAdapter::PairUnpair(bool aPair,
     return NS_ERROR_FAILURE;
   }
 
-  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
+  nsCOMPtr<nsIDOMRequestService> rs =
+    do_GetService("@mozilla.org/dom/dom-request-service;1");
   if (!rs) {
     NS_WARNING("No DOMRequest Service!");
     return NS_ERROR_FAILURE;
@@ -717,7 +718,8 @@ BluetoothAdapter::SetPairingConfirmation(const nsAString& aDeviceAddress,
     return NS_ERROR_FAILURE;
   }
 
-  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
+  nsCOMPtr<nsIDOMRequestService> rs =
+    do_GetService("@mozilla.org/dom/dom-request-service;1");
   if (!rs) {
     NS_WARNING("No DOMRequest Service!");
     return NS_ERROR_FAILURE;
@@ -730,7 +732,8 @@ BluetoothAdapter::SetPairingConfirmation(const nsAString& aDeviceAddress,
     return NS_ERROR_FAILURE;
   }
 
-  nsRefPtr<BluetoothVoidReplyRunnable> results = new BluetoothVoidReplyRunnable(req);
+  nsRefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(req);
 
   bool result = bs->SetPairingConfirmationInternal(aDeviceAddress, aConfirmation, results);
   if(!result) {
