@@ -248,30 +248,6 @@ CloseScoSocket()
   sco->Disconnect();
 }
 
-int
-ExtractCommandValue(const char* aMessage, const int aStart)
-{
-  int index = aStart;
-  int length = strlen(aMessage) - index;
-  LOG("[Hfp] length: %d", length);
-
-  // HS volume range: [0, 15]
-  int value = aMessage[index++] - '0';
-  LOG("[Hfp] initial value: %d", value);
-  while (--length) {
-    char tmp = aMessage[index++];
-    LOG("[Hfp] tmp: %c", tmp);
-    if (tmp < '0'|| tmp > '9') {
-      continue;
-    }
-    value *= 10;
-    value += tmp - '0';
-    LOG("[Hfp] value: %d", value);
-  }
-  LOG("[Hfp] final value: %d", value);
-  return value;
-}
-
 BluetoothHfpManager::BluetoothHfpManager()
   : mCurrentCallIndex(0)
   , mReceiveVgsFlag(false)

@@ -1281,39 +1281,6 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
     } else {
       v = NS_ConvertUTF8toUTF16(str);
     }
-/*  } else if (dbus_message_is_signal(aMsg, DBUS_ADAPTER_IFACE, "DeviceCreated")) {
-    LOG("[B] Receive event - DeviceCreated");
-    const char* str;
-    if (!dbus_message_get_args(aMsg, &err,
-                               DBUS_TYPE_OBJECT_PATH, &str,
-                               DBUS_TYPE_INVALID)) {
-      LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, aMsg);
-      errorStr.AssignLiteral("Cannot parse device path!");
-    } else {
-      v = NS_ConvertUTF8toUTF16(str);
-    }
-
-    BluetoothSignal signal(signalName, signalPath, v);
-
-    // Fire a Device properties fetcher at the main thread
-    nsRefPtr<DevicePropertiesSignalHandler> b =
-      new DevicePropertiesSignalHandler(signal);
-    if (NS_FAILED(NS_DispatchToMainThread(b))) {
-      NS_WARNING("Failed to dispatch to main thread!");
-    }
-    // Since we're handling this in other threads, just fall out here
-    return DBUS_HANDLER_RESULT_HANDLED;
-  } else if (dbus_message_is_signal(aMsg, DBUS_ADAPTER_IFACE, "DeviceRemoved")) {
-    LOG("[B] Receive event - DeviceRemoved");
-    const char* str;
-    if (!dbus_message_get_args(aMsg, &err,
-                               DBUS_TYPE_OBJECT_PATH, &str,
-                               DBUS_TYPE_INVALID)) {
-      LOG_AND_FREE_DBUS_ERROR_WITH_MSG(&err, aMsg);
-      errorStr.AssignLiteral("Cannot parse device path!");
-    } else {
-      v = NS_ConvertUTF8toUTF16(str);
-    }*/
   } else if (dbus_message_is_signal(aMsg, DBUS_ADAPTER_IFACE, "PropertyChanged")) {
     LOG("[B] Receive event - Adapter, PropertyChanged");
     ParsePropertyChange(aMsg,
