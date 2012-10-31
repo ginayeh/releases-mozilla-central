@@ -16,8 +16,8 @@ nsresult
 BluetoothPropertyContainer::FirePropertyAlreadySet(nsIDOMWindow* aOwner,
                                                    nsIDOMDOMRequest** aRequest)
 {
-  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
-    
+  nsCOMPtr<nsIDOMRequestService> rs =
+    do_GetService("@mozilla.org/dom/dom-request-service;1");
   if (!rs) {
     NS_WARNING("No DOMRequest Service!");
     return NS_ERROR_FAILURE;
@@ -45,8 +45,9 @@ BluetoothPropertyContainer::SetProperty(nsIDOMWindow* aOwner,
     NS_WARNING("Bluetooth service not available!");
     return NS_ERROR_FAILURE;
   }
-  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
-    
+
+  nsCOMPtr<nsIDOMRequestService> rs =
+    do_GetService("@mozilla.org/dom/dom-request-service;1");
   if (!rs) {
     NS_WARNING("No DOMRequest Service!");
     return NS_ERROR_FAILURE;

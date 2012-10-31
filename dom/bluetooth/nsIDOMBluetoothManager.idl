@@ -12,11 +12,34 @@ interface nsIDOMBluetoothAdapter;
 [scriptable, builtinclass, uuid(d27ec867-949f-4585-b718-d2352e420ec6)]
 interface nsIDOMBluetoothManager : nsIDOMEventTarget
 {
+  /**
+   * Indicate whether bluetooth is enabled(true) or disabled(false)
+   */
   readonly attribute bool enabled;
 
+  /**
+   * Get default adapter
+   *
+   * If successful, the request's onsuccess will be called, and the request's
+   * result will be an instance of nsIDOMBluetoothAdapter.
+   *
+   * Otherwise, the request's onerror will be called, and the request's error
+   * will be a DOMString representing the error message
+   */
   nsIDOMDOMRequest getDefaultAdapter();
 
+  /**
+   * Fired when bluetooth is switched on
+   */
   [implicit_jscontext] attribute jsval onenabled;
+
+  /**
+   * Fired when bluetooth is switched off
+   */
   [implicit_jscontext] attribute jsval ondisabled;
+
+  /**
+   * Fired when adapter is ready and can start to get default adapter
+   */
   [implicit_jscontext] attribute jsval onadapteradded;
 };
