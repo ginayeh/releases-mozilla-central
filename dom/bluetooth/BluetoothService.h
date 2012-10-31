@@ -165,7 +165,7 @@ public:
   StartDiscoveryInternal(const nsAString& aAdapterPath,
                          BluetoothReplyRunnable* aRunnable) = 0;
 
-  /** 
+  /**
    * Fetches the propertes for the specified device
    *
    * @param aSignal BluetoothSignal to be distrubuted after retrieving device properties
