@@ -82,6 +82,7 @@ public:
     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
     if (v.type() != BluetoothValue::TArrayOfBluetoothNamedValue) {
       NS_WARNING("Not a BluetoothNamedValue array!");
+      SetError(NS_LITERAL_STRING("BluetoothReplyTypeError"));
       return false;
     }
 
@@ -105,9 +106,10 @@ public:
     if (NS_FAILED(rv)) {
       NS_WARNING("Cannot create native object!");
       SetError(NS_LITERAL_STRING("BluetoothNativeObjectError"));
+      return false;
     }
 
-    return NS_FAILED(rv) ? false : true;
+    return true;
   }
 
   void

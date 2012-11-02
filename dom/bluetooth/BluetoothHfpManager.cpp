@@ -554,6 +554,7 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     volume = ceil((float)newVgs / 15.0 * 10.0);
     data.AppendInt(volume);
     os->NotifyObservers(nullptr, "bluetooth-volume-change", data.get());
+    LOG("[Hfp] notify observers of 'bluetooth-volume-change' with a value of %d", volume);
 
     SendLine("OK");
   } else if (!strncmp(msg, "AT+BLDN", 7)) {

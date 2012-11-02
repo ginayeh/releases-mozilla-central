@@ -12,6 +12,7 @@
 #include "BluetoothParent.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothServiceChildProcess.h"
+#include "BluetoothUtils.h"
 
 #include "jsapi.h"
 #include "mozilla/Services.h"
@@ -740,45 +741,10 @@ BluetoothService::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_ERROR_UNEXPECTED;
 }
 
-bool
-SetJsObject(JSContext* aContext,
-            JSObject* aObj,
-            const InfallibleTArray<BluetoothNamedValue>& aData)
-{
-  LOG("[S] %s", __FUNCTION__);
-  for (uint32_t i = 0; i < aData.Length(); i++) {
-    jsval v;
-    if (aData[i].value().type() == BluetoothValue::TnsString) {
-      nsString data = aData[i].value().get_nsString();
-      JSString* JsData = JS_NewStringCopyN(aContext,
-                                           NS_ConvertUTF16toUTF8(data).get(),
-                                           data.Length());
-      NS_ENSURE_TRUE(JsData, false);
-      v = STRING_TO_JSVAL(JsData);
-    } else if (aData[i].value().type() == BluetoothValue::Tuint32_t) {
-      int data = aData[i].value().get_uint32_t();
-      v = INT_TO_JSVAL(data);
-    } else if (aData[i].value().type() == BluetoothValue::Tbool) {
-      bool data = aData[i].value().get_bool();
-      v = BOOLEAN_TO_JSVAL(data);
-    } else {
-      NS_WARNING("SetJsObject: Parameter is not handled");
-    }
-
-    if (!JS_SetProperty(aContext, aObj,
-                        NS_ConvertUTF16toUTF8(aData[i].name()).get(),
-                        &v)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 void
 BluetoothService::Notify(const BluetoothSignal& aData)
 {
   LOG("[S] %s", __FUNCTION__);
-  InfallibleTArray<BluetoothNamedValue> arr = aData.value().get_ArrayOfBluetoothNamedValue();
   nsString type;
 
   JSContext* cx = nsContentUtils::GetSafeJSContext();
@@ -792,8 +758,7 @@ BluetoothService::Notify(const BluetoothSignal& aData)
     return;
   }
 
-  bool ok = SetJsObject(cx, obj, arr);
-  if (!ok) {
+  if (NS_FAILED(SetJsObject(cx, aData.value(), obj))) {
     NS_WARNING("Failed to set properties of system message!");
     return;
   }
