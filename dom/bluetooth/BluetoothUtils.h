@@ -11,16 +11,17 @@
 
 class JSContext;
 class JSObject;
+class nsIScriptContext;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
-class BluetoothDevice;
 class BluetoothNamedValue;
+class BluetoothValue;
 
-bool
+nsresult
 SetJsObject(JSContext* aContext,
-            JSObject* aObj,
-            const InfallibleTArray<BluetoothNamedValue>& aData);
+            const BluetoothValue& aValue,
+            JSObject* aObj);
 
 nsString
 GetObjectPathFromAddress(const nsAString& aAdapterPath,
