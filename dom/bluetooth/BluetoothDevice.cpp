@@ -217,16 +217,14 @@ BluetoothDevice::Create(nsPIDOMWindow* aOwner,
                         const BluetoothValue& aValue)
 {
   LOG("[D] %s", __FUNCTION__);
-  // Make sure we at least have a service
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aWindow);
+
+  nsRefPtr<BluetoothDevice> device =
+    new BluetoothDevice(aOwner, aAdapterPath, aValue);
+
   BluetoothService* bs = BluetoothService::Get();
-  if (!bs) {
-    NS_WARNING("BluetoothService not available!");
-    return nullptr;
-  }
-
-  nsRefPtr<BluetoothDevice> device = new BluetoothDevice(aOwner, aAdapterPath,
-                                                         aValue);
-
+  NS_ENSURE_TRUE(bs, nullptr);
   bs->RegisterBluetoothSignalHandler(device->mPath, device);
 
   return device.forget();
@@ -236,19 +234,20 @@ void
 BluetoothDevice::Notify(const BluetoothSignal& aData)
 {
   LOG("[D] %s", __FUNCTION__);
+  BluetoothValue v = aData.value();
   if (aData.name().EqualsLiteral("PropertyChanged")) {
-    NS_ASSERTION(aData.value().type() == BluetoothValue::TArrayOfBluetoothNamedValue,
+    NS_ASSERTION(v.type() == BluetoothValue::TArrayOfBluetoothNamedValue,
                  "PropertyChanged: Invalid value type");
-    InfallibleTArray<BluetoothNamedValue> arr = aData.value().get_ArrayOfBluetoothNamedValue();
+    InfallibleTArray<BluetoothNamedValue> arr =
+      v.get_ArrayOfBluetoothNamedValue();
 
-    NS_ASSERTION(arr.Length() == 1, "Got more than one property in a change message!");
-    BluetoothNamedValue v = arr[0];
-    nsString name = v.name();
+    NS_ASSERTION(arr.Length() == 1,
+                 "Got more than one property in a change message!");
+    BluetoothNamedValue property = arr[0];
+    SetPropertyByValue(property);
 
     LOG("[D] Receive event - PropertyChanged");
-    PrintProperty(name, v.value());
-
-    SetPropertyByValue(v);
+    PrintProperty(property.name(), property.value());
   } else {
 #ifdef DEBUG
     nsCString warningMsg;

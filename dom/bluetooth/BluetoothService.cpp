@@ -224,7 +224,7 @@ public:
     MOZ_ASSERT(NS_IsMainThread());
 
     if (!aResult.isBoolean()) {
-      NS_WARNING("Setting for '" BLUETOOTH_ENABLED_SETTING "' is not a boolean!");
+      NS_WARNING("'" BLUETOOTH_ENABLED_SETTING "' is not a boolean!");
       return NS_OK;
     }
 
@@ -296,8 +296,6 @@ BluetoothService::Init()
     return false;
   }
 
-  mRegisteredForLocalAgent = true;
-
   return true;
 }
 
@@ -307,11 +305,7 @@ BluetoothService::Cleanup()
   LOGV("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (mRegisteredForLocalAgent) {
-    UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
-    UnregisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
-    mRegisteredForLocalAgent = false;
-  }
+  mBluetoothSignalObserverTable.Clear();
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (obs &&
@@ -323,7 +317,7 @@ BluetoothService::Cleanup()
 
 void
 BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
-                                                 BluetoothSignalObserver* aHandler)
+                                              BluetoothSignalObserver* aHandler)
 {
   LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get());
   MOZ_ASSERT(NS_IsMainThread());
@@ -339,7 +333,7 @@ BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
 
 void
 BluetoothService::UnregisterBluetoothSignalHandler(const nsAString& aNodeName,
-                                                   BluetoothSignalObserver* aHandler)
+                                              BluetoothSignalObserver* aHandler)
 {
   LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get());
   MOZ_ASSERT(NS_IsMainThread());
@@ -372,6 +366,7 @@ BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
 {
   LOG("[S] %s '%s' to %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aSignal.name()).get(), NS_ConvertUTF16toUTF8(aSignal.path()).get());
   MOZ_ASSERT(NS_IsMainThread());
+
   // Notify observers that a message has been sent
   BluetoothSignalObserverList* ol;
   if (!mBluetoothSignalObserverTable.Get(aSignal.path(), &ol)) {
@@ -408,7 +403,6 @@ BluetoothService::StartStopBluetooth(bool aStart)
   }
 
   nsresult rv;
-
   if (!mBluetoothCommandThread) {
     MOZ_ASSERT(!gInShutdown);
 
@@ -417,6 +411,8 @@ BluetoothService::StartStopBluetooth(bool aStart)
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
+  // Skip when BluetoothManager has been registered in constructor
+  // Re-register here after toggling due to table mBluetoothSignalObserverTable was cleared
   if (aStart) {
     RegisterBluetoothSignalHandler(NS_LITERAL_STRING(LOCAL_AGENT_PATH), this);
     RegisterBluetoothSignalHandler(NS_LITERAL_STRING(REMOTE_AGENT_PATH), this);
