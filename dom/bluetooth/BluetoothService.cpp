@@ -798,10 +798,7 @@ BluetoothService::Notify(const BluetoothSignal& aData)
 
   nsCOMPtr<nsISystemMessagesInternal> systemMessenger =
     do_GetService("@mozilla.org/system-message-internal;1");
+  NS_ENSURE_TRUE_VOID(systemMessenger);
 
-  if (!systemMessenger) {
-    NS_WARNING("Failed to get SystemMessenger service!");
-    return;
-  }
   systemMessenger->BroadcastMessage(type, OBJECT_TO_JSVAL(obj));
 }

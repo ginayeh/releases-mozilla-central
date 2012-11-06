@@ -35,12 +35,7 @@ BluetoothReplyRunnable::FireReply(const jsval& aVal)
 {
   nsCOMPtr<nsIDOMRequestService> rs =
     do_GetService("@mozilla.org/dom/dom-request-service;1");
-  
-  if (!rs) {
-    NS_WARNING("No DOMRequest Service!");
-    return NS_ERROR_FAILURE;
-  }
-  
+  NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);  
   
   return mReply->type() == BluetoothReply::TBluetoothReplySuccess ?
     rs->FireSuccessAsync(mDOMRequest, aVal) :
@@ -52,11 +47,7 @@ BluetoothReplyRunnable::FireErrorString()
 {
   nsCOMPtr<nsIDOMRequestService> rs =
     do_GetService("@mozilla.org/dom/dom-request-service;1");
-  
-  if (!rs) {
-    NS_WARNING("No DOMRequest Service!");
-    return NS_ERROR_FAILURE;
-  }
+  NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);  
   
   return rs->FireErrorAsync(mDOMRequest, mErrorString);
 }

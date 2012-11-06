@@ -276,11 +276,10 @@ BluetoothHfpManager::Init()
   }
 
   float volume;
-  nsCOMPtr<nsIAudioManager> am = do_GetService("@mozilla.org/telephony/audiomanager;1");
-  if (!am) {
-    NS_WARNING("Failed to get AudioManager Service!");
-    return false;
-  }
+  nsCOMPtr<nsIAudioManager> am =
+    do_GetService("@mozilla.org/telephony/audiomanager;1");
+  NS_ENSURE_TRUE(am, false);
+
   am->GetMasterVolume(&volume);
 
   // AG volume range: [0.0, 1.0]
@@ -955,9 +954,8 @@ BluetoothHfpManager::OnConnectSuccess()
 
   nsCOMPtr<nsIRILContentHelper> ril =
     do_GetService("@mozilla.org/ril/content-helper;1");
-  if (!ril) {
-    MOZ_ASSERT("Failed to get RIL Content Helper");
-  }
+  NS_ENSURE_TRUE_VOID(ril);
+
   ril->EnumerateCalls(mListener->GetCallback());
 
   NotifySettings();

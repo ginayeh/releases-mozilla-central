@@ -140,6 +140,7 @@ mozilla::dom::bluetooth::BroadcastSystemMessage(
   nsCOMPtr<nsISystemMessagesInternal> systemMessenger =
     do_GetService("@mozilla.org/system-message-internal;1");
   NS_ENSURE_TRUE(systemMessenger, false);
+
   systemMessenger->BroadcastMessage(aType, OBJECT_TO_JSVAL(obj));
 
   return true;

@@ -66,11 +66,9 @@ BluetoothRilListener::BluetoothRilListener()
 bool
 BluetoothRilListener::StartListening()
 {
-  nsCOMPtr<nsIRILContentHelper> ril = do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
-  if (!ril) {
-    NS_ERROR("No RIL Service!");
-    return false;
-  }
+  nsCOMPtr<nsIRILContentHelper> ril =
+    do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
+  NS_ENSURE_TRUE(ril, false);
 
   nsresult rv = ril->RegisterTelephonyCallback(mRILTelephonyCallback);
 
@@ -80,11 +78,9 @@ BluetoothRilListener::StartListening()
 bool
 BluetoothRilListener::StopListening()
 {
-  nsCOMPtr<nsIRILContentHelper> ril = do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
-  if (!ril) {
-    NS_ERROR("No RIL Service!");
-    return false;
-  }
+  nsCOMPtr<nsIRILContentHelper> ril =
+    do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
+  NS_ENSURE_TRUE(ril, false);
 
   nsresult rv = ril->UnregisterTelephonyCallback(mRILTelephonyCallback);
 
