@@ -11,10 +11,8 @@
 #include "BluetoothUtils.h"
 #include "BluetoothServiceUuid.h"
 
-#include "nsIDOMDOMRequest.h"
 #include "nsDOMClassInfo.h"
 #include "nsContentUtils.h"
-//#include "nsTArrayHelpers.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
 #undef LOG

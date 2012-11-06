@@ -6,7 +6,7 @@
 
 #include "base/basictypes.h"
 #include "BluetoothReplyRunnable.h"
-#include "nsIDOMDOMRequest.h"
+#include "DOMRequest.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
 USING_BLUETOOTH_NAMESPACE
@@ -34,7 +34,7 @@ nsresult
 BluetoothReplyRunnable::FireReply(const jsval& aVal)
 {
   nsCOMPtr<nsIDOMRequestService> rs =
-    do_GetService("@mozilla.org/dom/dom-request-service;1");
+    do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);  
   
   return mReply->type() == BluetoothReply::TBluetoothReplySuccess ?

@@ -18,7 +18,7 @@
 #include "nsDOMEvent.h"
 #include "nsIDOMBluetoothDeviceAddressEvent.h"
 #include "nsIDOMBluetoothDeviceEvent.h"
-#include "nsIDOMDOMRequest.h"
+#include "DOMRequest.h"
 #include "nsTArrayHelpers.h"
 #include "nsThreadUtils.h"
 #include "nsXPCOMCIDInternal.h"
@@ -158,7 +158,7 @@ PrepareDOMRequest(nsIDOMWindow* aWindow, nsIDOMDOMRequest** aRequest)
   MOZ_ASSERT(aWindow);
 
   nsCOMPtr<nsIDOMRequestService> rs =
-    do_GetService("@mozilla.org/dom/dom-request-service;1");
+    do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
 
   nsresult rv = rs->CreateRequest(aWindow, aRequest);

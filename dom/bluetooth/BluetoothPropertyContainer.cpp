@@ -7,7 +7,7 @@
 #include "base/basictypes.h"
 #include "BluetoothPropertyContainer.h"
 #include "BluetoothService.h"
-#include "nsIDOMDOMRequest.h"
+#include "DOMRequest.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
 USING_BLUETOOTH_NAMESPACE
@@ -17,7 +17,7 @@ BluetoothPropertyContainer::FirePropertyAlreadySet(nsIDOMWindow* aOwner,
                                                    nsIDOMDOMRequest** aRequest)
 {
   nsCOMPtr<nsIDOMRequestService> rs =
-    do_GetService("@mozilla.org/dom/dom-request-service;1");
+    do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
 
   nsCOMPtr<nsIDOMDOMRequest> req;
@@ -44,7 +44,7 @@ BluetoothPropertyContainer::SetProperty(nsIDOMWindow* aOwner,
   }
 
   nsCOMPtr<nsIDOMRequestService> rs =
-    do_GetService("@mozilla.org/dom/dom-request-service;1");
+    do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
 
   nsCOMPtr<nsIDOMDOMRequest> req;

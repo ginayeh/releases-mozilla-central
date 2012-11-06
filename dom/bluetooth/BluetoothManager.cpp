@@ -14,7 +14,7 @@
 #include "nsContentUtils.h"
 #include "nsDOMClassInfo.h"
 #include "nsDOMEvent.h"
-#include "nsIDOMDOMRequest.h"
+#include "DOMRequest.h"
 #include "nsIPermissionManager.h"
 #include "nsThreadUtils.h"
 #include "nsXPCOMCIDInternal.h"
@@ -211,7 +211,7 @@ BluetoothManager::GetDefaultAdapter(nsIDOMDOMRequest** aAdapter)
 {
   LOG("[M] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMRequestService> rs =
-    do_GetService("@mozilla.org/dom/dom-request-service;1");
+    do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
 
   nsCOMPtr<nsIDOMDOMRequest> request;

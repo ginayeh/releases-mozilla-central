@@ -23,7 +23,6 @@
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "mozilla/ipc/UnixSocket.h"
 #include "nsContentUtils.h"
-#include "nsIDOMDOMRequest.h"
 #include "nsIObserverService.h"
 #include "nsISettingsService.h"
 #include "nsISystemMessagesInternal.h"

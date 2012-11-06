@@ -29,9 +29,7 @@
 #include <cstdio>
 #include <dbus/dbus.h>
 
-#include "nsIDOMDOMRequest.h"
-#include "nsIObserverService.h"
-#include "AudioManager.h"
+//#include "nsIObserverService.h"
 #include "nsAutoPtr.h"
 #include "nsThreadUtils.h"
 #include "nsDebug.h"
