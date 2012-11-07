@@ -13,11 +13,9 @@
 
 #include "nsContentUtils.h"
 #include "nsDOMClassInfo.h"
-#include "nsDOMEvent.h"
 #include "DOMRequest.h"
 #include "nsIPermissionManager.h"
 #include "nsThreadUtils.h"
-#include "nsXPCOMCIDInternal.h"
 #include "mozilla/Util.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 

@@ -2424,6 +2424,7 @@ public:
   nsresult
   Run()
   {
+    LOG("[B] ConnectBluetoothSocketRunnable::Run");
     MOZ_ASSERT(NS_IsMainThread());
 
     nsString address = GetAddressFromObjectPath(mObjectPath);
@@ -2479,7 +2480,7 @@ public:
     int channel = GetDeviceServiceChannel(mObjectPath, mServiceUUID, 0x0004);
     BluetoothValue v;
     nsString replyError;
-    if(channel < 0) {
+    if (channel < 0) {
       replyError.AssignLiteral("DeviceChannelRetrievalError");
       DispatchBluetoothReply(mRunnable, v, replyError);
       return NS_OK;

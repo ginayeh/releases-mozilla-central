@@ -15,13 +15,11 @@
 
 #include "nsContentUtils.h"
 #include "nsDOMClassInfo.h"
-#include "nsDOMEvent.h"
 #include "nsIDOMBluetoothDeviceAddressEvent.h"
 #include "nsIDOMBluetoothDeviceEvent.h"
-#include "DOMRequest.h"
 #include "nsTArrayHelpers.h"
+#include "DOMRequest.h"
 #include "nsThreadUtils.h"
-#include "nsXPCOMCIDInternal.h"
 
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "mozilla/dom/ContentChild.h"
