@@ -197,15 +197,12 @@ public:
     MOZ_ASSERT(NS_IsMainThread());
     LOG("[Hfp] SendRingIndicatorTask::Run");
 
-    if (sStopSendingRingFlag) {
-      return;
-    }
+    NS_ENSURE_FALSE(sStopSendingRingFlag);
 
     if (!gBluetoothHfpManager) {
       NS_WARNING("BluetoothHfpManager no longer exists, cannot send ring!");
       return;
     }
-
     gBluetoothHfpManager->SendLine("RING");
 
     MessageLoop::current()->
@@ -279,7 +276,6 @@ BluetoothHfpManager::Init()
   nsCOMPtr<nsIAudioManager> am =
     do_GetService("@mozilla.org/telephony/audiomanager;1");
   NS_ENSURE_TRUE(am, false);
-
   am->GetMasterVolume(&volume);
 
   // AG volume range: [0.0, 1.0]
@@ -348,11 +344,8 @@ BluetoothHfpManager::NotifySettings()
   type.AssignLiteral("bluetooth-hfp-status-changed");
 
   name.AssignLiteral("connected");
-  if (GetConnectionStatus() == SocketConnectionStatus::SOCKET_CONNECTED) {
-    v = true;
-  } else {
-    v = false;
-  }
+  v = (GetConnectionStatus() == SocketConnectionStatus::SOCKET_CONNECTED)
+    ? true : false ;
   parameters.AppendElement(BluetoothNamedValue(name, v));
 
   name.AssignLiteral("address");
@@ -360,7 +353,7 @@ BluetoothHfpManager::NotifySettings()
   parameters.AppendElement(BluetoothNamedValue(name, v));
 
   if (!BroadcastSystemMessage(type, parameters)) {
-    NS_WARNING("Failed to broadcast system message to dialer");
+    NS_WARNING("Failed to broadcast system message to settings");
     return;
   }
 }
@@ -396,6 +389,7 @@ BluetoothHfpManager::HandleVolumeChanged(const nsAString& aData)
 
   JSContext* cx = nsContentUtils::GetSafeJSContext();
   if (!cx) {
+    NS_WARNING("Failed to get JSContext");
     return NS_OK;
   }
 
@@ -445,15 +439,16 @@ BluetoothHfpManager::HandleVolumeChanged(const nsAString& aData)
   float volume = value.toNumber();
   mCurrentVgs = floor(volume * 15);
 
+  // Adjust volume by headset and we don't have to send volume back to headset
   if (mReceiveVgsFlag) {
     mReceiveVgsFlag = false;
     return NS_OK;
   }
 
+  // Only send volume back when there's a connected headset
   if (GetConnectionStatus() != SocketConnectionStatus::SOCKET_CONNECTED) {
     return NS_OK;
   }
-
   SendCommand("+VGS: ", mCurrentVgs);
 
   return NS_OK;
@@ -525,6 +520,7 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     }
     SendLine("OK");
   } else if (!strncmp(msg, "AT+VGS=", 7)) {
+    // Adjust volume by headset
     mReceiveVgsFlag = true;
 
     int length = strlen(msg) - 8;
@@ -938,6 +934,8 @@ void
 BluetoothHfpManager::OnConnectSuccess()
 {
   LOG("[Hfp] %s", __FUNCTION__);
+
+  // For active connection request, we need to reply the DOMRequest
   if (mRunnable) {
     BluetoothReply* reply = new BluetoothReply(BluetoothReplySuccess(true));
     mRunnable->SetReply(reply);
@@ -955,7 +953,6 @@ BluetoothHfpManager::OnConnectSuccess()
   nsCOMPtr<nsIRILContentHelper> ril =
     do_GetService("@mozilla.org/ril/content-helper;1");
   NS_ENSURE_TRUE_VOID(ril);
-
   ril->EnumerateCalls(mListener->GetCallback());
 
   NotifySettings();
@@ -965,6 +962,8 @@ void
 BluetoothHfpManager::OnConnectError()
 {
   LOG("[Hfp] %s", __FUNCTION__);
+
+  // For active connection request, we need to reply the DOMRequest
   if (mRunnable) {
     nsString errorStr;
     errorStr.AssignLiteral("Failed to connect with a bluetooth headset!");
@@ -976,10 +975,9 @@ BluetoothHfpManager::OnConnectError()
     mRunnable.forget();
   }
 
-  LOG("[Hfp] %s", __FUNCTION__);
+  // If connecting for some reason didn't work, restart listening
   CloseSocket();
   mSocketStatus = GetConnectionStatus();
-  // If connecting for some reason didn't work, restart listening
   Listen();
 }
 
@@ -987,6 +985,9 @@ void
 BluetoothHfpManager::OnDisconnect()
 {
   LOG("[Hfp] %s", __FUNCTION__);
+
+  // When we close a connected socket, then restart listening again and 
+  // notify Settings app.
   if (mSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
     Listen();
     NotifySettings();

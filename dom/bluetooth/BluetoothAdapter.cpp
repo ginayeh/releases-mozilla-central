@@ -579,7 +579,7 @@ BluetoothAdapter::PairUnpair(bool aPair,
                              nsIDOMBluetoothDevice* aDevice,
                              nsIDOMDOMRequest** aRequest)
 {
-	LOG("[A] %s", __FUNCTION__);
+  LOG("[A] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMDOMRequest> req;
   PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
   nsRefPtr<BluetoothVoidReplyRunnable> results =

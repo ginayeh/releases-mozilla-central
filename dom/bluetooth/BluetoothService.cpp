@@ -29,8 +29,6 @@
 #include "nsITimer.h"
 #include "nsThreadUtils.h"
 #include "nsXPCOM.h"
-#include "nsXPCOMCIDInternal.h"
-#include "nsXULAppAPI.h"
 
 #if defined(MOZ_B2G_BT)
 # if defined(MOZ_BLUETOOTH_GONK)
@@ -583,7 +581,6 @@ BluetoothService::HandleSettingsChanged(const nsAString& aData)
   }
 
   nsresult rv;
-
   if (IsEnabled()) {
     rv = StartStopBluetooth(false);
     NS_ENSURE_SUCCESS(rv, rv);
