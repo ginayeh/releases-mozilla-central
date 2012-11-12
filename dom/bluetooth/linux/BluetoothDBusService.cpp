@@ -77,7 +77,6 @@ USING_BLUETOOTH_NAMESPACE
 #define LOG(args...) if (BTDEBUG) printf(args);
 #endif
 
-
 #define B2G_AGENT_CAPABILITIES "DisplayYesNo"
 #define DBUS_MANAGER_IFACE BLUEZ_DBUS_BASE_IFC ".Manager"
 #define DBUS_ADAPTER_IFACE BLUEZ_DBUS_BASE_IFC ".Adapter"
@@ -211,7 +210,7 @@ public:
     // thread and then back out to the command thread. There has to be a better
     // way to do this.
     if (NS_FAILED(bs->PrepareAdapterInternal(mPath))) {
-      NS_WARNING("prepare adapter failed");
+      NS_WARNING("Prepare adapter failed");
       return NS_ERROR_FAILURE;
     }
     return NS_OK;
@@ -236,21 +235,19 @@ public:
 
     // Get device properties and then send to BluetoothAdapter
     BluetoothService* bs = BluetoothService::Get();
-    if (!bs) {
-      NS_WARNING("BluetoothService not available!");
-      return NS_ERROR_FAILURE;
-    }
+    NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
 
     // Due to the fact that we need to queue the dbus call to the command thread
     // inside the bluetoothservice, we have to route the call down to the main
     // thread and then back out to the command thread. There has to be a better
     // way to do this.
     if (NS_FAILED(bs->GetDevicePropertiesInternal(mSignal))) {
-      NS_WARNING("get properties failed");
+      NS_WARNING("Get device properties failed");
       return NS_ERROR_FAILURE;
     }
     return NS_OK;
   }
+
 private:
   BluetoothSignal mSignal;
 };
@@ -293,6 +290,8 @@ DispatchBluetoothReply(BluetoothReplyRunnable* aRunnable,
                        const BluetoothValue& aValue, const nsAString& aErrorStr)
 {
   LOGV("[B] %s", __FUNCTION__);
+  MOZ_ASSERT(aRunnable);
+
   // Reply will be deleted by the runnable after running on main thread
   BluetoothReply* reply;
   if (!aErrorStr.IsEmpty()) {
@@ -314,6 +313,8 @@ UnpackIntMessage(DBusMessage* aMsg, DBusError* aErr,
                  BluetoothValue& aValue, nsAString& aErrorStr)
 {
   LOGV("[B] %s", __FUNCTION__);
+  MOZ_ASSERT(aMsg);
+
   DBusError err;
   dbus_error_init(&err);
   if (!IsDBusMessageError(aMsg, aErr, aErrorStr)) {

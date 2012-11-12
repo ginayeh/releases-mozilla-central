@@ -197,7 +197,7 @@ public:
     MOZ_ASSERT(NS_IsMainThread());
     LOG("[Hfp] SendRingIndicatorTask::Run");
 
-    NS_ENSURE_FALSE(sStopSendingRingFlag);
+    NS_ENSURE_FALSE_VOID(sStopSendingRingFlag);
 
     if (!gBluetoothHfpManager) {
       NS_WARNING("BluetoothHfpManager no longer exists, cannot send ring!");
