@@ -101,6 +101,7 @@ BluetoothOppManagerObserver::Observe(nsISupports* aSubject,
                                      const char* aTopic,
                                      const PRUnichar* aData)
 {
+  LOG("[O] %s", __FUNCTION__);
   MOZ_ASSERT(sInstance);
 
   if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
@@ -121,6 +122,7 @@ public:
 
   NS_IMETHOD Run()
   {
+    LOG("[O] ReadFileTask::Run");
     MOZ_ASSERT(!NS_IsMainThread());
 
     /*
@@ -168,18 +170,21 @@ BluetoothOppManager::BluetoothOppManager() : mConnected(false)
                                            , mSuccessFlag(false)
                                            , mWaitingForConfirmationFlag(false)
 {
+  LOG("[O] %s", __FUNCTION__);
   mConnectedDeviceAddress.AssignLiteral("00:00:00:00:00:00");
   mSocketStatus = GetConnectionStatus();
 }
 
 BluetoothOppManager::~BluetoothOppManager()
 {
+  LOG("[O] %s", __FUNCTION__);
 }
 
 //static
 BluetoothOppManager*
 BluetoothOppManager::Get()
 {
+  LOG("[O] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (sInstance == nullptr) {
@@ -193,6 +198,7 @@ bool
 BluetoothOppManager::Connect(const nsAString& aDeviceObjectPath,
                              BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[O] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (GetConnectionStatus() == SocketConnectionStatus::SOCKET_CONNECTED ||
@@ -228,6 +234,7 @@ BluetoothOppManager::Connect(const nsAString& aDeviceObjectPath,
 void
 BluetoothOppManager::Disconnect()
 {
+  LOG("[O] %s", __FUNCTION__);
   if (GetConnectionStatus() == SocketConnectionStatus::SOCKET_DISCONNECTED) {
     NS_WARNING("BluetoothOppManager has been disconnected!");
     return;
@@ -239,6 +246,7 @@ BluetoothOppManager::Disconnect()
 nsresult
 BluetoothOppManager::HandleShutdown()
 {
+  LOG("[O] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   sInShutdown = true;
   CloseSocket();
@@ -249,6 +257,7 @@ BluetoothOppManager::HandleShutdown()
 bool
 BluetoothOppManager::Listen()
 {
+  LOG("[O] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (GetConnectionStatus() == SocketConnectionStatus::SOCKET_LISTENING) {
@@ -278,6 +287,7 @@ BluetoothOppManager::Listen()
 bool
 BluetoothOppManager::SendFile(BlobParent* aActor)
 {
+  LOG("[O] %s", __FUNCTION__);
   if (mBlob) {
     // Means there's a sending process. Reply error.
     return false;
@@ -343,6 +353,7 @@ BluetoothOppManager::SendFile(BlobParent* aActor)
 bool
 BluetoothOppManager::StopSendingFile()
 {
+  LOG("[O] %s", __FUNCTION__);
   mAbortFlag = true;
 
   return true;
@@ -353,6 +364,7 @@ BluetoothOppManager::ConfirmReceivingFile(bool aConfirm)
 {
   if (!mConnected) return false;
 
+  LOG("[O] %s", __FUNCTION__);
   if (!mWaitingForConfirmationFlag) {
     NS_WARNING("We are not waiting for a confirmation now.");
     return false;
@@ -395,6 +407,7 @@ BluetoothOppManager::AfterFirstPut()
 void
 BluetoothOppManager::AfterOppConnected()
 {
+  LOG("[O] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   mConnected = true;
@@ -406,6 +419,7 @@ BluetoothOppManager::AfterOppConnected()
 void
 BluetoothOppManager::AfterOppDisconnected()
 {
+  LOG("[O] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   mConnected = false;
@@ -435,6 +449,7 @@ BluetoothOppManager::AfterOppDisconnected()
 void
 BluetoothOppManager::DeleteReceivedFile()
 {
+  LOG("[O] %s", __FUNCTION__);
   nsString path;
   path.AssignLiteral(TARGET_FOLDER);
 
@@ -456,6 +471,7 @@ BluetoothOppManager::DeleteReceivedFile()
 bool
 BluetoothOppManager::CreateFile()
 {
+  LOG("[O] %s", __FUNCTION__);
   nsString path;
   path.AssignLiteral(TARGET_FOLDER);
 
@@ -514,6 +530,7 @@ BluetoothOppManager::CreateFile()
 bool
 BluetoothOppManager::WriteToFile(const uint8_t* aData, int aDataLength)
 {
+  LOG("[O] %s", __FUNCTION__);
   if (!mOutputStream) {
     NS_WARNING("No available output stream");
     return false;
@@ -598,6 +615,7 @@ BluetoothOppManager::ExtractBlobHeaders()
 void
 BluetoothOppManager::ServerDataHandler(UnixSocketRawData* aMessage)
 {
+  LOG("[O] %s", __FUNCTION__);
   uint8_t opCode;
   int packetLength;
   int receivedLength = aMessage->mSize;
@@ -855,6 +873,7 @@ BluetoothOppManager::ReceiveSocketData(UnixSocketRawData* aMessage)
 void
 BluetoothOppManager::SendConnectRequest()
 {
+  LOG("[O] %s", __FUNCTION__);
   if (mConnected) return;
 
   // Section 3.3.1 "Connect", IrOBEX 1.2
@@ -881,6 +900,7 @@ void
 BluetoothOppManager::SendPutHeaderRequest(const nsAString& aFileName,
                                           int aFileSize)
 {
+  LOG("[O] %s", __FUNCTION__);
   uint8_t* req = new uint8_t[mRemoteMaxPacketLength];
 
   int len = aFileName.Length();
@@ -915,6 +935,7 @@ void
 BluetoothOppManager::SendPutRequest(uint8_t* aFileBody,
                                     int aFileBodyLength)
 {
+  LOG("[O] %s", __FUNCTION__);
   int index = 3;
   int packetLeftSpace = mRemoteMaxPacketLength - index - 3;
 
@@ -971,6 +992,7 @@ BluetoothOppManager::SendPutFinalRequest()
 void
 BluetoothOppManager::SendDisconnectRequest()
 {
+  LOG("[O] %s", __FUNCTION__);
   // Section 3.3.2 "Disconnect", IrOBEX 1.2
   // [opcode:1][length:2][Headers:var]
   uint8_t req[255];
@@ -987,6 +1009,7 @@ BluetoothOppManager::SendDisconnectRequest()
 void
 BluetoothOppManager::SendAbortRequest()
 {
+  LOG("[O] %s", __FUNCTION__);
   // Section 3.3.5 "Abort", IrOBEX 1.2
   // [opcode:1][length:2][Headers:var]
   uint8_t req[255];
@@ -1003,6 +1026,7 @@ BluetoothOppManager::SendAbortRequest()
 void
 BluetoothOppManager::ReplyToConnect()
 {
+  LOG("[O] %s", __FUNCTION__);
   if (mConnected) return;
   mConnected = true;
 
@@ -1027,6 +1051,7 @@ BluetoothOppManager::ReplyToConnect()
 void
 BluetoothOppManager::ReplyToDisconnect()
 {
+  LOG("[O] %s", __FUNCTION__);
   if (!mConnected) return;
   mConnected = false;
 
@@ -1045,6 +1070,7 @@ BluetoothOppManager::ReplyToDisconnect()
 void
 BluetoothOppManager::ReplyToPut(bool aFinal, bool aContinue)
 {
+  LOG("[O] %s", __FUNCTION__);
   if (!mConnected) return;
 
   // Section 3.3.2 "Disconnect", IrOBEX 1.2
@@ -1076,6 +1102,7 @@ BluetoothOppManager::ReplyToPut(bool aFinal, bool aContinue)
 void
 BluetoothOppManager::FileTransferComplete()
 {
+  LOG("[O] %s", __FUNCTION__);
   if (mSendTransferCompleteFlag) {
     return;
   }
@@ -1120,6 +1147,7 @@ BluetoothOppManager::FileTransferComplete()
 void
 BluetoothOppManager::StartFileTransfer()
 {
+  LOG("[O] %s", __FUNCTION__);
   nsString type, name;
   BluetoothValue v;
   InfallibleTArray<BluetoothNamedValue> parameters;
@@ -1154,6 +1182,7 @@ BluetoothOppManager::StartFileTransfer()
 void
 BluetoothOppManager::UpdateProgress()
 {
+  LOG("[O] %s", __FUNCTION__);
   nsString type, name;
   BluetoothValue v;
   InfallibleTArray<BluetoothNamedValue> parameters;
@@ -1184,6 +1213,7 @@ BluetoothOppManager::UpdateProgress()
 void
 BluetoothOppManager::ReceivingFileConfirmation()
 {
+  LOG("[O] %s", __FUNCTION__);
   nsString type, name;
   BluetoothValue v;
   InfallibleTArray<BluetoothNamedValue> parameters;
@@ -1214,6 +1244,7 @@ BluetoothOppManager::ReceivingFileConfirmation()
 void
 BluetoothOppManager::OnConnectSuccess()
 {
+  LOG("[O] %s", __FUNCTION__);
   if (mRunnable) {
     BluetoothReply* reply = new BluetoothReply(BluetoothReplySuccess(true));
     mRunnable->SetReply(reply);
@@ -1233,6 +1264,7 @@ BluetoothOppManager::OnConnectSuccess()
 void
 BluetoothOppManager::OnConnectError()
 {
+  LOG("[O] %s", __FUNCTION__);
   if (mRunnable) {
     nsString errorStr;
     errorStr.AssignLiteral("Failed to connect with a bluetooth opp manager!");
@@ -1252,6 +1284,7 @@ BluetoothOppManager::OnConnectError()
 void
 BluetoothOppManager::OnDisconnect()
 {
+  LOG("[O] %s", __FUNCTION__);
   /**
    * It is valid for a bluetooth device which is transfering file via OPP
    * closing socket without sending OBEX disconnect request first. So we
