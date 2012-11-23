@@ -237,7 +237,6 @@ BluetoothManager::Create(nsPIDOMWindow* aWindow)
   BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE(bs, nullptr);
   bs->RegisterManager(manager);
-
   return manager.forget();
 }
 
