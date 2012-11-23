@@ -325,7 +325,7 @@ void
 BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                  BluetoothSignalObserver* aHandler)
 {
-  LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get());
+  LOG("[S] %s - '%s' [%p]", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get(), aHandler);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
@@ -335,19 +335,21 @@ BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
     mBluetoothSignalObserverTable.Put(aNodeName, ol);
   }
   ol->AddObserver(aHandler);
+  LOG("[S] '%s', observer length: %d", NS_ConvertUTF16toUTF8(aNodeName).get(), ol->Length());  
 }
 
 void
 BluetoothService::UnregisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                    BluetoothSignalObserver* aHandler)
 {
-  LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get());
+  LOG("[S] %s - '%s' [%p]", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get(), aHandler);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
   BluetoothSignalObserverList* ol;
   if (mBluetoothSignalObserverTable.Get(aNodeName, &ol)) {
     ol->RemoveObserver(aHandler);
+    LOG("[S] '%s', observer length: %d", NS_ConvertUTF16toUTF8(aNodeName).get(), ol->Length());  
     if (ol->Length() == 0) {
       mBluetoothSignalObserverTable.Remove(aNodeName);
     }
@@ -374,9 +376,11 @@ BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aSignal.path().EqualsLiteral(LOCAL_AGENT_PATH)) {
+	  LOG("[S] DistributeSignal to LOCAL_AGENT_PATH");
     Notify(aSignal);
     return;
   } else if (aSignal.path().EqualsLiteral(REMOTE_AGENT_PATH)) {
+    LOG("[S] DistributeSignal to REMOTE_AGENT_PATH");
     Notify(aSignal);
     return;
   }
@@ -392,6 +396,7 @@ BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
     return;
   }
   MOZ_ASSERT(ol->Length());
+  LOG("[S] '%s', observer length: %d", NS_ConvertUTF16toUTF8(aSignal.name()).get(), ol->Length());
   ol->Broadcast(aSignal);
 }
 
@@ -434,7 +439,7 @@ BluetoothService::StartStopBluetooth(bool aStart)
 void
 BluetoothService::SetEnabled(bool aEnabled)
 {
-  LOG("[S] %s", __FUNCTION__);
+  LOG("[S] %s, aEnabled: %d, mEnalbed: %d", __FUNCTION__, aEnabled, mEnabled);
   MOZ_ASSERT(NS_IsMainThread());
 
   AutoInfallibleTArray<BluetoothParent*, 10> childActors;
@@ -593,6 +598,7 @@ BluetoothService::HandleSettingsChanged(const nsAString& aData)
   }
 
   gToggleInProgress = true;
+//  LOG("[S] mozsettings changed, %d", value.toBoolean());
 
   nsresult rv = StartStopBluetooth(value.toBoolean());
   NS_ENSURE_SUCCESS(rv, rv);
