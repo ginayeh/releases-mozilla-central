@@ -304,13 +304,11 @@ public:
   }
 
   bool
-  IsToggling();
-//  bool mToggleInProgress;
+  IsToggling() const;
 
 protected:
   BluetoothService()
   : mEnabled(false)
-//  , mToggleInProgress(false)
 #ifdef DEBUG
   , mLastRequestedEnable(false)
 #endif
@@ -402,7 +400,6 @@ protected:
   BluetoothManagerList mLiveManagers;
 
   bool mEnabled;
-//  bool mToggleInProgress;
 
 #ifdef DEBUG
   bool mLastRequestedEnable;

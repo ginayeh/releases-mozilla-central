@@ -24,6 +24,8 @@ class BluetoothDBusService : public BluetoothService
                            , private mozilla::ipc::RawDBusConnection
 {
 public:
+  nsresult CheckEnabled();
+
   virtual nsresult StartInternal();
 
   virtual nsresult StopInternal();

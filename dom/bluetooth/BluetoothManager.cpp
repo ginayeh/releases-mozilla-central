@@ -77,7 +77,6 @@ public:
     LOG("[M] GetAdapterTask::ParseSuccessfulReply");
     *aValue = JSVAL_VOID;
 
-    BluetoothService* bs = BluetoothService::Get();
     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
 
     MOZ_ASSERT(v.type() == BluetoothValue::TArrayOfBluetoothNamedValue);

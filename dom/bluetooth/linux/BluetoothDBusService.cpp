@@ -1496,6 +1496,17 @@ GetDefaultAdapterPath(BluetoothValue& aValue, nsString& aError)
 }
 
 nsresult
+BluetoothDBusService::CheckEnabled()
+{
+  LOG("[B] %s", __FUNCTION__);
+  if (!IsEnabled() || !mConnection || !gThreadConnection || IsToggling()) {
+    NS_WARNING("Bluetooth service is not ready yet!");
+    return NS_ERROR_FAILURE;
+  }
+  return NS_OK;
+}
+
+nsresult
 BluetoothDBusService::StartInternal()
 {
   LOG("[B] %s", __FUNCTION__);
@@ -1679,30 +1690,17 @@ nsresult
 BluetoothDBusService::GetDefaultAdapterPathInternal(BluetoothReplyRunnable* aRunnable)
 {
   LOG("[B] %s, IsToggling(): %d", __FUNCTION__, IsToggling());
-  if (IsToggling()) {
-    LOG("[B] bluetooth is toggling");
-    BluetoothValue v = true;
-    nsString errorStr;
-    errorStr.AssignLiteral("bluetooth is toggling");
-    DispatchBluetoothReply(aRunnable, v, errorStr);
-    return NS_OK;
-  } else if (!IsEnabled()) {
-    LOG("[B] bluetooth is not enabled");
-    BluetoothValue v = true;
-    nsString errorStr;
-    errorStr.AssignLiteral("bluetooth is toggling");
-    DispatchBluetoothReply(aRunnable, v, errorStr);
-    return NS_OK;
-  } 
+  NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
-  if (!mConnection || !gThreadConnection) {
-    NS_ERROR("Bluetooth service not started yet!");
-    return NS_ERROR_FAILURE;
+  if (NS_FAILED(CheckEnabled())) {
+    BluetoothValue v;
+    nsString errorStr;
+    errorStr.AssignLiteral("Bluetooth service is not ready yet!");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
   }
 
-  NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
   nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
-
   nsRefPtr<nsRunnable> func(new DefaultAdapterPropertiesRunnable(runnable));
   if (NS_FAILED(mBluetoothCommandThread->Dispatch(func, NS_DISPATCH_NORMAL))) {
     NS_WARNING("Cannot dispatch firmware loading task!");
@@ -1745,25 +1743,11 @@ BluetoothDBusService::StopDiscoveryInternal(const nsAString& aAdapterPath,
                                             BluetoothReplyRunnable* aRunnable)
 {
   LOG("[B] %s, IsToggling(): %d", __FUNCTION__, IsToggling());
-
-  if (IsToggling()) {
-    LOG("[B] bluetooth is toggling");
-    BluetoothValue v = true;
+  if (NS_FAILED(CheckEnabled())) {
+    BluetoothValue v;
     nsString errorStr;
-    errorStr.AssignLiteral("bluetooth is toggling");
+    errorStr.AssignLiteral("Bluetooth service is not ready yet!");
     DispatchBluetoothReply(aRunnable, v, errorStr);
-    return NS_OK;
-  } else if (!IsEnabled()) {
-    LOG("[B] bluetooth is not enabled");
-    BluetoothValue v = true;
-    nsString errorStr;
-    errorStr.AssignLiteral("bluetooth is toggling");
-    DispatchBluetoothReply(aRunnable, v, errorStr);
-    return NS_OK;
-  }
-
-  if (!mConnection) {
-    NS_WARNING("Bluetooth service not started yet, no need to stop discovery.");
     return NS_OK;
   }
   return SendDiscoveryMessage(aAdapterPath, "StopDiscovery", aRunnable);
@@ -1774,27 +1758,12 @@ BluetoothDBusService::StartDiscoveryInternal(const nsAString& aAdapterPath,
                                              BluetoothReplyRunnable* aRunnable)
 {
   LOG("[B] %s, IsToggling(): %d", __FUNCTION__, IsToggling());
-
-  if (IsToggling()) {
-    LOG("[B] bluetooth is toggling");
-    BluetoothValue v = true;
+  if (NS_FAILED(CheckEnabled())) {
+    BluetoothValue v;
     nsString errorStr;
-    errorStr.AssignLiteral("bluetooth is toggling");
+    errorStr.AssignLiteral("Bluetooth service is not ready yet!");
     DispatchBluetoothReply(aRunnable, v, errorStr);
     return NS_OK;
-  } else if (!IsEnabled()) {
-    LOG("[B] bluetooth is not enabled");
-    BluetoothValue v = true;
-    nsString errorStr;
-    errorStr.AssignLiteral("bluetooth is toggling");
-    DispatchBluetoothReply(aRunnable, v, errorStr);
-    return NS_OK;
-  } 
-
-
-  if (!mConnection) {
-    NS_WARNING("Bluetooth service not started yet, cannot start discovery!");
-    return NS_ERROR_FAILURE;
   }
   return SendDiscoveryMessage(aAdapterPath, "StartDiscovery", aRunnable);
 }
@@ -2009,30 +1978,15 @@ BluetoothDBusService::GetPairedDevicePropertiesInternal(const nsTArray<nsString>
                                                         BluetoothReplyRunnable* aRunnable)
 {
   LOG("[B] %s, IsToggling(): %d", __FUNCTION__, IsToggling());
-
-  if (IsToggling()) {
-    LOG("[B] bluetooth is toggling");
-    BluetoothValue v = true;
+  if (NS_FAILED(CheckEnabled())) {
+    BluetoothValue v;
     nsString errorStr;
-    errorStr.AssignLiteral("bluetooth is toggling");
+    errorStr.AssignLiteral("Bluetooth service is not ready yet!");
     DispatchBluetoothReply(aRunnable, v, errorStr);
     return NS_OK;
-  } else if (!IsEnabled()) {
-    LOG("[B] bluetooth is not enabled");
-    BluetoothValue v = true;
-    nsString errorStr;
-    errorStr.AssignLiteral("bluetooth is toggling");
-    DispatchBluetoothReply(aRunnable, v, errorStr);
-    return NS_OK;
-  } 
-
-  if (!mConnection || !gThreadConnection) {
-    NS_ERROR("Bluetooth service not started yet!");
-    return NS_ERROR_FAILURE;
   }
 
   nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
-
   nsRefPtr<nsRunnable> func(new BluetoothPairedDevicePropertiesRunnable(runnable, aDeviceAddresses));
   if (NS_FAILED(mBluetoothCommandThread->Dispatch(func, NS_DISPATCH_NORMAL))) {
     NS_WARNING("Cannot dispatch task!");
@@ -2667,9 +2621,12 @@ BluetoothDBusService::GetSocketViaService(const nsAString& aObjectPath,
 {
   LOG("[B] %s", __FUNCTION__);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
-  if (!mConnection || !gThreadConnection) {
-    NS_ERROR("Bluetooth service not started yet!");
-    return NS_ERROR_FAILURE;
+  if (NS_FAILED(CheckEnabled())) {
+    BluetoothValue v;
+    nsString errorStr;
+    errorStr.AssignLiteral("Bluetooth service is not ready yet!");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
   }
 
   nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
@@ -2697,6 +2654,7 @@ BluetoothDBusService::GetScoSocket(const nsAString& aAddress,
 {
 	LOG("[B] %s", __FUNCTION__);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
+
   if (!mConnection || !gThreadConnection) {
     NS_ERROR("Bluetooth service not started yet!");
     return NS_ERROR_FAILURE;
