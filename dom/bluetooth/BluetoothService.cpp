@@ -72,6 +72,7 @@ namespace {
 StaticRefPtr<BluetoothService> gBluetoothService;
 
 bool gInShutdown = false;
+bool gToggleInProgress = false;
 
 bool
 IsMainProcess()
@@ -178,15 +179,28 @@ public:
     LOG("[S] ToggleBtTask::Run");
     MOZ_ASSERT(!NS_IsMainThread());
 
+    if (mEnabled == gBluetoothService->IsEnabled()) {
+      LOG("[S] PARENT: mEnabled is the same with IsEnabled(), skip start/stop internal");
+//      return NS_OK;
+    } else {
+
     if (mEnabled) {
+      LOG("[S] StartInternal");
       if (NS_FAILED(gBluetoothService->StartInternal())) {
         NS_WARNING("Bluetooth service failed to start!");
+        LOG("Bluetooth service failed to start!");
         mEnabled = !mEnabled;
       }
     }
-    else if (NS_FAILED(gBluetoothService->StopInternal())) {
-      NS_WARNING("Bluetooth service failed to stop!");
-      mEnabled = !mEnabled;
+    else{
+      LOG("[S] StopInternal");
+      if (NS_FAILED(gBluetoothService->StopInternal())) {
+        NS_WARNING("Bluetooth service failed to stop!");
+        LOG("Bluetooth service failed to stop!");
+        mEnabled = !mEnabled;
+      }
+    }
+
     }
 
     nsCOMPtr<nsIRunnable> ackTask = new BluetoothService::ToggleBtAck(mEnabled);
@@ -235,6 +249,12 @@ public:
 NS_IMPL_ISUPPORTS1(BluetoothService::StartupTask, nsISettingsServiceCallback);
 
 NS_IMPL_ISUPPORTS1(BluetoothService, nsIObserver)
+
+bool
+BluetoothService::IsToggling()
+{
+  return gToggleInProgress;
+}
 
 BluetoothService::~BluetoothService()
 {
@@ -352,22 +372,22 @@ BluetoothService::UnregisterAllSignalHandlers(BluetoothSignalObserver* aHandler)
 void
 BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
 {
-  LOG("[S] %s '%s' to %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aSignal.name()).get(), NS_ConvertUTF16toUTF8(aSignal.path()).get());
+//  LOG("[S] %s '%s' to %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aSignal.name()).get(), NS_ConvertUTF16toUTF8(aSignal.path()).get());
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aSignal.path().EqualsLiteral(LOCAL_AGENT_PATH)) {
-	  LOG("[S] DistributeSignal to LOCAL_AGENT_PATH");
+//	  LOG("[S] DistributeSignal to LOCAL_AGENT_PATH");
     Notify(aSignal);
     return;
   } else if (aSignal.path().EqualsLiteral(REMOTE_AGENT_PATH)) {
-    LOG("[S] DistributeSignal to REMOTE_AGENT_PATH");
+//    LOG("[S] DistributeSignal to REMOTE_AGENT_PATH");
     Notify(aSignal);
     return;
   }
 
   BluetoothSignalObserverList* ol;
   if (!mBluetoothSignalObserverTable.Get(aSignal.path(), &ol)) {
-    LOG("No observer registered for path ");
+//    LOG("No observer registered for path ");
 #if DEBUG
     nsAutoCString msg("No observer registered for path ");
     msg.Append(NS_ConvertUTF16toUTF8(aSignal.path()));
@@ -376,14 +396,14 @@ BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
     return;
   }
   MOZ_ASSERT(ol->Length());
-  LOG("[S] '%s', observer length: %d", NS_ConvertUTF16toUTF8(aSignal.name()).get(), ol->Length());
+//  LOG("[S] '%s', observer length: %d", NS_ConvertUTF16toUTF8(aSignal.name()).get(), ol->Length());
   ol->Broadcast(aSignal);
 }
 
 nsresult
 BluetoothService::StartStopBluetooth(bool aStart)
 {
-  LOG("[S] %s", __FUNCTION__);
+  LOG("[S] %s, aStart: %d", __FUNCTION__, aStart);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (gInShutdown) {
@@ -423,13 +443,11 @@ BluetoothService::SetEnabled(bool aEnabled)
   LOG("[S] %s, aEnabled: %d, mEnalbed: %d", __FUNCTION__, aEnabled, mEnabled);
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (aEnabled == mEnabled) {
+/*  if (aEnabled == mEnabled) {
     // Nothing to do, maybe something failed.
-    LOG("[s] aEnabled == mEnabled")
+    LOG("[S] aEnabled == mEnabled");
     return;
-  }
-
-  mEnabled = aEnabled;
+  }*/
 
   AutoInfallibleTArray<BluetoothParent*, 10> childActors;
   GetAllBluetoothActors(childActors);
@@ -440,7 +458,7 @@ BluetoothService::SetEnabled(bool aEnabled)
 
   if (aEnabled) {
     BluetoothManagerList::ForwardIterator iter(mLiveManagers);
-    BluetoothSignalObserverList* ol;
+//    BluetoothSignalObserverList* ol;
     nsString managerPath = NS_LITERAL_STRING("/");
 
     // Re-register here after toggling due to table mBluetoothSignalObserverTable was cleared
@@ -451,12 +469,25 @@ BluetoothService::SetEnabled(bool aEnabled)
     mBluetoothSignalObserverTable.Clear();
   }
 
+  // mEnabled: real status
+  if (mEnabled == aEnabled) {
+    LOG("[S] mEnabled is the same with aEnabled(), skip fire events");
+    LOG("[S] toggling is completed, set gToggleInProgress to false");
+    gToggleInProgress = false;
+    return;
+  }
+
+  mEnabled = aEnabled;
+
   BluetoothManagerList::ForwardIterator iter(mLiveManagers);
   while (iter.HasMore()) {
     if (NS_FAILED(iter.GetNext()->FireEnabledDisabledEvent(aEnabled))) {
       NS_WARNING("FireEnabledDisabledEvent failed!");
     }
   }
+
+  LOG("[S] toggling is completed, set gToggleInProgress to false");
+  gToggleInProgress = false;
 }
 
 nsresult
@@ -464,7 +495,7 @@ BluetoothService::HandleStartup()
 {
   LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(!mSettingsCheckInProgress);
+  MOZ_ASSERT(!gToggleInProgress);
 
   nsCOMPtr<nsISettingsService> settings =
     do_GetService("@mozilla.org/settingsService;1");
@@ -478,7 +509,8 @@ BluetoothService::HandleStartup()
   rv = settingsLock->Get(BLUETOOTH_ENABLED_SETTING, callback);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  mSettingsCheckInProgress = true;
+  LOG("[S] set gToggleInProgress to true");
+  gToggleInProgress = true;
   return NS_OK;
 }
 
@@ -488,16 +520,19 @@ BluetoothService::HandleStartupSettingsCheck(bool aEnable)
   LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (!mSettingsCheckInProgress) {
+/*  if (!gToggleInProgress) {
     // Somehow the enabled setting was changed before our first settings check
     // completed. Don't do anything.
     return NS_OK;
-  }
+  }*/
 
   MOZ_ASSERT(!IsEnabled());
 
   if (aEnable) {
     return StartStopBluetooth(true);
+  } else {
+    LOG("[S] mozsettings is false, we don't have to turn on bluetooth, so set gToggleInProgress to false");
+    gToggleInProgress = false;
   }
 
   return NS_OK;
@@ -560,29 +595,34 @@ BluetoothService::HandleSettingsChanged(const nsAString& aData)
     return NS_ERROR_UNEXPECTED;
   }
 
-  if (mSettingsCheckInProgress) {
+  if (gToggleInProgress) {
     // Somehow the setting for bluetooth has been flipped before our first
     // settings check completed. Flip this flag so that we ignore the result
     // of that check whenever it finishes.
-    mSettingsCheckInProgress = false;
-  }
-
-  if (value.toBoolean() == IsEnabled()) {
+    LOG("[S] PARENT: gToggleInProgress is true, return");
+//    gToggleInProgress = false;
+    return NS_OK;
+  } else if (value.toBoolean() == IsEnabled()) {
     // Nothing to do here.
+    LOG("[S] PARENT: mozsettings new value is the same with mEnabled, return.");
     return NS_OK;
   }
 
-  LOG("[S] mozsettings changed, %d", value.toBoolean());
+  LOG("[S] PARENT: mozsettings changed, %d", value.toBoolean());
   nsresult rv;
 
-  if (IsEnabled()) {
-    rv = StartStopBluetooth(false);
+/*  if (IsEnabled()) {
+    rv = StartStopBluetooth(value.toBoolean());
     NS_ENSURE_SUCCESS(rv, rv);
 
     return NS_OK;
   }
 
-  rv = StartStopBluetooth(true);
+  rv = StartStopBluetooth(true);*/
+  gToggleInProgress = true;
+  LOG("[S] set gToggleInProgress to true");
+
+  rv = StartStopBluetooth(value.toBoolean());
   NS_ENSURE_SUCCESS(rv, rv);
 
   return NS_OK;
@@ -710,7 +750,7 @@ nsresult
 BluetoothService::Observe(nsISupports* aSubject, const char* aTopic,
                           const PRUnichar* aData)
 {
-  LOG("[S] %s", __FUNCTION__);
+//  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!strcmp(aTopic, "profile-after-change")) {

@@ -303,12 +303,16 @@ public:
     return mEnabled;
   }
 
+  bool
+  IsToggling();
+//  bool mToggleInProgress;
+
 protected:
   BluetoothService()
   : mEnabled(false)
-  , mSettingsCheckInProgress(false)
+//  , mToggleInProgress(false)
 #ifdef DEBUG
-    , mLastRequestedEnable(false)
+  , mLastRequestedEnable(false)
 #endif
   {
     mBluetoothSignalObserverTable.Init();
@@ -398,7 +402,7 @@ protected:
   BluetoothManagerList mLiveManagers;
 
   bool mEnabled;
-  bool mSettingsCheckInProgress;
+//  bool mToggleInProgress;
 
 #ifdef DEBUG
   bool mLastRequestedEnable;

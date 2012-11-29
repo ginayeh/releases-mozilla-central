@@ -77,6 +77,7 @@ public:
     LOG("[M] GetAdapterTask::ParseSuccessfulReply");
     *aValue = JSVAL_VOID;
 
+    BluetoothService* bs = BluetoothService::Get();
     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
 
     MOZ_ASSERT(v.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
@@ -120,7 +121,7 @@ private:
 nsresult
 BluetoothManager::FireEnabledDisabledEvent(bool aEnabled)
 {
-  LOG("[M] %s", __FUNCTION__);
+  LOG("[M] %s, aEnabled: %d", __FUNCTION__, aEnabled);
   return DispatchTrustedEvent(aEnabled ? NS_LITERAL_STRING("enabled")
                               : NS_LITERAL_STRING("disabled"));
 }

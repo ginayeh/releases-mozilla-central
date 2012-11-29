@@ -93,6 +93,7 @@ public:
   {
     LOG("[A] GetPairedDevicesTask::ParseSuccessfulReply");
     *aValue = JSVAL_VOID;
+
     BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
     if (v.type() != BluetoothValue::TArrayOfBluetoothNamedValue) {
       NS_WARNING("Not a BluetoothNamedValue array!");

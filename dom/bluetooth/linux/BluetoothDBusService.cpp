@@ -1678,7 +1678,23 @@ private:
 nsresult
 BluetoothDBusService::GetDefaultAdapterPathInternal(BluetoothReplyRunnable* aRunnable)
 {
-  LOG("[B] %s", __FUNCTION__);
+  LOG("[B] %s, IsToggling(): %d", __FUNCTION__, IsToggling());
+  if (IsToggling()) {
+    LOG("[B] bluetooth is toggling");
+    BluetoothValue v = true;
+    nsString errorStr;
+    errorStr.AssignLiteral("bluetooth is toggling");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } else if (!IsEnabled()) {
+    LOG("[B] bluetooth is not enabled");
+    BluetoothValue v = true;
+    nsString errorStr;
+    errorStr.AssignLiteral("bluetooth is toggling");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } 
+
   if (!mConnection || !gThreadConnection) {
     NS_ERROR("Bluetooth service not started yet!");
     return NS_ERROR_FAILURE;
@@ -1728,7 +1744,24 @@ nsresult
 BluetoothDBusService::StopDiscoveryInternal(const nsAString& aAdapterPath,
                                             BluetoothReplyRunnable* aRunnable)
 {
-  LOG("[B] %s", __FUNCTION__);
+  LOG("[B] %s, IsToggling(): %d", __FUNCTION__, IsToggling());
+
+  if (IsToggling()) {
+    LOG("[B] bluetooth is toggling");
+    BluetoothValue v = true;
+    nsString errorStr;
+    errorStr.AssignLiteral("bluetooth is toggling");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } else if (!IsEnabled()) {
+    LOG("[B] bluetooth is not enabled");
+    BluetoothValue v = true;
+    nsString errorStr;
+    errorStr.AssignLiteral("bluetooth is toggling");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  }
+
   if (!mConnection) {
     NS_WARNING("Bluetooth service not started yet, no need to stop discovery.");
     return NS_OK;
@@ -1740,7 +1773,25 @@ nsresult
 BluetoothDBusService::StartDiscoveryInternal(const nsAString& aAdapterPath,
                                              BluetoothReplyRunnable* aRunnable)
 {
-  LOG("[B] %s", __FUNCTION__);
+  LOG("[B] %s, IsToggling(): %d", __FUNCTION__, IsToggling());
+
+  if (IsToggling()) {
+    LOG("[B] bluetooth is toggling");
+    BluetoothValue v = true;
+    nsString errorStr;
+    errorStr.AssignLiteral("bluetooth is toggling");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } else if (!IsEnabled()) {
+    LOG("[B] bluetooth is not enabled");
+    BluetoothValue v = true;
+    nsString errorStr;
+    errorStr.AssignLiteral("bluetooth is toggling");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } 
+
+
   if (!mConnection) {
     NS_WARNING("Bluetooth service not started yet, cannot start discovery!");
     return NS_ERROR_FAILURE;
@@ -1843,6 +1894,7 @@ public:
     : mRunnable(dont_AddRef(aRunnable)),
       mDeviceAddresses(aDeviceAddresses)
   {
+    LOG("[B] new BluetoothPairedDevicePropertiesRunnable");
   }
 
   nsresult
@@ -1956,11 +2008,29 @@ nsresult
 BluetoothDBusService::GetPairedDevicePropertiesInternal(const nsTArray<nsString>& aDeviceAddresses,
                                                         BluetoothReplyRunnable* aRunnable)
 {
-  LOG("[B] %s", __FUNCTION__);
+  LOG("[B] %s, IsToggling(): %d", __FUNCTION__, IsToggling());
+
+  if (IsToggling()) {
+    LOG("[B] bluetooth is toggling");
+    BluetoothValue v = true;
+    nsString errorStr;
+    errorStr.AssignLiteral("bluetooth is toggling");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } else if (!IsEnabled()) {
+    LOG("[B] bluetooth is not enabled");
+    BluetoothValue v = true;
+    nsString errorStr;
+    errorStr.AssignLiteral("bluetooth is toggling");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } 
+
   if (!mConnection || !gThreadConnection) {
     NS_ERROR("Bluetooth service not started yet!");
     return NS_ERROR_FAILURE;
   }
+
   nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
 
   nsRefPtr<nsRunnable> func(new BluetoothPairedDevicePropertiesRunnable(runnable, aDeviceAddresses));
