@@ -102,6 +102,7 @@ static nsString sFileName;
 static uint32_t sFileLength = 0;
 static nsString sContentType;
 static bool sInShutdown = false;
+static bool sNewFile = false;
 }
 
 NS_IMETHODIMP
@@ -380,6 +381,8 @@ BluetoothOppManager::ConfirmReceivingFile(bool aConfirm)
   NS_ASSERTION(mPacketLeftLength == 0,
                "Should not be in the middle of receiving a PUT packet.");
 
+  // For the first packet of first file
+  LOG("[O] the first packet of the first file");
   bool success = false;
   if (aConfirm) {
     StartFileTransfer();
@@ -519,7 +522,6 @@ BluetoothOppManager::WriteToFile(const uint8_t* aData, int aDataLength)
 void
 BluetoothOppManager::ReceiveSocketData(UnixSocketRawData* aMessage)
 {
-  LOG("[O] %s", __FUNCTION__);
   uint8_t opCode;
   int packetLength;
   int receivedLength = aMessage->mSize;
@@ -653,7 +655,6 @@ BluetoothOppManager::ReceiveSocketData(UnixSocketRawData* aMessage)
       ReplyToConnect();
       AfterOppConnected();
       mTransferMode = true;
-//      mSuccessFlag = false;
     } else if (opCode == ObexRequestCode::Disconnect) {
       // Section 3.3.2 "Disconnect", IrOBEX 1.2
       // [opcode:1][length:2][Headers:var]
@@ -666,7 +667,13 @@ BluetoothOppManager::ReceiveSocketData(UnixSocketRawData* aMessage)
                opCode == ObexRequestCode::PutFinal) {
       int headerStartIndex = 0;
 
+      if (mPutFinal) {
+        LOG("[O] Last value of mPutFinal: %d", mPutFinal);
+        sNewFile = true;
+      }
+
       if (mReceivedDataBufferOffset == 0) {
+        LOG("[O] Begining of each Put packet");
         // Section 3.3.3 "Put", IrOBEX 1.2
         // [opcode:1][length:2][Headers:var]
         headerStartIndex = 3;
@@ -693,12 +700,14 @@ BluetoothOppManager::ReceiveSocketData(UnixSocketRawData* aMessage)
       mReceivedDataBufferOffset += receivedLength - headerStartIndex;
 
       if (mPacketLeftLength == 0) {
+        LOG("[O] A packet is received completely.");
         ParseHeaders(mReceivedDataBuffer.get(),
                      mReceivedDataBufferOffset,
                      &pktHeaders);
 
         if (pktHeaders.Has(ObexHeaderId::Name)) {
           pktHeaders.GetName(sFileName);
+          LOG("[O] GetName: %s", NS_ConvertUTF16toUTF8(sFileName).get());
         }
 
         if (pktHeaders.Has(ObexHeaderId::Type)) {
@@ -717,16 +726,26 @@ BluetoothOppManager::ReceiveSocketData(UnixSocketRawData* aMessage)
 
           pktHeaders.GetBodyLength(&mBodySegmentLength);
 
-          if (!mWaitingForConfirmationFlag) {
+          if (sNewFile) {
+            sSentFileLength = 0;
+            StartFileTransfer();
+            sNewFile = false;
+            CreateFile();
+          } else if (!mWaitingForConfirmationFlag) {
+            LOG("[O] Already confirmed and write to file");
             if (!WriteToFile(mBodySegment.get(), mBodySegmentLength)) {
               CloseSocket();
             }
+          } else {
+            LOG("[O] Wait for confimation");
           }
         }
 
+        LOG("[O] Set mReceivedDataBufferOffset to 0");
         mReceivedDataBufferOffset = 0;
 
         if (mWaitingForConfirmationFlag) {
+          LOG("[O] Wait for confirmation");
           // Note that we create file before sending system message here,
           // so that the correct file name will be used.
           if (!CreateFile()) {
@@ -750,6 +769,8 @@ BluetoothOppManager::ReceiveSocketData(UnixSocketRawData* aMessage)
           }*/
           if (mPutFinal) {
             mSuccessFlag = true;
+            FileTransferComplete();
+//            mSuccessFlag = false;
           }
         }
       }
