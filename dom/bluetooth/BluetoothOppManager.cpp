@@ -645,6 +645,7 @@ BluetoothOppManager::ServerDataHandler(UnixSocketRawData* aMessage)
     }
   }
 
+  LOG("[O] %s, mLastCommand: %x, opCode: %x", __FUNCTION__, mLastCommand, opCode);
   ObexHeaderSet pktHeaders(opCode);
   if (opCode == ObexRequestCode::Connect) {
     // Section 3.3.1 "Connect", IrOBEX 1.2
@@ -804,6 +805,9 @@ BluetoothOppManager::ClientDataHandler(UnixSocketRawData* aMessage)
     SendDisconnectRequest();
     FileTransferComplete();
   } else if (mLastCommand == ObexRequestCode::Disconnect) {
+    if (opCode != ObexResponseCode::Success) {
+      NS_WARNING("[OPP] Disconnect failed");
+    }
     AfterOppDisconnected();
     // Most devices will directly terminate connection after receiving
     // Disconnect request.

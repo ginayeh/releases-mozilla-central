@@ -152,16 +152,13 @@ PrintProperty(const nsAString& aName, const BluetoothValue& aValue)
     return;
   } else if (aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
     LOGV("[M] %s, <%s, Array of BluetoothNamedValue>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
-//    PrintProperty(aName, aValue);
     return;
   } else if (aValue.type() == BluetoothValue::TArrayOfnsString) {
-    nsTArray<nsString> tmp = aValue.get_ArrayOfnsString();
+    InfallibleTArray<nsString> tmp = aValue.get_ArrayOfnsString();
     for (int i = 0; i < tmp.Length(); i++) {
       LOGV("[M] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), NS_ConvertUTF16toUTF8(tmp[i]).get());
     }
     return;
-//  } else if (aValue.type() == BluetoothValue::TArrayOfuint8_t) {
-//    LOGV("[M] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_ArrayOfuint8_t()[0]);
   } else {
     LOGV("[M] %s, <%s, Unknown value type>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
     return;

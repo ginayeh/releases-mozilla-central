@@ -1413,18 +1413,6 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
       signalName = NS_LITERAL_STRING("PairedStatusChanged");
       signalPath = NS_LITERAL_STRING(LOCAL_AGENT_PATH);
       v.get_ArrayOfBluetoothNamedValue()[0].name() = NS_LITERAL_STRING("paired");
-    } else if (property.EqualsLiteral("Connected")) {
-      BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
-      LOG("[B] hfp->GetConnectionStatus(): %d", (int)hfp->GetConnectionStatus());
-      if (hfp->GetConnectionStatus() == SocketConnectionStatus::SOCKET_CONNECTED) {
-        LOG("[B] Hfp is connected");
-      }
-
-      BluetoothOppManager* opp = BluetoothOppManager::Get();
-      LOG("[B] opp->GetConnectionStatus(): %d", (int)opp->GetConnectionStatus());
-      if (opp->GetConnectionStatus() == SocketConnectionStatus::SOCKET_CONNECTED) {
-        LOG("[B] Opp is connected");
-      }
     }
   } else if (dbus_message_is_signal(aMsg, DBUS_MANAGER_IFACE, "AdapterAdded")) {
     LOG("[B] Receive event - AdapterAdded");
