@@ -402,17 +402,25 @@ BluetoothHfpManager::NotifySettings()
 }
 
 void
-BluetoothHfpManager::NotifyDialer(const nsAString& aCommand)
+BluetoothHfpManager::NotifyDialer(const nsAString& aCommand,
+                                  const nsAString& aNumber)
 {
   LOG("[Hfp] %s", __FUNCTION__);
 
-  nsString type, name, command;
-  command = aCommand;
+  nsString type, name;
+  BluetoothValue v;
   InfallibleTArray<BluetoothNamedValue> parameters;
   type.AssignLiteral("bluetooth-dialer-command");
 
-  BluetoothValue v(command);
-  parameters.AppendElement(BluetoothNamedValue(type, v));
+  name.AssignLiteral("command");
+  v = nsString(aCommand);
+  parameters.AppendElement(BluetoothNamedValue(name, v));
+
+  if (!aNumber.IsEmpty()) {
+    name.AssignLiteral("number");
+    v = nsString(aNumber);
+    parameters.AppendElement(BluetoothNamedValue(name, v));
+  }
 
   if (!BroadcastSystemMessage(type, parameters)) {
     NS_WARNING("Failed to broadcast system message to dialer");
@@ -513,6 +521,10 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
   const char* msg = (const char*)aMessage->mData;
   int currentCallState = mCurrentCallStateArray[mCurrentCallIndex];
 
+  if (!strncmp(msg, "AT+BLDN", 7)) {
+    LOG("[Hfp] hack for test");
+    msg = "ATD0211223344\0";
+  }
   // For more information, please refer to 4.34.1 "Bluetooth Defined AT
   // Capabilities" in Bluetooth hands-free profile 1.6
   if (!strncmp(msg, "AT+BRSF=", 8)) {
@@ -545,11 +557,11 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     switch(chld) {
       case 1:
         // Releases active calls and accepts the other (held or waiting) call
-        NotifyDialer(NS_LITERAL_STRING("CHUP+ATA"));
+        NotifyDialer(NS_LITERAL_STRING("CHUP+ATA"), NS_LITERAL_STRING(""));
         break;
       case 2:
         // Places active calls on hold and accepts the other (held or waiting) call
-        NotifyDialer(NS_LITERAL_STRING("CHLD+ATA"));
+        NotifyDialer(NS_LITERAL_STRING("CHLD+ATA"), NS_LITERAL_STRING(""));
         break;
       default:
 #ifdef DEBUG
@@ -587,27 +599,35 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
 
     SendLine("OK");
   } else if (!strncmp(msg, "AT+BLDN", 7)) {
-    NotifyDialer(NS_LITERAL_STRING("BLDN"));
+    NotifyDialer(NS_LITERAL_STRING("BLDN"), NS_LITERAL_STRING(""));
     SendLine("OK");
   } else if (!strncmp(msg, "ATA", 3)) {
-    NotifyDialer(NS_LITERAL_STRING("ATA"));
+    NotifyDialer(NS_LITERAL_STRING("ATA"), NS_LITERAL_STRING(""));
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CHUP", 7)) {
-    NotifyDialer(NS_LITERAL_STRING("CHUP"));
+    NotifyDialer(NS_LITERAL_STRING("CHUP"), NS_LITERAL_STRING(""));
+    SendLine("OK");
+  } else if (!strncmp(msg, "ATD>", 4)) {
+    NotifyDialer(NS_LITERAL_STRING("CHUP"), NS_LITERAL_STRING(""));
+    SendLine("OK");
+  } else if (!strncmp(msg, "ATD", 3)) {
+    uint32_t length = strlen(msg) - 4;
+    nsCString number(nsDependentCSubstring(msg+3, length));
+    NotifyDialer(NS_LITERAL_STRING("ATD"), NS_ConvertUTF8toUTF16(number));
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CKPD", 7)) {
     // For Headset
     switch (currentCallState) {
       case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
-        NotifyDialer(NS_LITERAL_STRING("ATA"));
+        NotifyDialer(NS_LITERAL_STRING("ATA"), NS_LITERAL_STRING(""));
         break;
       case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
       case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
       case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
-        NotifyDialer(NS_LITERAL_STRING("CHUP"));
+        NotifyDialer(NS_LITERAL_STRING("CHUP"), NS_LITERAL_STRING(""));
         break;
       case nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED:
-        NotifyDialer(NS_LITERAL_STRING("BLDN"));
+        NotifyDialer(NS_LITERAL_STRING("BLDN"), NS_LITERAL_STRING(""));
         break;
       default:
 #ifdef DEBUG
