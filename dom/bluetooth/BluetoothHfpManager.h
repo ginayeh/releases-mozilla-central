@@ -45,7 +45,7 @@ private:
   nsresult HandleShutdown();
   bool Init();
   void Cleanup();
-  void NotifyDialer(const nsAString& aCommand, const nsAString& aNumber);
+  void NotifyDialer(const nsAString& aCommand);
   void NotifySettings();
   virtual void OnConnectSuccess() MOZ_OVERRIDE;
   virtual void OnConnectError() MOZ_OVERRIDE;

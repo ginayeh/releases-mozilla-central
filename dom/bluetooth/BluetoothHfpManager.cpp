@@ -22,6 +22,7 @@
 #include "nsIObserverService.h"
 #include "nsISettingsService.h"
 #include "nsIRadioInterfaceLayer.h"
+#include "MobileConnection.h"
 
 #include <unistd.h> /* usleep() */
 
@@ -402,8 +403,7 @@ BluetoothHfpManager::NotifySettings()
 }
 
 void
-BluetoothHfpManager::NotifyDialer(const nsAString& aCommand,
-                                  const nsAString& aNumber)
+BluetoothHfpManager::NotifyDialer(const nsAString& aCommand)
 {
   LOG("[Hfp] %s", __FUNCTION__);
 
@@ -415,12 +415,6 @@ BluetoothHfpManager::NotifyDialer(const nsAString& aCommand,
   name.AssignLiteral("command");
   v = nsString(aCommand);
   parameters.AppendElement(BluetoothNamedValue(name, v));
-
-  if (!aNumber.IsEmpty()) {
-    name.AssignLiteral("number");
-    v = nsString(aNumber);
-    parameters.AppendElement(BluetoothNamedValue(name, v));
-  }
 
   if (!BroadcastSystemMessage(type, parameters)) {
     NS_WARNING("Failed to broadcast system message to dialer");
@@ -523,7 +517,7 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
 
   if (!strncmp(msg, "AT+BLDN", 7)) {
     LOG("[Hfp] hack for test");
-    msg = "ATD0211223344\0";
+    msg = "AT+CNUM\0";
   }
   // For more information, please refer to 4.34.1 "Bluetooth Defined AT
   // Capabilities" in Bluetooth hands-free profile 1.6
@@ -557,11 +551,11 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     switch(chld) {
       case 1:
         // Releases active calls and accepts the other (held or waiting) call
-        NotifyDialer(NS_LITERAL_STRING("CHUP+ATA"), NS_LITERAL_STRING(""));
+        NotifyDialer(NS_LITERAL_STRING("CHUP+ATA"));
         break;
       case 2:
         // Places active calls on hold and accepts the other (held or waiting) call
-        NotifyDialer(NS_LITERAL_STRING("CHLD+ATA"), NS_LITERAL_STRING(""));
+        NotifyDialer(NS_LITERAL_STRING("CHLD+ATA"));
         break;
       default:
 #ifdef DEBUG
@@ -599,35 +593,33 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
 
     SendLine("OK");
   } else if (!strncmp(msg, "AT+BLDN", 7)) {
-    NotifyDialer(NS_LITERAL_STRING("BLDN"), NS_LITERAL_STRING(""));
+    NotifyDialer(NS_LITERAL_STRING("BLDN"));
     SendLine("OK");
   } else if (!strncmp(msg, "ATA", 3)) {
-    NotifyDialer(NS_LITERAL_STRING("ATA"), NS_LITERAL_STRING(""));
+    NotifyDialer(NS_LITERAL_STRING("ATA"));
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CHUP", 7)) {
-    NotifyDialer(NS_LITERAL_STRING("CHUP"), NS_LITERAL_STRING(""));
+    NotifyDialer(NS_LITERAL_STRING("CHUP"));
     SendLine("OK");
   } else if (!strncmp(msg, "ATD>", 4)) {
-    NotifyDialer(NS_LITERAL_STRING("CHUP"), NS_LITERAL_STRING(""));
-    SendLine("OK");
+    // Currently, we don't support memory dialing in Dialer app
+    SendLine("ERROR");
   } else if (!strncmp(msg, "ATD", 3)) {
-    uint32_t length = strlen(msg) - 4;
-    nsCString number(nsDependentCSubstring(msg+3, length));
-    NotifyDialer(NS_LITERAL_STRING("ATD"), NS_ConvertUTF8toUTF16(number));
+    NotifyDialer(NS_ConvertUTF8toUTF16(msg));
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CKPD", 7)) {
     // For Headset
     switch (currentCallState) {
       case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
-        NotifyDialer(NS_LITERAL_STRING("ATA"), NS_LITERAL_STRING(""));
+        NotifyDialer(NS_LITERAL_STRING("ATA"));
         break;
       case nsIRadioInterfaceLayer::CALL_STATE_CONNECTED:
       case nsIRadioInterfaceLayer::CALL_STATE_DIALING:
       case nsIRadioInterfaceLayer::CALL_STATE_ALERTING:
-        NotifyDialer(NS_LITERAL_STRING("CHUP"), NS_LITERAL_STRING(""));
+        NotifyDialer(NS_LITERAL_STRING("CHUP"));
         break;
       case nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED:
-        NotifyDialer(NS_LITERAL_STRING("BLDN"), NS_LITERAL_STRING(""));
+        NotifyDialer(NS_LITERAL_STRING("BLDN"));
         break;
       default:
 #ifdef DEBUG
@@ -636,6 +628,44 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
         break;
     }
     SendLine("OK");
+  } else if (!strncmp(msg, "AT+CNUM", 7)) {
+    LOG("[Hfp] parse AT+CNUM");
+//    SendLine("+CNUM:");
+
+    nsCOMPtr<nsIMobileConnectionProvider> connection =
+      do_GetService("@mozilla.org/ril/content-helper;1");
+    NS_ENSURE_TRUE_VOID(connection);
+
+    nsIDOMMozMobileICCInfo* icc;
+    connection->GetIccInfo(&icc);
+    if (icc) {
+      nsString number;
+      icc->GetMsisdn(number);
+      
+      LOG("[Hfp] number: %s", NS_ConvertUTF16toUTF8(number).get());
+    }
+
+
+/*     nsCOMPtr<nsIRadioInterfaceLayer> ril =
+       do_GetService("@mozilla.org/ril;1");
+     nsCOMPtr<nsIRilContext> rilCtx;
+     ril->GetRilContext(getter_AddRefs(rilCtx));
+
+     if (rilCtx) {
+       LOG("[Hfp] get rilCtx");
+       nsCOMPtr<nsIICCRecords> icc;
+       rilCtx->GetIcc(getter_AddRefs(icc));
+
+       // Cannot get icc here
+       if (icc) {
+         LOG("[Hfp] get icc");
+         nsAutoString id;
+         icc->GetMsisdn(id);
+         LOG("[Hfp] number: %s", NS_ConvertUTF16toUTF8(id).get());
+       }
+     }
+     LOG("[Hfp] return");*/
+//    SendLine("OK");
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
