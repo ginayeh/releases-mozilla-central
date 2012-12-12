@@ -636,13 +636,25 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
       do_GetService("@mozilla.org/ril/content-helper;1");
     NS_ENSURE_TRUE_VOID(connection);
 
-    nsIDOMMozMobileICCInfo* icc;
-    connection->GetIccInfo(&icc);
-    if (icc) {
+    nsIDOMMozMobileICCInfo* iccInfo;
+    connection->GetIccInfo(&iccInfo);
+    if (iccInfo) {
       nsString number;
-      icc->GetMsisdn(number);
+      iccInfo->GetMsisdn(number);
       
       LOG("[Hfp] number: %s", NS_ConvertUTF16toUTF8(number).get());
+    }
+
+    nsIDOMMozMobileConnectionInfo* voiceInfo;
+    connection->GetVoiceConnectionInfo(&voiceInfo);
+    if (voiceInfo) {
+      JS::Value value;
+      voiceInfo->GetRelSignalStrength(&value);
+
+      if (!value.isNumber()) {
+        LOG("[Hfp] Not a number");
+      }
+      LOG("[Hfp] rel signal: %f", value.toNumber());
     }
 
 
