@@ -29,6 +29,7 @@
 #define AUDIO_VOLUME_BT_SCO "audio.volume.bt_sco"
 #define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
 #define MOBILE_CONNECTION_VOICE_CHANGED "mobile-connection-voice-changed"
+#define MOBILE_CONNECTION_ICCINFO_CHANGED "mobile-connection-iccinfo-changed"
 #define NS_RILCONTENTHELPER_CONTRACTID "@mozilla.org/ril/content-helper;1"
 
 using namespace mozilla;
@@ -133,6 +134,11 @@ public:
       return false;
     }
 
+    if (NS_FAILED(obs->AddObserver(this, MOBILE_CONNECTION_ICCINFO_CHANGED, false))) {
+      NS_WARNING("Failed to add mobile connection iccinfo change observer!");
+      return false;
+    }
+
     return true;
   }
 
@@ -202,6 +208,8 @@ BluetoothHfpManagerObserver::Observe(nsISupports* aSubject,
     return gBluetoothHfpManager->HandleShutdown();
   } else if (!strcmp(aTopic, MOBILE_CONNECTION_VOICE_CHANGED)) {
     return gBluetoothHfpManager->HandleVoiceConnectionChanged();
+  } else if (!strcmp(aTopic, MOBILE_CONNECTION_ICCINFO_CHANGED)) {
+    return gBluetoothHfpManager->HandleIccInfoChanged();
   }
 
   MOZ_ASSERT(false, "BluetoothHfpManager got unexpected topic!");
@@ -522,6 +530,27 @@ BluetoothHfpManager::HandleVoiceConnectionChanged()
 }
 
 nsresult
+BluetoothHfpManager::HandleIccInfoChanged()
+{
+  nsCOMPtr<nsIMobileConnectionProvider> connection =
+    do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
+  NS_ENSURE_TRUE(connection, NS_ERROR_FAILURE);
+
+  nsIDOMMozMobileICCInfo* iccInfo;
+  connection->GetIccInfo(&iccInfo);
+  NS_ENSURE_TRUE(iccInfo, NS_ERROR_FAILURE);
+
+  nsString msisdn;
+  iccInfo->GetMsisdn(msisdn);
+
+  if (!msisdn.Equals(mMsisdn)) {
+    mMsisdn = msisdn;
+  }
+
+  return NS_OK;
+}
+
+nsresult
 BluetoothHfpManager::HandleShutdown()
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -641,6 +670,15 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
         NS_WARNING("Not handling state changed");
 #endif
         break;
+    }
+    SendLine("OK");
+  } else if (!strncmp(msg, "AT+CNUM", 7)) {
+    if (mMsisdn.Length()) {
+      nsAutoCString message("+CNUM: ,");
+      message += NS_ConvertUTF16toUTF8(mMsisdn).get();
+      message += ",";
+      message.AppendInt(TOA_UNKNOWN);
+      SendLine(message.get());
     }
     SendLine("OK");
   } else {

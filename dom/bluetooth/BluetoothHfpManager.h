@@ -44,6 +44,7 @@ private:
   nsresult HandleVolumeChanged(const nsAString& aData);
   nsresult HandleShutdown();
   nsresult HandleVoiceConnectionChanged();
+  nsresult HandleIccInfoChanged();
 
   bool Init();
   void Cleanup();
@@ -57,6 +58,7 @@ private:
   int mCurrentCallIndex;
   bool mReceiveVgsFlag;
   nsString mDevicePath;
+  nsString mMsisdn;
   enum mozilla::ipc::SocketConnectionStatus mSocketStatus;
   nsTArray<int> mCurrentCallStateArray;
   nsAutoPtr<BluetoothRilListener> mListener;
