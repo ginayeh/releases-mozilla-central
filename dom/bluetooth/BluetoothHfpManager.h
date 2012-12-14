@@ -43,6 +43,8 @@ private:
   BluetoothHfpManager();
   nsresult HandleVolumeChanged(const nsAString& aData);
   nsresult HandleShutdown();
+  nsresult HandleVoiceConnectionChanged();
+
   bool Init();
   void Cleanup();
   void NotifyDialer(const nsAString& aCommand);
