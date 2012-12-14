@@ -14,20 +14,27 @@
 #include "BluetoothUtils.h"
 #include "BluetoothUuid.h"
 
+#include "MobileConnection.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
 #include "nsContentUtils.h"
 #include "nsIAudioManager.h"
+#include "nsIDOMBatteryManager.h"
 #include "nsIObserverService.h"
 #include "nsISettingsService.h"
 #include "nsIRadioInterfaceLayer.h"
-#include "MobileConnection.h"
 
 #include <unistd.h> /* usleep() */
 
-#define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
 #define AUDIO_VOLUME_BT_SCO "audio.volume.bt_sco"
+#define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
+#define MOBILE_CONNECTION_VOICE_CHANGED "mobile-connection-voice-changed"
+#define MOBILE_CONNECTION_ICCINFO_CHANGED "mobile-connection-iccinfo-changed"
+#define NS_RILCONTENTHELPER_CONTRACTID "@mozilla.org/ril/content-helper;1"
+
+#define TOA_UNKNOWN 0x81
+#define TOA_INTERNATIONAL 0x91
 
 #undef LOG
 #if defined(MOZ_WIDGET_GONK)
@@ -50,6 +57,15 @@
 using namespace mozilla;
 using namespace mozilla::ipc;
 USING_BLUETOOTH_NAMESPACE
+
+namespace {
+  StaticRefPtr<BluetoothHfpManager> gBluetoothHfpManager;
+  StaticRefPtr<BluetoothHfpManagerObserver> sHfpObserver;
+  bool gInShutdown = false;
+  static bool sStopSendingRingFlag = true;
+
+  static int sRingInterval = 3000; //unit: ms
+} // anonymous namespace
 
 /* CallState for sCINDItems[CINDType::CALL].value
  * - NO_CALL: there are no calls in progress
@@ -92,22 +108,22 @@ typedef struct {
 
 enum CINDType {
   BATTCHG = 1,
-  SIGNAL,
-  SERVICE,
   CALL,
-  CALLSETUP,
   CALLHELD,
-  ROAM,
+  CALLSETUP,
+  SERVICE,
+  SIGNAL,
+  ROAM
 };
 
 static CINDItem sCINDItems[] = {
   {},
   {"battchg", "0-5", 5},
-  {"signal", "0-5", 5},
-  {"service", "0,1", 1},
   {"call", "0,1", CallState::NO_CALL},
-  {"callsetup", "0-3", CallSetupState::NO_CALLSETUP},
   {"callheld", "0-2", CallHeldState::NO_CALLHELD},
+  {"callsetup", "0-3", CallSetupState::NO_CALLSETUP},
+  {"service", "0,1", 0},
+  {"signal", "0-5", 0},
   {"roam", "0,1", 0}
 };
 
@@ -135,6 +151,16 @@ public:
       return false;
     }
 
+    if (NS_FAILED(obs->AddObserver(this, MOBILE_CONNECTION_VOICE_CHANGED, false))) {
+      NS_WARNING("Failed to add mobile connection voice change observer!");
+      return false;
+    }
+
+    if (NS_FAILED(obs->AddObserver(this, MOBILE_CONNECTION_ICCINFO_CHANGED, false))) {
+      NS_WARNING("Failed to add mobile connection iccinfo change observer!");
+      return false;
+    }
+
     return true;
   }
 
@@ -142,8 +168,9 @@ public:
   {
     nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
     if (!obs ||
-        (NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) ||
-         NS_FAILED(obs->RemoveObserver(this, MOZSETTINGS_CHANGED_ID)))) {
+        NS_FAILED(obs->RemoveObserver(this, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) ||
+        NS_FAILED(obs->RemoveObserver(this, MOZSETTINGS_CHANGED_ID)) ||
+        NS_FAILED(obs->RemoveObserver(this, MOBILE_CONNECTION_VOICE_CHANGED))) {
       NS_WARNING("Can't unregister observers, or already unregistered!");
       return false;
     }
@@ -190,17 +217,6 @@ public:
 
 NS_IMPL_ISUPPORTS1(GetVolumeTask, nsISettingsServiceCallback);
 
-namespace {
-  StaticRefPtr<BluetoothHfpManager> gBluetoothHfpManager;
-  StaticRefPtr<BluetoothHfpManagerObserver> sHfpObserver;
-  bool gInShutdown = false;
-  static bool sStopSendingRingFlag = true;
-
-  static int sRingInterval = 3000; //unit: ms
-} // anonymous namespace
-
-NS_IMPL_ISUPPORTS1(BluetoothHfpManagerObserver, nsIObserver)
-
 NS_IMETHODIMP
 BluetoothHfpManagerObserver::Observe(nsISupports* aSubject,
                                      const char* aTopic,
@@ -212,11 +228,17 @@ BluetoothHfpManagerObserver::Observe(nsISupports* aSubject,
     return gBluetoothHfpManager->HandleVolumeChanged(nsDependentString(aData));
   } else if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
     return gBluetoothHfpManager->HandleShutdown();
+  } else if (!strcmp(aTopic, MOBILE_CONNECTION_VOICE_CHANGED)) {
+    return gBluetoothHfpManager->HandleVoiceConnectionChanged();
+  } else if (!strcmp(aTopic, MOBILE_CONNECTION_ICCINFO_CHANGED)) {
+    return gBluetoothHfpManager->HandleIccInfoChanged();
   }
 
   MOZ_ASSERT(false, "BluetoothHfpManager got unexpected topic!");
   return NS_ERROR_UNEXPECTED;
 }
+
+NS_IMPL_ISUPPORTS1(BluetoothHfpManagerObserver, nsIObserver)
 
 class SendRingIndicatorTask : public Task
 {
@@ -496,6 +518,92 @@ BluetoothHfpManager::HandleVolumeChanged(const nsAString& aData)
 }
 
 nsresult
+BluetoothHfpManager::HandleVoiceConnectionChanged()
+{
+  LOG("[Hfp] %s", __FUNCTION__);
+
+  nsCOMPtr<nsIMobileConnectionProvider> connection =
+    do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
+  NS_ENSURE_TRUE(connection, NS_ERROR_FAILURE);
+
+  nsIDOMMozMobileConnectionInfo* voiceInfo;
+  connection->GetVoiceConnectionInfo(&voiceInfo);
+  NS_ENSURE_TRUE(voiceInfo, NS_ERROR_FAILURE);
+
+  bool roaming;
+  voiceInfo->GetRoaming(&roaming);
+  if (roaming != sCINDItems[CINDType::ROAM].value) {
+    sCINDItems[CINDType::ROAM].value = roaming;
+    SendCommand("+CIEV: ", CINDType::ROAM);
+  }
+  LOG("[Hfp] roaming: %d", roaming);
+
+  bool service = false;
+  nsString regState;
+  voiceInfo->GetState(regState);
+  if (regState.EqualsLiteral("registered")) {
+    service = true;
+  }
+  if (service != sCINDItems[CINDType::SERVICE].value) {
+    sCINDItems[CINDType::SERVICE].value = service;
+    SendCommand("+CIEV: ", CINDType::SERVICE);
+  }
+  LOG("[Hfp] state: %s, service: %d", NS_ConvertUTF16toUTF8(regState).get(), service);
+
+  uint8_t signal;
+  JS::Value value;
+  voiceInfo->GetRelSignalStrength(&value);
+  if (!value.isNumber()) {
+    NS_WARNING("Failed to get relSignalStrength in BluetoothHfpManager");
+    return NS_ERROR_FAILURE;
+  }
+  signal = ceil(value.toNumber() / 20.0);
+  LOG("[Hfp] signal: %d", signal);
+  if (signal != sCINDItems[CINDType::SIGNAL].value) {
+    sCINDItems[CINDType::SIGNAL].value = signal;
+    SendCommand("+CIEV: ", CINDType::SIGNAL);
+  }
+
+
+
+/*    nsCOMPtr<nsIDOMBatteryManager> battery =
+      do_GetService("@mozilla.org/battery/batterymanager;1");
+    NS_ENSURE_TRUE(battery, NS_ERROR_FAILURE);
+
+    if (battery) {
+      double level;
+      battery->GetLevel(&level);
+      LOG("[Hfp] battery: %f", level);
+    }*/
+
+  return NS_OK;
+}
+
+nsresult
+BluetoothHfpManager::HandleIccInfoChanged()
+{
+  LOG("[Hfp] %s", __FUNCTION__);
+
+  nsCOMPtr<nsIMobileConnectionProvider> connection =
+    do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
+  NS_ENSURE_TRUE(connection, NS_ERROR_FAILURE);
+
+  nsIDOMMozMobileICCInfo* iccInfo;
+  connection->GetIccInfo(&iccInfo);
+  NS_ENSURE_TRUE(iccInfo, NS_ERROR_FAILURE);
+
+  nsString msisdn;
+  iccInfo->GetMsisdn(msisdn);
+
+  if (!msisdn.Equals(mMsisdn)) {
+    mMsisdn = msisdn;
+  }
+  LOG("[Hfp] number: %s", NS_ConvertUTF16toUTF8(msisdn).get());
+
+  return NS_OK;
+}
+
+nsresult
 BluetoothHfpManager::HandleShutdown()
 {
   MOZ_ASSERT(NS_IsMainThread());
@@ -517,7 +625,7 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
 
   if (!strncmp(msg, "AT+BLDN", 7)) {
     LOG("[Hfp] hack for test");
-    msg = "AT+CNUM\0";
+    msg = "ATD188;\r";
   }
   // For more information, please refer to 4.34.1 "Bluetooth Defined AT
   // Capabilities" in Bluetooth hands-free profile 1.6
@@ -605,7 +713,24 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     // Currently, we don't support memory dialing in Dialer app
     SendLine("ERROR");
   } else if (!strncmp(msg, "ATD", 3)) {
-    NotifyDialer(NS_ConvertUTF8toUTF16(msg));
+    const char* message;
+    int length = strlen(msg);
+
+    message = new char[length];
+    int end = message.find(";");
+
+    const char* message2;
+    message2 = new char[end + 1];
+    message2 = message.substr(0, end);
+    LOG("[Hfp] message2: %s", message2);
+/*    int end = message.FindChar(';', 0);
+    LOG("[Hfp] end: %d", end);
+
+    int length = strlen(msg);
+    LOG("[Hfp] length: %d", length);
+    LOG("[Hfp] ATD number: %s", message);*/
+
+//    NotifyDialer(NS_ConvertUTF8toUTF16(nsDependentCSubstring(message, 0, end + 1)));
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CKPD", 7)) {
     // For Headset
@@ -629,55 +754,15 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     }
     SendLine("OK");
   } else if (!strncmp(msg, "AT+CNUM", 7)) {
-    LOG("[Hfp] parse AT+CNUM");
-//    SendLine("+CNUM:");
-
-    nsCOMPtr<nsIMobileConnectionProvider> connection =
-      do_GetService("@mozilla.org/ril/content-helper;1");
-    NS_ENSURE_TRUE_VOID(connection);
-
-    nsIDOMMozMobileICCInfo* iccInfo;
-    connection->GetIccInfo(&iccInfo);
-    if (iccInfo) {
-      nsString number;
-      iccInfo->GetMsisdn(number);
-      
-      LOG("[Hfp] number: %s", NS_ConvertUTF16toUTF8(number).get());
+    mMsisdn.AssignLiteral("0983970882");
+    if (mMsisdn.Length()) {
+      nsAutoCString message("+CNUM: ,");
+      message += NS_ConvertUTF16toUTF8(mMsisdn).get();
+      message += ",";
+      message.AppendInt(TOA_UNKNOWN);
+      SendLine(message.get());
     }
-
-    nsIDOMMozMobileConnectionInfo* voiceInfo;
-    connection->GetVoiceConnectionInfo(&voiceInfo);
-    if (voiceInfo) {
-      JS::Value value;
-      voiceInfo->GetRelSignalStrength(&value);
-
-      if (!value.isNumber()) {
-        LOG("[Hfp] Not a number");
-      }
-      LOG("[Hfp] rel signal: %f", value.toNumber());
-    }
-
-
-/*     nsCOMPtr<nsIRadioInterfaceLayer> ril =
-       do_GetService("@mozilla.org/ril;1");
-     nsCOMPtr<nsIRilContext> rilCtx;
-     ril->GetRilContext(getter_AddRefs(rilCtx));
-
-     if (rilCtx) {
-       LOG("[Hfp] get rilCtx");
-       nsCOMPtr<nsIICCRecords> icc;
-       rilCtx->GetIcc(getter_AddRefs(icc));
-
-       // Cannot get icc here
-       if (icc) {
-         LOG("[Hfp] get icc");
-         nsAutoString id;
-         icc->GetMsisdn(id);
-         LOG("[Hfp] number: %s", NS_ConvertUTF16toUTF8(id).get());
-       }
-     }
-     LOG("[Hfp] return");*/
-//    SendLine("OK");
+    SendLine("OK");
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -795,29 +880,24 @@ BluetoothHfpManager::SendLine(const char* aMessage)
 bool
 BluetoothHfpManager::SendCommand(const char* aCommand, const int aValue)
 {
+  if (mSocketStatus == SocketConnectionStatus::SOCKET_DISCONNECTED ||
+      mSocketStatus == SocketConnectionStatus::SOCKET_LISTENING) {
+    return false;
+  }
+
   nsAutoCString message;
   int value = aValue;
   message += aCommand;
 
   if (!strcmp(aCommand, "+CIEV: ")) {
+    if ((aValue < 1) || (aValue > ArrayLength(sCINDItems) - 1)) {
+      NS_WARNING("unexpected CINDType for CIEV command");
+      return false;
+    }
+
     message.AppendInt(aValue);
     message += ",";
-    switch (aValue) {
-      case CINDType::CALL:
-        message.AppendInt(sCINDItems[CINDType::CALL].value);
-        break;
-      case CINDType::CALLSETUP:
-        message.AppendInt(sCINDItems[CINDType::CALLSETUP].value);
-        break;
-      case CINDType::CALLHELD:
-        message.AppendInt(sCINDItems[CINDType::CALLHELD].value);
-        break;
-      default:
-#ifdef DEBUG
-        NS_WARNING("unexpected CINDType for CIEV command");
-#endif
-        return false;
-    }
+    message.AppendInt(sCINDItems[aValue].value);
   } else if (!strcmp(aCommand, "+CIND: ")) {
     if (!aValue) {
       for (uint8_t i = 1; i < ArrayLength(sCINDItems); i++) {
@@ -1047,7 +1127,7 @@ BluetoothHfpManager::OnConnectSuccess()
   mSocketStatus = GetConnectionStatus();
 
   nsCOMPtr<nsIRILContentHelper> ril =
-    do_GetService("@mozilla.org/ril/content-helper;1");
+    do_GetService(NS_RILCONTENTHELPER_CONTRACTID);
   NS_ENSURE_TRUE_VOID(ril);
   ril->EnumerateCalls(mListener->GetCallback());
 
