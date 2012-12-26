@@ -909,6 +909,9 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     message += NS_ConvertUTF16toUTF8(mOperatorName);
     message += "\"";
     SendLine(message.get());
+  } else if (msg.Find("AT+BVRA") != -1) {
+    // Currently, we don't support voice recognition in AG
+    SendLine("ERROR");
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
