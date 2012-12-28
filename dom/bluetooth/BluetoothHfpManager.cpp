@@ -14,6 +14,7 @@
 #include "BluetoothUtils.h"
 #include "BluetoothUuid.h"
 
+#include "BatteryManager.h"
 #include "MobileConnection.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 #include "mozilla/Hal.h"
@@ -21,6 +22,7 @@
 #include "mozilla/StaticPtr.h"
 #include "nsContentUtils.h"
 #include "nsIAudioManager.h"
+#include "nsIDOMBatteryManager.h"
 #include "nsIObserverService.h"
 #include "nsISettingsService.h"
 #include "nsIRadioInterfaceLayer.h"
@@ -684,11 +686,11 @@ BluetoothHfpManager::HandleShutdown()
 void
 BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
 {
-  LOG("[Hfp] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   nsAutoCString msg((const char*)aMessage->mData.get());
   msg.StripWhitespace();
+  LOG("[Hfp] %s - '%s'", __FUNCTION__, msg.get());
 
   nsTArray<nsCString> atCommandValues;
 
@@ -697,7 +699,7 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
   // For more information, please refer to 4.34.1 "Bluetooth Defined AT
   // Capabilities" in Bluetooth hands-free profile 1.6
   if (msg.Find("AT+BRSF=") != -1) {
-    SendCommand("+BRSF: ", 33);
+    SendCommand("+BRSF: ", 97);
   } else if (msg.Find("AT+CIND=?") != -1) {
     // Asking for CIND range
     SendCommand("+CIND: ", 0);
@@ -726,7 +728,6 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     mCMER = atCommandValues[3].EqualsLiteral("1");
   } else if (msg.Find("AT+CMEE=") != -1) {
     ParseAtCommand(msg, 8, atCommandValues);
-
     if (atCommandValues.IsEmpty()) {
       NS_WARNING("Could't get the value of command [AT+CMEE=]");
       goto respond_with_ok;
@@ -736,7 +737,22 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     // AT+CMEE = 1: use numeric <err>
     // AT+CMEE = 2: use verbose <err>
     mCMEE = !atCommandValues[0].EqualsLiteral("0");
-  } else if (msg.Find("AT+VTS=") != -1) {
+  } else if (msg.Find("AT+COPS=") != -1) {
+    ParseAtCommand(msg, 8, atCommandValues);
+    if (atCommandValues.Length() != 2) {
+      NS_WARNING("Could't get the value of command [AT+COPS=]");
+      goto respond_with_ok;
+    }
+
+    // Handsfree only support AT+COPS=3,0
+    if (!atCommandValues[0].EqualsLiteral("3") ||
+        !atCommandValues[1].EqualsLiteral("0")) {
+      if (mCMEE) {
+        SendCommand("+CME ERROR: ", BluetoothCmeError::OPERATION_NOT_SUPPORTED);
+      }
+      return;
+    }
+	} else if (msg.Find("AT+VTS=") != -1) {
     ParseAtCommand(msg, 7, atCommandValues);
     if (atCommandValues.Length() != 1) {
       NS_WARNING("Couldn't get the value of command [AT+VTS=]");
@@ -768,7 +784,7 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
   } else if (msg.Find("AT+CHLD=?") != -1) {
     SendLine("+CHLD: (1,2)");
   } else if (msg.Find("AT+CHLD=") != -1) {
-    ParseAtCommand(msg, 8, atCommandValues);
+    char chld = msg[8];
 
     if (atCommandValues.IsEmpty()) {
       NS_WARNING("Could't get the value of command [AT+CHLD=]");
@@ -800,6 +816,19 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
       SendLine("ERROR");
       return;
     }
+/*      nsAutoCString idxString;
+      idxString += nsDependentCSubstring(msg, 9, length);
+
+      nsresult rv;
+      idx = idxString.ToInteger(&rv);
+      LOG("[Hfp] idx: %d, array length: %d, state: %d", idx, mCurrentCallArray.Length(), mCurrentCallArray[idx].state);
+      if (NS_FAILED(rv) ||
+          idx > (int)mCurrentCallArray.Length() - 1 ||
+          mCurrentCallArray[idx].state == nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED) {
+        NS_WARNING("Wrong value of command [AT+CHLD]");
+        SendLine("ERROR");
+        return;
+      }*/
 
     if (chld == '1') {
       NotifyDialer(NS_LITERAL_STRING("CHUP+ATA"));
@@ -1047,7 +1076,7 @@ BluetoothHfpManager::SendCommand(const char* aCommand, const uint16_t aValue)
       return true;
     }
 
-    if ((aValue < 1) || (aValue > ArrayLength(sCINDItems) - 1)) {
+    if ((aValue < 1) || (aValue > (int)ArrayLength(sCINDItems) - 1)) {
       NS_WARNING("unexpected CINDType for CIEV command");
       return false;
     }
@@ -1134,13 +1163,17 @@ void
 BluetoothHfpManager::SetupCIND(uint32_t aCallIndex, uint16_t aCallState,
                                const nsAString& aNumber, bool aInitial)
 {
-  LOG("[Hfp] %s", __FUNCTION__);
+  LOG("[Hfp] %s, aCallIndex: %d, aCallState: %d, aNumber: %s", __FUNCTION__, aCallIndex, aCallState, NS_ConvertUTF16toUTF8(aNumber).get());
   nsRefPtr<nsRunnable> sendRingTask;
   nsString address;
 
   while (aCallIndex >= mCurrentCallArray.Length()) {
     Call call;
     mCurrentCallArray.AppendElement(call);
+  }
+
+  for (uint32_t i = 0; i < mCurrentCallArray.Length(); i++) {
+    LOG("[Hfp] Call[%d], state: %d", i, mCurrentCallArray[i].state);
   }
 
   // Same logic as implementation in ril_worker.js

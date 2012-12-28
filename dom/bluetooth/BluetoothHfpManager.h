@@ -59,6 +59,18 @@ public:
                const bool aIsHandsfree,
                BluetoothReplyRunnable* aRunnable);
   void Disconnect();
+<<<<<<< HEAD
+=======
+  bool SendLine(const char* aMessage);
+  bool SendCommand(const char* aCommand, const int aValue);
+  void SendCLCC();
+  void CallStateChanged(uint32_t aCallIndex, uint16_t aCallState,
+                        const nsAString& aNumber, bool aIsActive);
+  void EnumerateCallState(uint32_t aCallIndex, uint16_t aCallState,
+                          const nsAString& aNumber, bool aIsActive);
+  void SetupCIND(uint32_t aCallIndex, uint16_t aCallState,
+                 const nsAString& aNumber, bool aInitial);
+>>>>>>> 9d9c870... call array length: uint32_t, call state: uint16_t
   bool Listen();
 
   void CallStateChanged(uint32_t aCallIndex, uint16_t aCallState,
@@ -78,6 +90,7 @@ private:
   nsresult HandleVolumeChanged(const nsAString& aData);
   nsresult HandleVoiceConnectionChanged();
 
+  void AfterHfpDisconnected();
   bool Init();
   void Cleanup();
   void NotifyDialer(const nsAString& aCommand);

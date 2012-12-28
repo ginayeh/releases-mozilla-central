@@ -177,6 +177,8 @@ class CloseSocketTask : public Task
 public:
   void Run() MOZ_OVERRIDE
   {
+    LOG("[O] CloseSocketTask::Run");
+
     if (!sInstance) {
       NS_WARNING("BluetoothOppManager no longer exists, cannot close socket!");
       return;
@@ -184,6 +186,7 @@ public:
 
     if (sInstance->GetConnectionStatus() ==
           SocketConnectionStatus::SOCKET_CONNECTED) {
+      LOG("[O] CloseSocket");
       sInstance->CloseSocket();
     }
   }
