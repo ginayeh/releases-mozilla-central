@@ -677,6 +677,7 @@ UnixSocketImpl::OnFileCanReadWithoutBlocking(int aFd)
       }
       mIncoming = new UnixSocketRawData(ret);
       memcpy(mIncoming->mData, data, ret);
+      mIncoming->mSize = ret;
       nsRefPtr<SocketReceiveTask> t =
         new SocketReceiveTask(this, mIncoming.forget());
       NS_DispatchToMainThread(t);
