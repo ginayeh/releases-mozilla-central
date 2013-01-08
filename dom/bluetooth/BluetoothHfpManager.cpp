@@ -16,6 +16,7 @@
 
 #include "MobileConnection.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
+#include "mozilla/Hal.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
 #include "nsContentUtils.h"
@@ -146,6 +147,7 @@ class mozilla::dom::bluetooth::Call {
 };
 
 class mozilla::dom::bluetooth::BluetoothHfpManagerObserver : public nsIObserver
+                                                           , public BatteryObserver
 {
 public:
   NS_DECL_ISUPPORTS
@@ -179,6 +181,8 @@ public:
       return false;
     }
 
+    hal::RegisterBatteryObserver(this);
+
     return true;
   }
 
@@ -193,12 +197,28 @@ public:
       NS_WARNING("Can't unregister observers, or already unregistered!");
       return false;
     }
+
+    hal::UnregisterBatteryObserver(this);
+
     return true;
   }
 
   ~BluetoothHfpManagerObserver()
   {
     Shutdown();
+  }
+
+  void Notify(const hal::BatteryInformation& aBatteryInfo)
+  {
+    // Range  of battery level: [0, 1], double
+    // Range of CIND::BATTCHG: [0, 5], int
+    int level = ceil(aBatteryInfo.level() * 5.0);
+    LOG("level: %d", level);
+    LOG("mLevel: %d", sCINDItems[CINDType::BATTCHG].value);
+    if (level != sCINDItems[CINDType::BATTCHG].value) {
+      sCINDItems[CINDType::BATTCHG].value = level;
+      gBluetoothHfpManager->SendCommand("+CIEV: ", CINDType::BATTCHG);
+    }
   }
 };
 
@@ -627,6 +647,11 @@ BluetoothHfpManager::HandleVoiceConnectionChanged()
     SendCommand("+CIEV: ", CINDType::SIGNAL);
   }
 
+  nsIDOMMozMobileNetworkInfo* network;
+  voiceInfo->GetNetwork(&network);
+  NS_ENSURE_TRUE(network, NS_ERROR_FAILURE);
+  network->GetShortName(mOperatorName);
+
   return NS_OK;
 }
 
@@ -640,13 +665,7 @@ BluetoothHfpManager::HandleIccInfoChanged()
   nsIDOMMozMobileICCInfo* iccInfo;
   connection->GetIccInfo(&iccInfo);
   NS_ENSURE_TRUE(iccInfo, NS_ERROR_FAILURE);
-
-  nsString msisdn;
-  iccInfo->GetMsisdn(msisdn);
-
-  if (!msisdn.Equals(mMsisdn)) {
-    mMsisdn = msisdn;
-  }
+  iccInfo->GetMsisdn(mMsisdn);
 
   return NS_OK;
 }
@@ -885,6 +904,11 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
       message += ",,4";
       SendLine(message.get());
     }
+  } else if (msg.Find("AT+COPS?") != -1) {
+    nsAutoCString message("+COPS: 0,0,\"");
+    message += NS_ConvertUTF16toUTF8(mOperatorName);
+    message += "\"";
+    SendLine(message.get());
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
