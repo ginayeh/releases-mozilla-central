@@ -106,6 +106,7 @@ private:
   nsString mDevicePath;
   nsString mOperatorName;
   nsString mMsisdn;
+  uint8_t mNetworkSelectionMode;
   enum mozilla::ipc::SocketConnectionStatus mSocketStatus;
 
   nsTArray<Call> mCurrentCallArray;

@@ -658,10 +658,25 @@ BluetoothHfpManager::HandleVoiceConnectionChanged()
     SendCommand("+CIEV: ", CINDType::SIGNAL);
   }
 
+  /**
+   * Possible return values for mode are:
+   * - null (unknown): set mNetworkSelectionMode to 0 (auto)
+   * - automatic: set mNetworkSelectionMode to 0 (auto)
+   * - manual: set mNetworkSelectionMode to 1 (manual)
+   */ 
+  nsString mode;
+  connection->GetNetworkSelectionMode(mode);
+  LOG("[Hfp] mode: %s", NS_ConvertUTF16toUTF8(mode).get());
+  if (mode.EqualsLiteral("manual")) {
+    mNetworkSelectionMode = 1;
+  } else {
+    mNetworkSelectionMode = 0;
+  }
+
   nsIDOMMozMobileNetworkInfo* network;
   voiceInfo->GetNetwork(&network);
   NS_ENSURE_TRUE(network, NS_ERROR_FAILURE);
-  network->GetShortName(mOperatorName);
+  network->GetLongName(mOperatorName);
 
   return NS_OK;
 }
@@ -757,6 +772,8 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
         !atCommandValues[1].EqualsLiteral("0")) {
       if (mCMEE) {
         SendCommand("+CME ERROR: ", BluetoothCmeError::OPERATION_NOT_SUPPORTED);
+      } else {
+        SendLine("ERROR");
       }
       return;
     }
@@ -794,7 +811,6 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     SendLine("+CHLD: (1,2)");
   } else if (msg.Find("AT+CHLD=") != -1) {
     ParseAtCommand(msg, 8, atCommandValues);
-//    char chld = msg[8];
 
     if (atCommandValues.IsEmpty()) {
       NS_WARNING("Could't get the value of command [AT+CHLD=]");
@@ -942,7 +958,9 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
       SendLine(message.get());
     }
   } else if (msg.Find("AT+COPS?") != -1) {
-    nsAutoCString message("+COPS: 0,0,\"");
+    nsAutoCString message("+COPS: ");
+    message.AppendInt(mNetworkSelectionMode);
+    message += ",0,\"";
     message += NS_ConvertUTF16toUTF8(mOperatorName);
     message += "\"";
     SendLine(message.get());
