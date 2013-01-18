@@ -663,10 +663,9 @@ BluetoothHfpManager::HandleVoiceConnectionChanged()
    * - null (unknown): set mNetworkSelectionMode to 0 (auto)
    * - automatic: set mNetworkSelectionMode to 0 (auto)
    * - manual: set mNetworkSelectionMode to 1 (manual)
-   */ 
+   */
   nsString mode;
   connection->GetNetworkSelectionMode(mode);
-  LOG("[Hfp] mode: %s", NS_ConvertUTF16toUTF8(mode).get());
   if (mode.EqualsLiteral("manual")) {
     mNetworkSelectionMode = 1;
   } else {
@@ -762,6 +761,7 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
     mCMEE = !atCommandValues[0].EqualsLiteral("0");
   } else if (msg.Find("AT+COPS=") != -1) {
     ParseAtCommand(msg, 8, atCommandValues);
+
     if (atCommandValues.Length() != 2) {
       NS_WARNING("Could't get the value of command [AT+COPS=]");
       goto respond_with_ok;
@@ -777,6 +777,13 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
       }
       return;
     }
+  } else if (msg.Find("AT+COPS?") != -1) {
+    nsAutoCString message("+COPS: ");
+    message.AppendInt(mNetworkSelectionMode);
+    message += ",0,\"";
+    message += NS_ConvertUTF16toUTF8(mOperatorName);
+    message += "\"";
+    SendLine(message.get());
   } else if (msg.Find("AT+VTS=") != -1) {
     ParseAtCommand(msg, 7, atCommandValues);
 
@@ -957,13 +964,6 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
       message += ",,4";
       SendLine(message.get());
     }
-  } else if (msg.Find("AT+COPS?") != -1) {
-    nsAutoCString message("+COPS: ");
-    message.AppendInt(mNetworkSelectionMode);
-    message += ",0,\"";
-    message += NS_ConvertUTF16toUTF8(mOperatorName);
-    message += "\"";
-    SendLine(message.get());
   } else if (msg.Find("AT+BVRA") != -1) {
     // Currently, we don't support voice recognition in AG
     SendLine("ERROR");
@@ -1240,7 +1240,9 @@ BluetoothHfpManager::HandleCallStateChanged(uint32_t aCallIndex,
 
   switch (aCallState) {
     case nsIRadioInterfaceLayer::CALL_STATE_HELD:
-      UpdateCIND(CINDType::CALLHELD, CallHeldState::ONHOLD_ACTIVE, aSend);
+      // UpdateCIND(CINDType::CALLHELD, CallHeldState::ONHOLD_ACTIVE, aSend);
+      sCINDItems[CINDType::CALLHELD].value = CallHeldState::ONHOLD_ACTIVE;
+      SendCommand("+CIEV: ", CINDType::CALLHELD);
       break;
     case nsIRadioInterfaceLayer::CALL_STATE_INCOMING:
       mCurrentCallArray[aCallIndex].mDirection = true;
@@ -1303,12 +1305,16 @@ BluetoothHfpManager::HandleCallStateChanged(uint32_t aCallIndex,
           UpdateCIND(CINDType::CALLSETUP, CallSetupState::NO_CALLSETUP, aSend);
           break;
         case nsIRadioInterfaceLayer::CALL_STATE_HELD:
-
           // Check if there's another call on hold
           while (index < callArrayLength) {
-            if (index != mCurrentCallIndex &&
-                (mCurrentCallArray[index].mState ==
-                 nsIRadioInterfaceLayer::CALL_STATE_HELD)) {
+            if (index == mCurrentCallIndex) {
+              index++;
+              break;
+            }
+
+            uint16_t state = mCurrentCallArray[index].mState;
+            if ((state == nsIRadioInterfaceLayer::CALL_STATE_HELD) ||
+                (state == aCallState)) {
               break;
             }
             index++;

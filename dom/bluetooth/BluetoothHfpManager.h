@@ -102,11 +102,11 @@ private:
   bool mCLIP;
   bool mCMEE;
   bool mCMER;
+  bool mNetworkSelectionMode;
   bool mReceiveVgsFlag;
   nsString mDevicePath;
-  nsString mOperatorName;
   nsString mMsisdn;
-  uint8_t mNetworkSelectionMode;
+  nsString mOperatorName;
   enum mozilla::ipc::SocketConnectionStatus mSocketStatus;
 
   nsTArray<Call> mCurrentCallArray;
