@@ -2581,6 +2581,7 @@ BluetoothDBusService::Disconnect(const uint16_t aProfileId,
 bool
 BluetoothDBusService::IsConnected(const uint16_t aProfileId)
 {
+  LOG("[B] %s", __FUNCTION__);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   if (aProfileId == BluetoothServiceClass::HANDSFREE ||
@@ -2590,6 +2591,17 @@ BluetoothDBusService::IsConnected(const uint16_t aProfileId)
   } else if (aProfileId == BluetoothServiceClass::OBJECT_PUSH) {
     BluetoothOppManager* opp = BluetoothOppManager::Get();
     return opp->IsTransferring();
+  } else if (aProfileId == BluetoothServiceClass::SCO_AG) {
+    BluetoothScoManager* sco = BluetoothScoManager::Get();
+    BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
+    if (sco->GetConnectionStatus() == SocketConnectionStatus::SOCKET_CONNECTED) {
+      sco->Disconnect();
+      return true;
+    } else {
+      nsString deviceAddress;
+      hfp->GetSocketAddr(deviceAddress);
+      return sco->Connect(deviceAddress);
+    }
   }
 
   return false;
