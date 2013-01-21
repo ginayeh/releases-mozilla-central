@@ -1204,9 +1204,10 @@ void
 BluetoothHfpManager::HandleCallStateChanged(uint32_t aCallIndex,
                                             uint16_t aCallState,
                                             const nsAString& aNumber,
+                                            bool aIsActive,
                                             bool aSend)
 {
-  LOG("[Hfp] %s, aCallIndex: %d, aCallState: %d, aNumber: %s", __FUNCTION__, aCallIndex, aCallState, NS_ConvertUTF16toUTF8(aNumber).get());
+  LOG("[Hfp] %s\n\taCallIndex: %d\n\taCallState: %d\n\taNumber: %s\n\taIsActive: %d", __FUNCTION__, aCallIndex, aCallState, NS_ConvertUTF16toUTF8(aNumber).get(), aIsActive);
   LOG("[Hfp] aSend: %d", aSend);
   for (uint32_t i = 0; i < mCurrentCallArray.Length(); i++) {
     LOG("[Hfp] Call[%d], state: %d", i, mCurrentCallArray[i].mState);

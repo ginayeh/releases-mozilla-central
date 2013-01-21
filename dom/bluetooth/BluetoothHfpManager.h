@@ -65,7 +65,7 @@ public:
    * @param aSend A boolean indicates whether we need to notify headset or not
    */
   void HandleCallStateChanged(uint32_t aCallIndex, uint16_t aCallState,
-                              const nsAString& aNumber, bool aSend);
+                              const nsAString& aNumber, bool aIsActive, bool aSend);
 
 private:
   class GetVolumeTask;
