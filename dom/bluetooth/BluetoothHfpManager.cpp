@@ -904,9 +904,41 @@ BluetoothHfpManager::ReceiveSocketData(UnixSocketRawData* aMessage)
   } else if (msg.Find("AT+CHUP") != -1) {
     NotifyDialer(NS_LITERAL_STRING("CHUP"));
   } else if (msg.Find("ATD>") != -1) {
+    ParseAtCommand(msg, 4, atCommandValues);
+
+    if (atCommandValues.IsEmpty()) {
+      NS_WARNING("Could't get the value of command [ATD>]");
+      goto respond_with_ok;
+    }
+
+    nsAutoCString message(atCommandValues[0]);
+    int end = message.FindChar(';');
+    if (end < 0) {
+      NS_WARNING("Could't get the value of command [ATD>]");
+      goto respond_with_ok;
+    }
+
+    nsAutoCString temp;
+    temp += nsDependentCSubstring(message, 0, end);
+    LOG("[Hfp] temp: %s", temp.get());
+    nsresult rv;
+    uint32_t index = temp.ToInteger(&rv);
+    // For PTS testing
+    LOG("[Hfp] index: %d", index);
+    if (index > 9999 || NS_FAILED(rv)) {
+      NS_WARNING("Wrong value of command [ATD>]");
+      SendLine("ERROR");
+      return;
+    }
+
+    nsAutoCString newMsg;
+    newMsg += "ATD>";
+    newMsg.AppendInt(index);
+    NotifyDialer(NS_ConvertUTF8toUTF16(newMsg));
+
     // Currently, we don't support memory dialing in Dialer app
-    SendLine("ERROR");
-    return;
+//    SendLine("ERROR");
+//    return;
   } else if (msg.Find("AT+CLCC") != -1) {
     SendCommand("+CLCC: ");
   } else if (msg.Find("ATD") != -1) {
@@ -1192,9 +1224,7 @@ BluetoothHfpManager::UpdateCIND(uint8_t aType, uint8_t aValue, bool aSend)
   if (sCINDItems[aType].value != aValue) {
     sCINDItems[aType].value = aValue;
     // Indicator status update is enabled
-    LOG("[Hfp] aSend: %d, mCMER: %d", aSend, mCMER);
     if (aSend && mCMER) {
-      LOG("[Hfp] going to send");
       SendCommand("+CIEV: ", aType);
     }
   }
@@ -1306,23 +1336,24 @@ BluetoothHfpManager::HandleCallStateChanged(uint32_t aCallIndex,
           UpdateCIND(CINDType::CALLSETUP, CallSetupState::NO_CALLSETUP, aSend);
           break;
         case nsIRadioInterfaceLayer::CALL_STATE_HELD:
-          // Check if there's another call on hold
+          // Check whether to updatd CINDType::CALLHELD or not
           while (index < callArrayLength) {
             if (index == mCurrentCallIndex) {
               index++;
-              break;
+              continue;
             }
 
             uint16_t state = mCurrentCallArray[index].mState;
+            // If there's another call on hold or other calls exist, no need to
+            // update CINDType::CALLHELD
             if ((state == nsIRadioInterfaceLayer::CALL_STATE_HELD) ||
-                (state == aCallState)) {
+                (state != nsIRadioInterfaceLayer::CALL_STATE_DISCONNECTED)) {
               break;
             }
             index++;
           }
 
-          LOG("[Hfp] index: %d", index);
-          // There is no call on hold, update CIND
+          LOG("[Hfp] index: %d, callArrayLength: %d", index, callArrayLength);
           if (index == callArrayLength) {
             UpdateCIND(CINDType::CALLHELD, CallHeldState::NO_CALLHELD, aSend);
           }
