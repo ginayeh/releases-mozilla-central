@@ -105,6 +105,7 @@ private:
   bool mNetworkSelectionMode;
   bool mReceiveVgsFlag;
   nsString mDevicePath;
+  nsString mImsi;
   nsString mMsisdn;
   nsString mOperatorName;
   enum mozilla::ipc::SocketConnectionStatus mSocketStatus;

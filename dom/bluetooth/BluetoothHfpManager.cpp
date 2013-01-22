@@ -691,6 +691,7 @@ BluetoothHfpManager::HandleIccInfoChanged()
   connection->GetIccInfo(&iccInfo);
   NS_ENSURE_TRUE(iccInfo, NS_ERROR_FAILURE);
   iccInfo->GetMsisdn(mMsisdn);
+//  iccInfo->GetImsi(mImsi);
 
   return NS_OK;
 }
