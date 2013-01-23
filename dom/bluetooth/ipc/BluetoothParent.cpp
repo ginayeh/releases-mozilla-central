@@ -189,6 +189,8 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
       return actor->DoRequest(aRequest.get_DefaultAdapterPathRequest());
     case Request::TSetPropertyRequest:
       return actor->DoRequest(aRequest.get_SetPropertyRequest());
+    case Request::TGetNameRequest:
+      return actor->DoRequest(aRequest.get_GetNameRequest());
     case Request::TGetPropertyRequest:
       return actor->DoRequest(aRequest.get_GetPropertyRequest());
     case Request::TStartDiscoveryRequest:
@@ -317,6 +319,21 @@ BluetoothRequestParent::DoRequest(const SetPropertyRequest& aRequest)
 
   return true;
 }
+
+bool
+BluetoothRequestParent::DoRequest(const GetNameRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TGetNameRequest);
+
+  nsresult rv =
+    mService->GetName(aRequest.type(), aRequest.path(), aRequest.value(),
+                      mReplyRunnable.get());
+  NS_ENSURE_SUCCESS(rv, false);
+
+  return true;
+}
+
 
 bool
 BluetoothRequestParent::DoRequest(const GetPropertyRequest& aRequest)

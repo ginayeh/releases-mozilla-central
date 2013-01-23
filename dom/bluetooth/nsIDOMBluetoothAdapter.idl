@@ -24,12 +24,13 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   [implicit_jscontext]
   readonly attribute jsval uuids;
   
-  readonly attribute DOMString name;
+//  readonly attribute DOMString name;
   readonly attribute bool discoverable;
   // Unit: sec
   readonly attribute unsigned long discoverableTimeout;
 
   nsIDOMDOMRequest setName(in DOMString name);
+  nsIDOMDOMRequest getName(in DOMString name);
   nsIDOMDOMRequest setDiscoverable(in bool discoverable);
   nsIDOMDOMRequest setDiscoverableTimeout(in unsigned long timeout);
   nsIDOMDOMRequest startDiscovery();

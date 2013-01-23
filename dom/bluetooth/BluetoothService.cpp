@@ -391,71 +391,6 @@ BluetoothService::UnregisterAllSignalHandlers(BluetoothSignalObserver* aHandler)
 }
 
 void
-PrintProperty(const nsAString& aName, const BluetoothValue& aValue)
-{
-  if (aValue.type() == BluetoothValue::TnsString) {
-    LOGV("[B] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), NS_ConvertUTF16toUTF8(aValue.get_nsString()).get());
-    return;
-  } else if (aValue.type() == BluetoothValue::Tuint32_t) {
-    LOGV("[B] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_uint32_t());
-    return;
-  } else if (aValue.type() == BluetoothValue::Tbool) {
-    LOGV("[B] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_bool());
-    return;
-  } else if (aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
-    LOGV("[B] %s, <%s, Array of BluetoothNamedValue>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
-    return;
-  } else if (aValue.type() == BluetoothValue::TArrayOfnsString) {
-    InfallibleTArray<nsString> tmp(aValue.get_ArrayOfnsString());
-    for (int i = 0; i < tmp.Length(); i++) {
-      LOGV("[B] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), NS_ConvertUTF16toUTF8(tmp[i]).get());
-    }
-    return;
-  } else {
-    LOGV("[B] %s, <%s, Unknown value type>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
-    return;
-  }
-}
-
-void
-BluetoothService::SetPropertyByValue(const BluetoothNamedValue& aValue)
-{
-  const nsString& name = aValue.name();
-  const BluetoothValue& value = aValue.value();
-
-  PrintProperty(name, value);
-
-  if (name.EqualsLiteral("Name")) {
-    mAdapterName = value.get_nsString();
-  } else if (name.EqualsLiteral("Address")) {
-    mAdapterAddress = value.get_nsString();
-  } else if (name.EqualsLiteral("Path")) {
-    mAdapterPath = value.get_nsString();
-  } else if (name.EqualsLiteral("Class")) {
-    mAdapterClass = value.get_uint32_t();
-  } else if (name.EqualsLiteral("Discoverable")) {
-    mDiscoverable = value.get_bool();
-  } else if (name.EqualsLiteral("Discovering")) {
-    mDiscovering = value.get_bool();
-  } else if (name.EqualsLiteral("Pairable")) {
-    mPairable = value.get_bool();
-  } else if (name.EqualsLiteral("Powered")) {
-    mPowered = value.get_bool();
-  } else if (name.EqualsLiteral("PairableTimeout")) {
-    mPairableTimeout = value.get_uint32_t();
-  } else if (name.EqualsLiteral("DiscoverableTimeout")) {
-    mDiscoverableTimeout = value.get_uint32_t();
-  } else {
-#ifdef DEBUG
-    nsCString warningMsg;
-    warningMsg.AssignLiteral("Not handling adapter property: ");
-    warningMsg.Append(NS_ConvertUTF16toUTF8(name));
-    NS_WARNING(warningMsg.get());
-#endif
-  }
-}
-
-void
 BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
 {
   LOG("[S] %s '%s' to %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aSignal.name()).get(), NS_ConvertUTF16toUTF8(aSignal.path()).get());
@@ -469,12 +404,6 @@ BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
     LOG("[S] DistributeSignal to REMOTE_AGENT_PATH");
     Notify(aSignal);
     return;
-  } else if (aSignal.path().Equals(mAdapterPath) && aSignal.name().EqualsLiteral("PropertyChanged")) {
-    LOG("[S] DistributeSignal to %s", NS_ConvertUTF16toUTF8(mAdapterPath).get());
-    const InfallibleTArray<BluetoothNamedValue> arr(aSignal.value().get_ArrayOfBluetoothNamedValue());
-    BluetoothNamedValue v = arr[0];
-
-    SetPropertyByValue(v);
   }
 
   BluetoothSignalObserverList* ol;
@@ -492,6 +421,71 @@ BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
   ol->Broadcast(aSignal);
 
   
+}
+
+
+void
+PrintProperty(const nsAString& aName, const BluetoothValue& aValue)
+{
+  if (aValue.type() == BluetoothValue::TnsString) {
+    LOGV("[S] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), NS_ConvertUTF16toUTF8(aValue.get_nsString()).get());
+    return;
+  } else if (aValue.type() == BluetoothValue::Tuint32_t) {
+    LOGV("[S] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_uint32_t());
+    return;
+  } else if (aValue.type() == BluetoothValue::Tbool) {
+    LOGV("[S] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_bool());
+    return;
+  } else if (aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
+    LOGV("[S] %s, <%s, Array of BluetoothNamedValue>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
+    return;
+  } else if (aValue.type() == BluetoothValue::TArrayOfnsString) {
+    InfallibleTArray<nsString> tmp(aValue.get_ArrayOfnsString());
+    for (int i = 0; i < tmp.Length(); i++) {
+      LOGV("[S] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), NS_ConvertUTF16toUTF8(tmp[i]).get());
+    }
+    return;
+  } else {
+    LOGV("[S] %s, <%s, Unknown value type>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
+    return;
+  }
+}
+
+void
+BluetoothService::SetPropertyByValue(const BluetoothNamedValue& aValue)
+{
+  LOG("[S] %s", __FUNCTION__);
+  const nsString& name = aValue.name();
+  const BluetoothValue& value = aValue.value();
+
+  PrintProperty(name, value);
+
+  if (name.EqualsLiteral("Name")) {
+    mAdapterName = value.get_nsString();
+/*  } else if (name.EqualsLiteral("Address")) {
+    mAdapterAddress = value.get_nsString();*/
+  } else if (name.EqualsLiteral("Path")) {
+    mAdapterPath = value.get_nsString();
+/*  } else if (name.EqualsLiteral("Class")) {
+    mAdapterClass = value.get_uint32_t();
+  } else if (name.EqualsLiteral("Discoverable")) {
+    mDiscoverable = value.get_bool();
+  } else if (name.EqualsLiteral("Discovering")) {
+    mDiscovering = value.get_bool();
+  } else if (name.EqualsLiteral("Pairable")) {
+    mPairable = value.get_bool();
+  } else if (name.EqualsLiteral("Powered")) {
+    mPowered = value.get_bool();
+  } else if (name.EqualsLiteral("PairableTimeout")) {
+    mPairableTimeout = value.get_uint32_t();
+  } else if (name.EqualsLiteral("DiscoverableTimeout")) {
+    mDiscoverableTimeout = value.get_uint32_t();
+  } else {
+    nsCString warningMsg;
+    warningMsg.AssignLiteral("Not handling adapter property: ");
+    warningMsg.Append(NS_ConvertUTF16toUTF8(name));
+    NS_WARNING(warningMsg.get());*/
+  }
 }
 
 nsresult

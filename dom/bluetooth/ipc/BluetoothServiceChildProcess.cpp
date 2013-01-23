@@ -159,6 +159,17 @@ BluetoothServiceChildProcess::SetProperty(BluetoothObjectType aType,
   return NS_OK;
 }
 
+nsresult
+BluetoothServiceChildProcess::GetName(BluetoothObjectType aType,
+                                      const nsAString& aPath,
+                                      const BluetoothNamedValue& aValue,
+                                      BluetoothReplyRunnable* aRunnable)
+{
+  SendRequest(aRunnable, GetNameRequest(aType, nsString(aPath), aValue));
+  return NS_OK;
+}
+
+
 bool
 BluetoothServiceChildProcess::GetDevicePath(const nsAString& aAdapterPath,
                                             const nsAString& aDeviceAddress,

@@ -260,7 +260,7 @@ public:
   NS_IMETHOD
   Run()
   {
-    LOG("[B] DistributeBluetoothSignalTask::Run"); 
+    LOG("[B] DistributeBluetoothSignalTask::Run");
     MOZ_ASSERT(NS_IsMainThread());
     BluetoothService* bs = BluetoothService::Get();
     if (!bs) {
@@ -268,6 +268,18 @@ public:
       return NS_ERROR_FAILURE;
     }
     bs->DistributeSignal(mSignal);
+
+    nsString adapterPath = bs->GetAdapterPath();
+
+    if (mSignal.path().Equals(adapterPath) &&
+        mSignal.name().EqualsLiteral("PropertyChanged")) {
+      LOG("[B] DistributeSignal to %s", NS_ConvertUTF16toUTF8(adapterPath).get());
+      const InfallibleTArray<BluetoothNamedValue> arr(mSignal.value().get_ArrayOfBluetoothNamedValue());
+      BluetoothNamedValue v = arr[0];
+
+      bs->SetPropertyByValue(v);
+    }
+
     return NS_OK;
   }
 };
@@ -2158,6 +2170,22 @@ BluetoothDBusService::SetProperty(BluetoothObjectType aType,
     return NS_ERROR_FAILURE;
   }
   runnable.forget();
+  return NS_OK;
+}
+
+nsresult
+BluetoothDBusService::GetName(BluetoothObjectType aType,
+                              const nsAString& aPath,
+                              const BluetoothNamedValue& aValue,
+                              BluetoothReplyRunnable* aRunnable)
+{
+  LOGV("[B] %s", __FUNCTION__);
+  NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
+
+  BluetoothValue v = GetAdapterName();
+  nsString errorStr;
+  DispatchBluetoothReply(aRunnable, v, errorStr);
+
   return NS_OK;
 }
 

@@ -141,6 +141,55 @@ private:
   nsRefPtr<BluetoothAdapter> mAdapterPtr;
 };
 
+class GetNameTask : public BluetoothReplyRunnable
+{
+public:
+  GetNameTask(BluetoothAdapter* aObjectPtr,
+              nsIDOMDOMRequest* aReq) :
+    BluetoothReplyRunnable(aReq),
+    mAdapterPtr(aObjectPtr)
+  {
+  }
+
+  bool
+  ParseSuccessfulReply(jsval* aValue)
+  {
+    LOG("[P] GetNameTask::ParseSuccessfulReply");
+    *aValue = JSVAL_VOID;
+
+    const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
+    LOG("[P] name: %s", NS_ConvertUTF16toUTF8(v.get_nsString()).get());
+    nsString name = v.get_nsString();
+
+    nsresult rv;
+    nsIScriptContext* sc = mAdapterPtr->GetContextForEventHandlers(&rv);
+    if (!sc) {
+      NS_WARNING("Cannot create script context!");
+      SetError(NS_LITERAL_STRING("BluetoothScriptContextError"));
+      return false;
+    }
+
+    JSString* s = JS_NewUCStringCopyN(sc->GetNativeContext(), name.BeginReading(), name.Length());
+    if(!s) {
+      NS_WARNING("Memory allocation error!");
+      return NS_ERROR_OUT_OF_MEMORY;
+    }
+
+    *aValue = STRING_TO_JSVAL(s);
+    return true;
+  }
+
+  void
+  ReleaseMembers()
+  {
+    BluetoothReplyRunnable::ReleaseMembers();
+    mAdapterPtr = nullptr;
+  }
+
+private:
+  nsRefPtr<BluetoothAdapter> mAdapterPtr;
+};
+
 static int kCreatePairedDeviceTimeout = 50000; // unit: msec
 
 BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow* aOwner, const BluetoothValue& aValue)
@@ -453,10 +502,10 @@ NS_IMETHODIMP
 BluetoothAdapter::GetAddress(nsAString& aAddress)
 {
 	LOGV("[A] %s", __FUNCTION__);
-//  aAddress = mAddress;
-  BluetoothService* bs = BluetoothService::Get();
+  aAddress = mAddress;
+/*  BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
-  aAddress = bs->GetAdapterAddress();
+  aAddress = bs->GetAdapterAddress();*/
   return NS_OK;
 }
 
@@ -464,10 +513,10 @@ NS_IMETHODIMP
 BluetoothAdapter::GetAdapterClass(uint32_t* aClass)
 {
 	LOGV("[A] %s", __FUNCTION__);
-//  *aClass = mClass;
-  BluetoothService* bs = BluetoothService::Get();
+  *aClass = mClass;
+/*  BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
-  *aClass = bs->GetAdapterClass();
+  *aClass = bs->GetAdapterClass();*/
   return NS_OK;
 }
 
@@ -475,32 +524,61 @@ NS_IMETHODIMP
 BluetoothAdapter::GetDiscovering(bool* aDiscovering)
 {
 	LOGV("[A] %s", __FUNCTION__);
-//  *aDiscovering = mDiscovering;
-  BluetoothService* bs = BluetoothService::Get();
+  *aDiscovering = mDiscovering;
+/*  BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
-  *aDiscovering = bs->GetDiscovering();
+  *aDiscovering = bs->GetDiscovering();*/
   return NS_OK;
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::GetName(nsAString& aName)
+BluetoothAdapter::GetName(const nsAString& aName,
+                          nsIDOMDOMRequest** aRequest)
 {
-	LOGV("[A] %s", __FUNCTION__);
-//  aName = mName;
+  LOGV("[A] %s", __FUNCTION__);
+  BluetoothNamedValue property(NS_LITERAL_STRING("Name"), NS_LITERAL_STRING("Test"));
+
   BluetoothService* bs = BluetoothService::Get();
-  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
-  aName = bs->GetAdapterName();
+  if (!bs) {
+    NS_WARNING("Bluetooth service not available!");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
+  if (!rs) {
+    NS_WARNING("No DOMRequest Service!");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsCOMPtr<nsIDOMDOMRequest> req;
+  nsresult rv = rs->CreateRequest(GetOwner(), getter_AddRefs(req));
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Can't create DOMRequest!");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsRefPtr<BluetoothReplyRunnable> task = new GetNameTask(this, req);
+
+  rv = bs->GetName(mObjectType, mPath, property, task);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  req.forget(aRequest);
   return NS_OK;
+
+
+
+
+//  return GetNameP(GetOwner(), property, aRequest);
 }
 
 NS_IMETHODIMP
 BluetoothAdapter::GetDiscoverable(bool* aDiscoverable)
 {
 	LOGV("[A] %s", __FUNCTION__);
-//  *aDiscoverable = mDiscoverable;
-  BluetoothService* bs = BluetoothService::Get();
+  *aDiscoverable = mDiscoverable;
+/*  BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
-  *aDiscoverable = bs->GetDiscoverable();
+  *aDiscoverable = bs->GetDiscoverable();*/
   return NS_OK;
 }
 
@@ -508,10 +586,10 @@ NS_IMETHODIMP
 BluetoothAdapter::GetDiscoverableTimeout(uint32_t* aDiscoverableTimeout)
 {
 	LOGV("[A] %s", __FUNCTION__);
-//  *aDiscoverableTimeout = mDiscoverableTimeout;
-  BluetoothService* bs = BluetoothService::Get();
+  *aDiscoverableTimeout = mDiscoverableTimeout;
+/*  BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
-  *aDiscoverableTimeout = bs->GetDiscoverableTimeout();
+  *aDiscoverableTimeout = bs->GetDiscoverableTimeout();*/
   return NS_OK;
 }
 

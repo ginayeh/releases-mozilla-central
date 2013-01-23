@@ -70,6 +70,12 @@ public:
               const BluetoothNamedValue& aValue,
               BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
+  virtual nsresult
+  GetName(BluetoothObjectType aType,
+          const nsAString& aPath,
+          const BluetoothNamedValue& aValue,
+          BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
+
   virtual bool
   GetDevicePath(const nsAString& aAdapterPath,
                 const nsAString& aDeviceAddress,
@@ -156,6 +162,7 @@ public:
   ConfirmReceivingFile(const nsAString& aDeviceAddress,
                        bool aConfirm,
                        BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
+
 protected:
   BluetoothServiceChildProcess();
   virtual ~BluetoothServiceChildProcess();

@@ -131,6 +131,9 @@ protected:
   DoRequest(const SetPropertyRequest& aRequest);
 
   bool
+  DoRequest(const GetNameRequest& aRequest);
+
+  bool
   DoRequest(const GetPropertyRequest& aRequest);
 
   bool

@@ -55,6 +55,12 @@ public:
               const BluetoothNamedValue& aValue,
               BluetoothReplyRunnable* aRunnable);
 
+  virtual nsresult
+  GetName(BluetoothObjectType aType,
+          const nsAString& aPath,
+          const BluetoothNamedValue& aValue,
+          BluetoothReplyRunnable* aRunnable);
+
   virtual bool
   GetDevicePath(const nsAString& aAdapterPath,
                 const nsAString& aDeviceAddress,
@@ -161,6 +167,76 @@ public:
   ConfirmReceivingFile(const nsAString& aDeviceAddress, bool aConfirm,
                        BluetoothReplyRunnable* aRunnable);
 
+/*  virtual void
+  SetPropertyByValue(const BluetoothNamedValue& aValue);
+
+  virtual void
+  SetAdapterPath(const nsAString& aAdapterPath)
+  {
+    mAdapterPath = aAdapterPath;
+  }
+
+  virtual nsString
+  GetAdapterPath()
+  {
+    return mAdapterPath;
+  }
+
+  virtual nsString
+  GetAdapterName()
+  {
+//    LOG("[S] %s, %s", __FUNCTION__, NS_ConvertUTF16toUTF8(mAdapterName).get());
+    return mAdapterName;
+  }
+
+	virtual nsString
+	GetAdapterAddress()
+	{
+		return mAdapterAddress;
+	}
+
+	virtual bool
+	GetDiscoverable()
+	{
+	  return mDiscoverable;
+	}
+
+	virtual bool
+	GetDiscovering()
+	{
+	  return mDiscovering;
+	}
+
+	virtual bool
+	GetPairable()
+	{
+		return mPairable;
+	}
+
+	virtual bool
+	GetPowered()
+	{
+		return mPowered;
+	}
+
+	virtual uint32_t
+	GetPairableTimeout()
+	{
+		return mPairableTimeout;
+	}
+
+	virtual uint32_t
+	GetDiscoverableTimeout()
+	{
+		return mDiscoverableTimeout;
+	}
+
+	virtual uint32_t
+	GetAdapterClass()
+	{
+		return mAdapterClass;
+	}*/
+
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
                                   const char* aInterface,
@@ -172,6 +248,18 @@ private:
   nsresult SendSetPropertyMessage(const nsString& aPath, const char* aInterface,
                                   const BluetoothNamedValue& aValue,
                                   BluetoothReplyRunnable* aRunnable);
+
+  // Cache adatper data
+/*  nsString mAdapterAddress;
+  nsString mAdapterName;
+  nsString mAdapterPath;
+  uint32_t mAdapterClass;
+  bool mDiscoverable;
+  bool mDiscovering;
+  bool mPairable;
+  bool mPowered;
+  uint32_t mPairableTimeout;
+  uint32_t mDiscoverableTimeout;*/
 };
 
 END_BLUETOOTH_NAMESPACE
