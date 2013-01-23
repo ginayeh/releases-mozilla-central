@@ -22,6 +22,14 @@ class UnixSocketConsumer;
 }
 
 BEGIN_BLUETOOTH_NAMESPACE
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
 
 class BluetoothManager;
 class BluetoothNamedValue;
@@ -309,6 +317,76 @@ public:
   void
   RemoveObserverFromTable(const nsAString& key);
 
+  void
+  SetPropertyByValue(const BluetoothNamedValue& aValue);
+
+  void
+  SetAdapterPath(const nsAString& aAdapterPath)
+  {
+    mAdapterPath = aAdapterPath;
+  }
+
+  nsString
+  GetAdapterPath()
+  {
+    return mAdapterPath;
+  }
+
+  nsString
+  GetAdapterName()
+  {
+    LOG("[S] %s, %s", __FUNCTION__, NS_ConvertUTF16toUTF8(mAdapterName).get());
+    return mAdapterName;
+  }
+
+	nsString
+	GetAdapterAddress()
+	{
+		return mAdapterAddress;
+	}
+
+	bool
+	GetDiscoverable()
+	{
+	  return mDiscoverable;
+	}
+
+	bool
+	GetDiscovering()
+	{
+	  return mDiscovering;
+	}
+
+	bool
+	GetPairable()
+	{
+		return mPairable;
+	}
+
+	bool
+	GetPowered()
+	{
+		return mPowered;
+	}
+
+	uint32_t
+	GetPairableTimeout()
+	{
+		return mPairableTimeout;
+	}
+
+	uint32_t
+	GetDiscoverableTimeout()
+	{
+		return mDiscoverableTimeout;
+	}
+
+	uint32_t
+	GetAdapterClass()
+	{
+		return mAdapterClass;
+	}
+
 protected:
   BluetoothService()
   : mEnabled(false)
@@ -403,6 +481,18 @@ protected:
   BluetoothManagerList mLiveManagers;
 
   bool mEnabled;
+
+  // Cache adatper data
+  nsString mAdapterAddress;
+  nsString mAdapterName;
+  nsString mAdapterPath;
+  uint32_t mAdapterClass;
+  bool mDiscoverable;
+  bool mDiscovering;
+  bool mPairable;
+  bool mPowered;
+  uint32_t mPairableTimeout;
+  uint32_t mDiscoverableTimeout;
 
 #ifdef DEBUG
   bool mLastRequestedEnable;

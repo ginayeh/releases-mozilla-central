@@ -291,6 +291,8 @@ public:
       return NS_ERROR_FAILURE;
     }
 
+    bs->SetAdapterPath(mPath);
+
     // Due to the fact that we need to queue the dbus call to the command thread
     // inside the bluetoothservice, we have to route the call down to the main
     // thread and then back out to the command thread. There has to be a better

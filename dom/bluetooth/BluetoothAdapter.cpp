@@ -360,7 +360,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     e->InitBluetoothDeviceEvent(NS_LITERAL_STRING("devicecreated"),
                                 false, false, device);
     DispatchTrustedEvent(e);
-  } else if (aData.name().EqualsLiteral("PropertyChanged")) {
+/*  } else if (aData.name().EqualsLiteral("PropertyChanged")) {
 	  LOG("[A] Receive event - PropertyChanged");
     PrintProperty(aData.name(), aData.value());
 
@@ -373,7 +373,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
 
     SetPropertyByValue(v);
     nsRefPtr<BluetoothPropertyEvent> e = BluetoothPropertyEvent::Create(v.name());
-    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("propertychanged"));
+    e->Dispatch(ToIDOMEventTarget(), NS_LITERAL_STRING("propertychanged"));*/
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -453,7 +453,10 @@ NS_IMETHODIMP
 BluetoothAdapter::GetAddress(nsAString& aAddress)
 {
 	LOGV("[A] %s", __FUNCTION__);
-  aAddress = mAddress;
+//  aAddress = mAddress;
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  aAddress = bs->GetAdapterAddress();
   return NS_OK;
 }
 
@@ -461,7 +464,10 @@ NS_IMETHODIMP
 BluetoothAdapter::GetAdapterClass(uint32_t* aClass)
 {
 	LOGV("[A] %s", __FUNCTION__);
-  *aClass = mClass;
+//  *aClass = mClass;
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  *aClass = bs->GetAdapterClass();
   return NS_OK;
 }
 
@@ -469,7 +475,10 @@ NS_IMETHODIMP
 BluetoothAdapter::GetDiscovering(bool* aDiscovering)
 {
 	LOGV("[A] %s", __FUNCTION__);
-  *aDiscovering = mDiscovering;
+//  *aDiscovering = mDiscovering;
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  *aDiscovering = bs->GetDiscovering();
   return NS_OK;
 }
 
@@ -477,7 +486,10 @@ NS_IMETHODIMP
 BluetoothAdapter::GetName(nsAString& aName)
 {
 	LOGV("[A] %s", __FUNCTION__);
-  aName = mName;
+//  aName = mName;
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  aName = bs->GetAdapterName();
   return NS_OK;
 }
 
@@ -485,7 +497,10 @@ NS_IMETHODIMP
 BluetoothAdapter::GetDiscoverable(bool* aDiscoverable)
 {
 	LOGV("[A] %s", __FUNCTION__);
-  *aDiscoverable = mDiscoverable;
+//  *aDiscoverable = mDiscoverable;
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  *aDiscoverable = bs->GetDiscoverable();
   return NS_OK;
 }
 
@@ -493,7 +508,10 @@ NS_IMETHODIMP
 BluetoothAdapter::GetDiscoverableTimeout(uint32_t* aDiscoverableTimeout)
 {
 	LOGV("[A] %s", __FUNCTION__);
-  *aDiscoverableTimeout = mDiscoverableTimeout;
+//  *aDiscoverableTimeout = mDiscoverableTimeout;
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  *aDiscoverableTimeout = bs->GetDiscoverableTimeout();
   return NS_OK;
 }
 
@@ -507,7 +525,7 @@ BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
   else {
     NS_WARNING("Devices not yet set!\n");
     return NS_ERROR_FAILURE;
-  }    
+  }
   return NS_OK;
 }
 
