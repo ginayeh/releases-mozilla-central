@@ -27,6 +27,24 @@
 
 using namespace mozilla;
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
+#undef LOGV
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOGV(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBusV", args);
+#else
+#define BTDEBUG true
+#define LOGV(args...) if (BTDEBUG) printf(args);
+#endif
+
 USING_BLUETOOTH_NAMESPACE
 
 DOMCI_DATA(BluetoothAdapter, BluetoothAdapter)
@@ -68,6 +86,7 @@ public:
 
   virtual bool ParseSuccessfulReply(jsval* aValue)
   {
+    LOG("[A] GetPairedDevicesTask::ParseSuccessfulReply");
     *aValue = JSVAL_VOID;
 
     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
@@ -153,6 +172,8 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow* aWindow,
   , mJsDeviceAddresses(nullptr)
   , mIsRooted(false)
 {
+  BindToOwner(aWindow);
+  LOG("[A] %s", __FUNCTION__);
   MOZ_ASSERT(aWindow);
 
   BindToOwner(aWindow);
@@ -169,6 +190,7 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow* aWindow,
 
 BluetoothAdapter::~BluetoothAdapter()
 {
+  LOG("[A] %s", __FUNCTION__);
   BluetoothService* bs = BluetoothService::Get();
   // We can be null on shutdown, where this might happen
   NS_ENSURE_TRUE_VOID(bs);
@@ -179,6 +201,7 @@ BluetoothAdapter::~BluetoothAdapter()
 void
 BluetoothAdapter::Unroot()
 {
+  LOGV("[A] %s", __FUNCTION__);
   if (!mIsRooted) {
     return;
   }
@@ -191,6 +214,7 @@ BluetoothAdapter::Unroot()
 void
 BluetoothAdapter::Root()
 {
+  LOGV("[A] %s", __FUNCTION__);
   if (mIsRooted) {
     return;
   }
@@ -198,11 +222,43 @@ BluetoothAdapter::Root()
   mIsRooted = true;
 }
 
+static void PrintProperty(const nsAString& aName, const BluetoothValue& aValue);
+
+void
+PrintProperty(const nsAString& aName, const BluetoothValue& aValue)
+{
+  if (aValue.type() == BluetoothValue::TnsString) {
+    LOGV("[A] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), NS_ConvertUTF16toUTF8(aValue.get_nsString()).get());
+    return;
+  } else if (aValue.type() == BluetoothValue::Tuint32_t) {
+    LOGV("[A] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_uint32_t());
+    return;
+  } else if (aValue.type() == BluetoothValue::Tbool) {
+    LOGV("[A] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), aValue.get_bool());
+    return;
+  } else if (aValue.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
+    LOGV("[A] %s, <%s, Array of BluetoothNamedValue>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
+    return;
+  } else if (aValue.type() == BluetoothValue::TArrayOfnsString) {
+    InfallibleTArray<nsString> tmp(aValue.get_ArrayOfnsString());
+    for (int i = 0; i < tmp.Length(); i++) {
+      LOGV("[A] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get(), NS_ConvertUTF16toUTF8(tmp[i]).get());
+    }
+    return;
+  } else {
+    LOGV("[A] %s, <%s, Unknown value type>", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
+    return;
+  }
+}
+
 void
 BluetoothAdapter::SetPropertyByValue(const BluetoothNamedValue& aValue)
 {
   const nsString& name = aValue.name();
   const BluetoothValue& value = aValue.value();
+
+  PrintProperty(name, value);
+
   if (name.EqualsLiteral("Name")) {
     mName = value.get_nsString();
   } else if (name.EqualsLiteral("Address")) {
@@ -263,6 +319,7 @@ BluetoothAdapter::SetPropertyByValue(const BluetoothNamedValue& aValue)
 already_AddRefed<BluetoothAdapter>
 BluetoothAdapter::Create(nsPIDOMWindow* aWindow, const BluetoothValue& aValue)
 {
+  LOG("[A] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aWindow);
 
@@ -273,12 +330,14 @@ BluetoothAdapter::Create(nsPIDOMWindow* aWindow, const BluetoothValue& aValue)
 void
 BluetoothAdapter::Notify(const BluetoothSignal& aData)
 {
+  LOG("[A] %s", __FUNCTION__);
   InfallibleTArray<BluetoothNamedValue> arr;
 
   BT_LOG("[A] %s: %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aData.name()).get());
 
   BluetoothValue v = aData.value();
   if (aData.name().EqualsLiteral("DeviceFound")) {
+    LOG("[A] Receive event - DeviceFound");
     nsRefPtr<BluetoothDevice> device = BluetoothDevice::Create(GetOwner(), mPath, aData.value());
     nsCOMPtr<nsIDOMEvent> event;
     NS_NewDOMBluetoothDeviceEvent(getter_AddRefs(event), nullptr, nullptr);
@@ -288,6 +347,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
                                 false, false, device);
     DispatchTrustedEvent(event);
   } else if (aData.name().EqualsLiteral("DeviceDisappeared")) {
+    LOG("[A] Receive event - DeviceDisappeared");
     const nsAString& deviceAddress = aData.value().get_nsString();
 
     nsCOMPtr<nsIDOMEvent> event;
@@ -298,6 +358,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
                                        false, false, deviceAddress);
     DispatchTrustedEvent(e);
   } else if (aData.name().EqualsLiteral("DeviceCreated")) {
+    LOG("[A] Receive event - DeviceCreated");
     NS_ASSERTION(aData.value().type() == BluetoothValue::TArrayOfBluetoothNamedValue,
                  "DeviceCreated: Invalid value type");
 
@@ -333,6 +394,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
 nsresult
 BluetoothAdapter::StartStopDiscovery(bool aStart, nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMDOMRequest> req;
   nsresult rv;
   rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
@@ -363,18 +425,21 @@ BluetoothAdapter::StartStopDiscovery(bool aStart, nsIDOMDOMRequest** aRequest)
 NS_IMETHODIMP
 BluetoothAdapter::StartDiscovery(nsIDOMDOMRequest** aRequest)
 {
+  LOGV("[A] %s", __FUNCTION__);
   return StartStopDiscovery(true, aRequest);
 }
 
 NS_IMETHODIMP
 BluetoothAdapter::StopDiscovery(nsIDOMDOMRequest** aRequest)
 {
+  LOGV("[A] %s", __FUNCTION__);
   return StartStopDiscovery(false, aRequest);
 }
 
 NS_IMETHODIMP
 BluetoothAdapter::GetEnabled(bool* aEnabled)
 {
+  LOGV("[A] %s", __FUNCTION__);
   *aEnabled = mEnabled;
   return NS_OK;
 }
@@ -382,6 +447,7 @@ BluetoothAdapter::GetEnabled(bool* aEnabled)
 NS_IMETHODIMP
 BluetoothAdapter::GetAddress(nsAString& aAddress)
 {
+  LOGV("[A] %s", __FUNCTION__);
   aAddress = mAddress;
   return NS_OK;
 }
@@ -389,6 +455,7 @@ BluetoothAdapter::GetAddress(nsAString& aAddress)
 NS_IMETHODIMP
 BluetoothAdapter::GetAdapterClass(uint32_t* aClass)
 {
+  LOGV("[A] %s", __FUNCTION__);
   *aClass = mClass;
   return NS_OK;
 }
@@ -396,6 +463,7 @@ BluetoothAdapter::GetAdapterClass(uint32_t* aClass)
 NS_IMETHODIMP
 BluetoothAdapter::GetDiscovering(bool* aDiscovering)
 {
+  LOGV("[A] %s", __FUNCTION__);
   *aDiscovering = mDiscovering;
   return NS_OK;
 }
@@ -403,6 +471,7 @@ BluetoothAdapter::GetDiscovering(bool* aDiscovering)
 NS_IMETHODIMP
 BluetoothAdapter::GetName(nsAString& aName)
 {
+  LOGV("[A] %s", __FUNCTION__);
   aName = mName;
   return NS_OK;
 }
@@ -410,6 +479,7 @@ BluetoothAdapter::GetName(nsAString& aName)
 NS_IMETHODIMP
 BluetoothAdapter::GetDiscoverable(bool* aDiscoverable)
 {
+  LOGV("[A] %s", __FUNCTION__);
   *aDiscoverable = mDiscoverable;
   return NS_OK;
 }
@@ -417,6 +487,7 @@ BluetoothAdapter::GetDiscoverable(bool* aDiscoverable)
 NS_IMETHODIMP
 BluetoothAdapter::GetDiscoverableTimeout(uint32_t* aDiscoverableTimeout)
 {
+  LOGV("[A] %s", __FUNCTION__);
   *aDiscoverableTimeout = mDiscoverableTimeout;
   return NS_OK;
 }
@@ -424,6 +495,7 @@ BluetoothAdapter::GetDiscoverableTimeout(uint32_t* aDiscoverableTimeout)
 NS_IMETHODIMP
 BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
 {
+  LOGV("[A] %s", __FUNCTION__);
   if (mJsDeviceAddresses) {
     aDevices->setObject(*mJsDeviceAddresses);
   }
@@ -437,6 +509,7 @@ BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
 NS_IMETHODIMP
 BluetoothAdapter::GetUuids(JSContext* aCx, jsval* aValue)
 {
+  LOGV("[A] %s", __FUNCTION__);
   if (mJsUuids) {
     aValue->setObject(*mJsUuids);
   }
@@ -451,6 +524,7 @@ NS_IMETHODIMP
 BluetoothAdapter::SetName(const nsAString& aName,
                           nsIDOMDOMRequest** aRequest)
 {
+  LOGV("[A] %s", __FUNCTION__);
   if (mName.Equals(aName)) {
     return FirePropertyAlreadySet(GetOwner(), aRequest);
   }
@@ -464,6 +538,7 @@ NS_IMETHODIMP
 BluetoothAdapter::SetDiscoverable(const bool aDiscoverable,
                                   nsIDOMDOMRequest** aRequest)
 {
+  LOGV("[A] %s", __FUNCTION__);
   if (aDiscoverable == mDiscoverable) {
     return FirePropertyAlreadySet(GetOwner(), aRequest);
   }
@@ -476,6 +551,7 @@ NS_IMETHODIMP
 BluetoothAdapter::SetDiscoverableTimeout(const uint32_t aDiscoverableTimeout,
                                          nsIDOMDOMRequest** aRequest)
 {
+  LOGV("[A] %s", __FUNCTION__);
   if (aDiscoverableTimeout == mDiscoverableTimeout) {
     return FirePropertyAlreadySet(GetOwner(), aRequest);
   }
@@ -487,6 +563,7 @@ BluetoothAdapter::SetDiscoverableTimeout(const uint32_t aDiscoverableTimeout,
 NS_IMETHODIMP
 BluetoothAdapter::GetPairedDevices(nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMDOMRequest> req;
   nsresult rv;
   rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
@@ -512,6 +589,7 @@ BluetoothAdapter::PairUnpair(bool aPair,
                              nsIDOMBluetoothDevice* aDevice,
                              nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMDOMRequest> req;
   nsresult rv;
   rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
@@ -547,6 +625,7 @@ nsresult
 BluetoothAdapter::Pair(nsIDOMBluetoothDevice* aDevice,
                        nsIDOMDOMRequest** aRequest)
 {
+  LOGV("[A] %s", __FUNCTION__);
   return PairUnpair(true, aDevice, aRequest);
 }
 
@@ -554,6 +633,7 @@ nsresult
 BluetoothAdapter::Unpair(nsIDOMBluetoothDevice* aDevice,
                          nsIDOMDOMRequest** aRequest)
 {
+  LOGV("[A] %s", __FUNCTION__);
   return PairUnpair(false, aDevice, aRequest);
 }
 
@@ -562,6 +642,7 @@ BluetoothAdapter::SetPinCode(const nsAString& aDeviceAddress,
                              const nsAString& aPinCode,
                              nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMDOMRequest> req;
   nsresult rv;
   rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
@@ -585,6 +666,7 @@ nsresult
 BluetoothAdapter::SetPasskey(const nsAString& aDeviceAddress, uint32_t aPasskey,
                              nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMDOMRequest> req;
   nsresult rv;
   rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
@@ -609,6 +691,7 @@ BluetoothAdapter::SetPairingConfirmation(const nsAString& aDeviceAddress,
                                          bool aConfirmation,
                                          nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMDOMRequest> req;
   nsresult rv;
   rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
@@ -634,6 +717,7 @@ nsresult
 BluetoothAdapter::SetAuthorization(const nsAString& aDeviceAddress, bool aAllow,
                                    nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMDOMRequest> req;
   nsresult rv;
   rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
