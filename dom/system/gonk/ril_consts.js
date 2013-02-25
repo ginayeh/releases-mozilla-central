@@ -441,6 +441,10 @@ this.ICC_EF_MWIS   = 0x6fca;
 this.ICC_EF_CFIS   = 0x6fcb;
 this.ICC_EF_SPDI   = 0x6fcd;
 
+// CSIM files
+this.ICC_EF_CSIM_CDMAHOME = 0x6f28;
+this.ICC_EF_CSIM_CST      = 0x6f32; // CDMA Service table
+
 this.ICC_PHASE_1 = 0x00;
 this.ICC_PHASE_2 = 0x02;
 this.ICC_PHASE_2_PROFILE_DOWNLOAD_REQUIRED = 0x03;
@@ -498,6 +502,7 @@ this.EF_PATH_MF_SIM       = "3f00";
 this.EF_PATH_DF_PHONEBOOK = "5f3a";
 this.EF_PATH_DF_TELECOM   = "7f10";
 this.EF_PATH_DF_GSM       = "7f20";
+this.EF_PATH_DF_CDMA      = "7f25";
 this.EF_PATH_ADF_USIM     = "7fff";
 
 // Status code of sw1 for ICC I/O,
@@ -514,6 +519,7 @@ this.ICC_STATUS_ERROR_WRONG_PARAMETERS = 0x6a;
 // ICC call barring facility.
 // TS 27.007, clause 7.4, +CLCK
 this.ICC_CB_FACILITY_SIM = "SC";
+this.ICC_CB_FACILITY_FDN = "FD";
 
 // ICC service class
 // TS 27.007, clause 7.4, +CLCK
@@ -1065,6 +1071,9 @@ this.GECKO_ICC_SERVICES = {
     PNN: 45,
     OPL: 46,
     SPDI: 51
+  },
+  ruim: {
+    SPN: 17
   }
 };
 

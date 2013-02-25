@@ -1992,7 +1992,7 @@ PresShell::SetIgnoreFrameDestruction(bool aIgnore)
   if (mDocument) {
     // We need to tell the ImageLoader to drop all its references to frames
     // because they're about to go away and it won't get notifications of that.
-    mDocument->StyleImageLoader()->ClearAll();
+    mDocument->StyleImageLoader()->ClearFrames();
   }
   mIgnoreFrameDestruction = aIgnore;
 }
@@ -2734,9 +2734,8 @@ PresShell::RecreateFramesFor(nsIContent* aContent)
 
   // Mark ourselves as not safe to flush while we're doing frame construction.
   ++mChangeNestCount;
-  css::OverflowChangedTracker tracker;
-  nsresult rv = mFrameConstructor->ProcessRestyledFrames(changeList, tracker);
-  tracker.Flush();
+  nsresult rv = mFrameConstructor->ProcessRestyledFrames(changeList);
+  mFrameConstructor->FlushOverflowChangedTracker();
   --mChangeNestCount;
   
   return rv;
@@ -7899,9 +7898,8 @@ PresShell::Observe(nsISupports* aSubject,
         {
           nsAutoScriptBlocker scriptBlocker;
           ++mChangeNestCount;
-          css::OverflowChangedTracker tracker;
-          mFrameConstructor->ProcessRestyledFrames(changeList, tracker);
-          tracker.Flush();
+          mFrameConstructor->ProcessRestyledFrames(changeList);
+          mFrameConstructor->FlushOverflowChangedTracker();
           --mChangeNestCount;
         }
       }

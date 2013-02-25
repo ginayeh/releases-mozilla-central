@@ -1445,6 +1445,74 @@ class MApplyArgs
     }
 };
 
+class MGetDynamicName
+  : public MAryInstruction<2>,
+    public MixPolicy<ObjectPolicy<0>, StringPolicy<1> >
+{
+  protected:
+    MGetDynamicName(MDefinition *scopeChain, MDefinition *name)
+    {
+        setOperand(0, scopeChain);
+        setOperand(1, name);
+        setResultType(MIRType_Value);
+    }
+
+  public:
+    INSTRUCTION_HEADER(GetDynamicName)
+
+    static MGetDynamicName *
+    New(MDefinition *scopeChain, MDefinition *name) {
+        return new MGetDynamicName(scopeChain, name);
+    }
+
+    MDefinition *getScopeChain() const {
+        return getOperand(0);
+    }
+    MDefinition *getName() const {
+        return getOperand(1);
+    }
+
+    TypePolicy *typePolicy() {
+        return this;
+    }
+};
+
+class MCallDirectEval
+  : public MAryInstruction<3>,
+    public MixPolicy<ObjectPolicy<0>, MixPolicy<StringPolicy<1>, BoxPolicy<2> > >
+{
+  protected:
+    MCallDirectEval(MDefinition *scopeChain, MDefinition *string, MDefinition *thisValue)
+    {
+        setOperand(0, scopeChain);
+        setOperand(1, string);
+        setOperand(2, thisValue);
+        setResultType(MIRType_Value);
+    }
+
+  public:
+    INSTRUCTION_HEADER(CallDirectEval)
+
+    static MCallDirectEval *
+    New(MDefinition *scopeChain, MDefinition *string, MDefinition *thisValue) {
+        return new MCallDirectEval(scopeChain, string, thisValue);
+    }
+
+    MDefinition *getScopeChain() const {
+        return getOperand(0);
+    }
+    MDefinition *getString() const {
+        return getOperand(1);
+    }
+    MDefinition *getThisValue() const {
+        return getOperand(2);
+    }
+
+    TypePolicy *typePolicy() {
+        return this;
+    }
+};
+
 class MBinaryInstruction : public MAryInstruction<2>
 {
   protected:
@@ -1686,6 +1754,7 @@ class MBox : public MUnaryInstruction
 
         return new MBox(ins);
     }
+
     bool congruentTo(MDefinition *const &ins) const {
         return congruentIfOperandsEqual(ins);
     }
@@ -1759,6 +1828,7 @@ class MUnbox : public MUnaryInstruction
     AliasSet getAliasSet() const {
         return AliasSet::None();
     }
+    void printOpcode(FILE *fp);
 };
 
 class MGuardObject : public MUnaryInstruction, public SingleObjectPolicy
@@ -1792,7 +1862,7 @@ class MGuardObject : public MUnaryInstruction, public SingleObjectPolicy
 
 class MGuardString
   : public MUnaryInstruction,
-    public StringPolicy
+    public StringPolicy<0>
 {
     MGuardString(MDefinition *ins)
       : MUnaryInstruction(ins)
@@ -3033,7 +3103,7 @@ class MConcat
 
 class MCharCodeAt
   : public MBinaryInstruction,
-    public MixPolicy<StringPolicy, IntPolicy<1> >
+    public MixPolicy<StringPolicy<0>, IntPolicy<1> >
 {
     MCharCodeAt(MDefinition *str, MDefinition *index)
         : MBinaryInstruction(str, index)
@@ -3458,7 +3528,7 @@ class MRegExp : public MNullaryInstruction
 
 class MRegExpTest
   : public MBinaryInstruction,
-    public MixPolicy<ObjectPolicy<1>, StringPolicy >
+    public MixPolicy<ObjectPolicy<1>, StringPolicy<0> >
 {
   private:
 
@@ -4956,9 +5026,11 @@ class MPolyInlineDispatch : public MControlInstruction, public SingleObjectPolic
 
 
 class MGetElementCache
-  : public MBinaryInstruction,
-    public MixPolicy<ObjectPolicy<0>, BoxPolicy<1> >
+  : public MBinaryInstruction
 {
+    MixPolicy<ObjectPolicy<0>, BoxPolicy<1> > PolicyV;
+    MixPolicy<ObjectPolicy<0>, IntPolicy<1> > PolicyT;
+
     // See the comment in IonBuilder::jsop_getelem.
     bool monitoredResult_;
 
@@ -4985,7 +5057,9 @@ class MGetElementCache
         return monitoredResult_;
     }
     TypePolicy *typePolicy() {
-        return this;
+        if (type() == MIRType_Value)
+            return &PolicyV;
+        return &PolicyT;
     }
 };
 
@@ -5712,7 +5786,7 @@ class MGetDOMProperty
 
 class MStringLength
   : public MUnaryInstruction,
-    public StringPolicy
+    public StringPolicy<0>
 {
     MStringLength(MDefinition *string)
       : MUnaryInstruction(string)
@@ -6147,6 +6221,7 @@ class MTypeBarrier : public MUnaryInstruction
     static MTypeBarrier *New(MDefinition *def, const types::StackTypeSet *types) {
         return new MTypeBarrier(def, types);
     }
+
     bool congruentTo(MDefinition * const &def) const {
         return false;
     }
@@ -6195,6 +6270,46 @@ class MMonitorTypes : public MUnaryInstruction
     }
     const types::StackTypeSet *typeSet() const {
         return typeSet_;
+    }
+    AliasSet getAliasSet() const {
+        return AliasSet::None();
+    }
+};
+
+// Guards that the incoming value does not have the specified Type.
+class MExcludeType
+  : public MUnaryInstruction,
+    public BoxInputsPolicy
+{
+    types::Type type_;
+
+    MExcludeType(MDefinition *def, types::Type type)
+      : MUnaryInstruction(def),
+        type_(type)
+    {
+        setGuard();
+        setMovable();
+    }
+
+  public:
+    INSTRUCTION_HEADER(ExcludeType);
+
+    static MExcludeType *New(MDefinition *def, types::Type type) {
+        return new MExcludeType(def, type);
+    }
+
+    MDefinition *input() const {
+        return getOperand(0);
+    }
+    BailoutKind bailoutKind() const {
+        return Bailout_Normal;
+    }
+    types::Type type() const {
+        return type_;
+    }
+
+    TypePolicy *typePolicy() {
+        return this;
     }
     AliasSet getAliasSet() const {
         return AliasSet::None();
@@ -6327,7 +6442,7 @@ class MParNewCallObject : public MBinaryInstruction
 
 class MNewStringObject :
   public MUnaryInstruction,
-  public StringPolicy
+  public StringPolicy<0>
 {
     CompilerRootObject templateObj_;
 

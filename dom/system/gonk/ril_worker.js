@@ -798,6 +798,11 @@ let RIL = {
     this.iccInfo = {};
 
     /**
+     * CDMA specific information. ex. CDMA Network ID, CDMA System ID... etc.
+     */
+    this.cdmaHome = null;
+
+    /**
      * Application identification for apps in ICC.
      */
     this.aid = null;
@@ -1010,11 +1015,11 @@ let RIL = {
     Buf.sendParcel();
   },
 
-   /**
+  /**
    * Helper function for changing ICC locks.
    */
   iccSetCardLock: function iccSetCardLock(options) {
-    if (options.newPin !== undefined) {
+    if (options.newPin !== undefined) { // Change PIN lock.
       switch (options.lockType) {
         case "pin":
           this.changeICCPIN(options);
@@ -1027,14 +1032,27 @@ let RIL = {
           options.success = false;
           this.sendDOMMessage(options);
       }
-    } else { // Enable/Disable pin lock.
-      if (options.lockType != "pin") {
-        options.errorMsg = "Unsupported Card Lock.";
-        options.success = false;
-        this.sendDOMMessage(options);
-        return;
+    } else { // Enable/Disable lock.
+      switch (options.lockType) {
+        case "pin":
+          options.facility = ICC_CB_FACILITY_SIM;
+          options.password = options.pin;
+          break;
+        case "fdn":
+          options.facility = ICC_CB_FACILITY_FDN;
+          options.password = options.pin2;
+          break;
+        default:
+          options.errorMsg = "Unsupported Card Lock.";
+          options.success = false;
+          this.sendDOMMessage(options);
+          return;
       }
-      this.setICCPinLock(options);
+      options.enabled = options.enabled;
+      options.serviceClass = ICC_SERVICE_CLASS_VOICE |
+                             ICC_SERVICE_CLASS_DATA  |
+                             ICC_SERVICE_CLASS_FAX;
+      this.setICCFacilityLock(options);
     }
   },
 
@@ -1127,23 +1145,18 @@ let RIL = {
   iccGetCardLock: function iccGetCardLock(options) {
     switch (options.lockType) {
       case "pin":
-        this.getICCPinLock(options);
+        options.facility = ICC_CB_FACILITY_SIM;
+        break;
+      case "fdn":
+        options.facility = ICC_CB_FACILITY_FDN;
         break;
       default:
         options.errorMsg = "Unsupported Card Lock.";
         options.success = false;
         this.sendDOMMessage(options);
+        return;
     }
-  },
 
-  /**
-   * Get ICC Pin lock. A wrapper call to queryICCFacilityLock.
-   *
-   * @param requestId
-   *        Request Id from RadioInterfaceLayer.
-   */
-  getICCPinLock: function getICCPinLock(options) {
-    options.facility = ICC_CB_FACILITY_SIM;
     options.password = ""; // For query no need to provide pin.
     options.serviceClass = ICC_SERVICE_CLASS_VOICE |
                            ICC_SERVICE_CLASS_DATA  |
@@ -1173,26 +1186,6 @@ let RIL = {
       Buf.writeString(options.aid || this.aid);
     }
     Buf.sendParcel();
-  },
-
-  /**
-   * Set ICC Pin lock. A wrapper call to setICCFacilityLock.
-   *
-   * @param enabled
-   *        true to enable, false to disable.
-   * @param pin
-   *        Pin code.
-   * @param requestId
-   *        Request Id from RadioInterfaceLayer.
-   */
-  setICCPinLock: function setICCPinLock(options) {
-    options.facility = ICC_CB_FACILITY_SIM;
-    options.enabled = options.enabled;
-    options.password = options.pin;
-    options.serviceClass = ICC_SERVICE_CLASS_VOICE |
-                           ICC_SERVICE_CLASS_DATA  |
-                           ICC_SERVICE_CLASS_FAX;
-    this.setICCFacilityLock(options);
   },
 
   /**
@@ -2726,8 +2719,8 @@ let RIL = {
       return;
     }
 
-    // TODO: Bug 726098, change to use cdmaSubscriptionAppIndex when in CDMA.
-    let index = iccStatus.gsmUmtsSubscriptionAppIndex;
+    let index = this._isCdma ? iccStatus.cdmaSubscriptionAppIndex :
+                               iccStatus.gsmUmtsSubscriptionAppIndex;
     let app = iccStatus.apps[index];
     if (!app) {
       if (DEBUG) {
@@ -2780,10 +2773,14 @@ let RIL = {
       // Other types of ICC we can send Terminal_Profile immediately.
       if (this.appType == CARD_APPTYPE_SIM) {
         ICCRecordHelper.getICCPhase();
-      } else {
+        ICCRecordHelper.fetchICCRecords();
+      } else if (this.appType == CARD_APPTYPE_USIM) {
         this.sendStkTerminalProfile(STK_SUPPORTED_TERMINAL_PROFILE);
+        ICCRecordHelper.fetchICCRecords();
+      } else if (this.appType == CARD_APPTYPE_RUIM) {
+        this.sendStkTerminalProfile(STK_SUPPORTED_TERMINAL_PROFILE);
+        RuimRecordHelper.fetchRuimRecords();
       }
-      ICCRecordHelper.fetchICCRecords();
       this.reportStkServiceIsRunning();
     }
 
@@ -2942,10 +2939,7 @@ let RIL = {
       RIL.getSMSCAddress();
     }
 
-    // TODO: This zombie code branch that will be raised from the dead once
-    // we add explicit CDMA support everywhere (bug 726098).
-    let cdma = false;
-    if (cdma) {
+    if (this._isCdma) {
       let baseStationId = RIL.parseInt(state[4]);
       let baseStationLatitude = RIL.parseInt(state[5]);
       let baseStationLongitude = RIL.parseInt(state[6]);
@@ -7424,6 +7418,11 @@ let StkCommandParamsFactory = {
       textMsg.responseNeeded = true;
     }
 
+    ctlv = StkProactiveCmdHelper.searchForTag(COMPREHENSIONTLV_TAG_DURATION, ctlvs);
+    if (ctlv) {
+      textMsg.duration = ctlv.value;
+    }
+
     // High priority.
     if (cmdDetails.commandQualifier & 0x01) {
       textMsg.isHighPriority = true;
@@ -7587,6 +7586,12 @@ let StkCommandParamsFactory = {
       throw new Error("Stk Set Up Call: Required value missing : Adress");
     }
     call.address = ctlv.value.number;
+
+    // see 3GPP TS 31.111 section 6.4.13
+    ctlv = StkProactiveCmdHelper.searchForTag(COMPREHENSIONTLV_TAG_DURATION, ctlvs);
+    if (ctlv) {
+      call.duration = ctlv.value;
+    }
 
     return call;
   },
@@ -8443,6 +8448,19 @@ let ICCFileHelper = {
   },
 
   /**
+   * This function handles EFs for RUIM
+   */
+  getRuimEFPath: function getRuimEFPath(fileId) {
+    switch(fileId) {
+      case ICC_EF_CSIM_CDMAHOME:
+      case ICC_EF_CSIM_CST:
+        return EF_PATH_MF_SIM + EF_PATH_DF_CDMA;
+      default:
+        return null;
+    }
+  },
+
+  /**
    * Helper function for getting the pathId for the specific ICC record
    * depeding on which type of ICC card we are using.
    *
@@ -8451,13 +8469,7 @@ let ICCFileHelper = {
    * @return The pathId or null in case of an error or invalid input.
    */
   getEFPath: function getEFPath(fileId) {
-    // TODO: Bug 726098, change to use cdmaSubscriptionAppIndex when in CDMA.
-    let index = RIL.iccStatus.gsmUmtsSubscriptionAppIndex;
-    if (index == -1) {
-      return null;
-    }
-    let app = RIL.iccStatus.apps[index];
-    if (!app) {
+    if (RIL.appType == null) {
       return null;
     }
 
@@ -8466,15 +8478,17 @@ let ICCFileHelper = {
       return path;
     }
 
-    switch (app.app_type) {
+    switch (RIL.appType) {
       case CARD_APPTYPE_SIM:
         return this.getSimEFPath(fileId);
       case CARD_APPTYPE_USIM:
         return this.getUSimEFPath(fileId);
+      case CARD_APPTYPE_RUIM:
+        return this.getRuimEFPath(fileId);
       default:
         return null;
     }
-  },
+  }
 };
 
 /**
@@ -9794,9 +9808,10 @@ let ICCUtilsHelper = {
    * @return true if the service is enabled, false otherwise.
    */
   isICCServiceAvailable: function isICCServiceAvailable(geckoService) {
-    let serviceTable = RIL.iccInfoPrivate.sst;
+    let serviceTable = RIL._isCdma ? RIL.iccInfoPrivate.cst:
+                                     RIL.iccInfoPrivate.sst;
     let index, bitmask;
-    if (RIL.appType == CARD_APPTYPE_SIM) {
+    if (RIL.appType == CARD_APPTYPE_SIM || RIL.appType == CARD_APPTYPE_RUIM) {
       /**
        * Service id is valid in 1..N, and 2 bits are used to code each service.
        *
@@ -9811,14 +9826,19 @@ let ICCUtilsHelper = {
        *
        * @see 3GPP TS 51.011 10.3.7.
        */
-      let simService = GECKO_ICC_SERVICES.sim[geckoService];
+      let simService;
+      if (RIL.appType == CARD_APPTYPE_SIM) {
+        simService = GECKO_ICC_SERVICES.sim[geckoService];
+      } else {
+        simService = GECKO_ICC_SERVICES.ruim[geckoService];
+      }
       if (!simService) {
         return false;
       }
       simService -= 1;
       index = Math.floor(simService / 4);
       bitmask = 2 << ((simService % 4) << 1);
-    } else {
+    } else if (RIL.appType == CARD_APPTYPE_USIM) {
       /**
        * Service id is valid in 1..N, and 1 bit is used to code each service.
        *
@@ -10156,6 +10176,73 @@ let ICCContactHelper = {
       ICCRecordHelper.readIAP(fileId, contact.recordId, gotIapCb, onerror);
     }
   },
+};
+
+let RuimRecordHelper = {
+  fetchRuimRecords: function fetchRuimRecords() {
+    ICCRecordHelper.getICCID();
+    RIL.getIMSI();
+    this.readCST();
+    this.readCDMAHome();
+  },
+
+  /**
+   * Read CDMAHOME for CSIM.
+   * See 3GPP2 C.S0023 Sec. 3.4.8.
+   */
+  readCDMAHome: function readCDMAHome() {
+    function callback(options) {
+      let strLen = Buf.readUint32();
+      let tempOctet = GsmPDUHelper.readHexOctet();
+      cdmaHomeSystemId.push(((GsmPDUHelper.readHexOctet() & 0x7f) << 8) | tempOctet);
+      tempOctet = GsmPDUHelper.readHexOctet();
+      cdmaHomeNetworkId.push(((GsmPDUHelper.readHexOctet() & 0xff) << 8) | tempOctet);
+
+      // Consuming the last octet: band class.
+      Buf.seekIncoming(PDU_HEX_OCTET_SIZE);
+
+      Buf.readStringDelimiter(strLen);
+      if (options.p1 < options.totalRecords) {
+        ICCIOHelper.loadNextRecord(options);
+      } else {
+        if (DEBUG) {
+          debug("CDMAHome system id: " + JSON.stringify(cdmaHomeSystemId));
+          debug("CDMAHome network id: " + JSON.stringify(cdmaHomeNetworkId));
+        }
+        RIL.cdmaHome = {
+          systemId: cdmaHomeSystemId,
+          networkId: cdmaHomeNetworkId
+        };
+      }
+    }
+
+    let cdmaHomeSystemId = [], cdmaHomeNetworkId = [];
+    ICCIOHelper.loadLinearFixedEF({fileId: ICC_EF_CSIM_CDMAHOME,
+                                   callback: callback.bind(this)});
+  },
+
+  /**
+   * Read CDMA Service Table.
+   * See 3GPP2 C.S0023 Sec. 3.4.18
+   */
+  readCST: function readCST() {
+    function callback() {
+      let strLen = Buf.readUint32();
+      // Each octet is encoded into two chars.
+      RIL.iccInfoPrivate.cst = GsmPDUHelper.readHexOctetArray(strLen / 2);
+      Buf.readStringDelimiter(strLen);
+
+      if (DEBUG) {
+        let str = "";
+        for (let i = 0; i < RIL.iccInfoPrivate.cst.length; i++) {
+          str += RIL.iccInfoPrivate.cst[i] + ", ";
+        }
+        debug("CST: " + str);
+      }
+    }
+    ICCIOHelper.loadTransparentEF({fileId: ICC_EF_CSIM_CST,
+                                   callback: callback.bind(this)});
+  }
 };
 
 /**

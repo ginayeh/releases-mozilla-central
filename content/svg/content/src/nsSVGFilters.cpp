@@ -2079,25 +2079,12 @@ SVGComponentTransferFunctionElement::GetNumberInfo()
                               ArrayLength(sNumberInfo));
 }
 
-
-NS_IMPL_ADDREF_INHERITED(SVGFEFuncRElement,SVGComponentTransferFunctionElement)
-NS_IMPL_RELEASE_INHERITED(SVGFEFuncRElement,SVGComponentTransferFunctionElement)
-
-} // namespace dom
-} // namespace mozilla
-
-DOMCI_NODE_DATA(SVGFEFuncRElement, SVGFEFuncRElement)
-
-namespace mozilla {
-namespace dom {
-
-NS_INTERFACE_TABLE_HEAD(SVGFEFuncRElement)
-  NS_NODE_INTERFACE_TABLE5(SVGFEFuncRElement, nsIDOMNode, nsIDOMElement,
-                           nsIDOMSVGElement,
-                           nsIDOMSVGComponentTransferFunctionElement,
-                           nsIDOMSVGFEFuncRElement)
-  NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(SVGFEFuncRElement)
-NS_INTERFACE_MAP_END_INHERITING(SVGComponentTransferFunctionElement)
+NS_IMPL_ISUPPORTS_INHERITED5(SVGFEFuncRElement,
+                             SVGComponentTransferFunctionElement,
+                             nsIDOMNode, nsIDOMElement,
+                             nsIDOMSVGElement,
+                             nsIDOMSVGComponentTransferFunctionElement,
+                             nsIDOMSVGFEFuncRElement)
 
 /* virtual */ JSObject*
 SVGFEFuncRElement::WrapNode(JSContext* aCx, JSObject* aScope,
@@ -2116,25 +2103,12 @@ namespace dom {
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFEFuncRElement)
 
-
-NS_IMPL_ADDREF_INHERITED(SVGFEFuncGElement,SVGComponentTransferFunctionElement)
-NS_IMPL_RELEASE_INHERITED(SVGFEFuncGElement,SVGComponentTransferFunctionElement)
-
-} // namespace dom
-} // namespace mozilla
-
-DOMCI_NODE_DATA(SVGFEFuncGElement, SVGFEFuncGElement)
-
-namespace mozilla {
-namespace dom {
-
-NS_INTERFACE_TABLE_HEAD(SVGFEFuncGElement)
-  NS_NODE_INTERFACE_TABLE5(SVGFEFuncGElement, nsIDOMNode, nsIDOMElement,
-                           nsIDOMSVGElement,
-                           nsIDOMSVGComponentTransferFunctionElement,
-                           nsIDOMSVGFEFuncGElement)
-  NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(SVGFEFuncGElement)
-NS_INTERFACE_MAP_END_INHERITING(SVGComponentTransferFunctionElement)
+NS_IMPL_ISUPPORTS_INHERITED5(SVGFEFuncGElement,
+                             SVGComponentTransferFunctionElement,
+                             nsIDOMNode, nsIDOMElement,
+                             nsIDOMSVGElement,
+                             nsIDOMSVGComponentTransferFunctionElement,
+                             nsIDOMSVGFEFuncGElement)
 
 /* virtual */ JSObject*
 SVGFEFuncGElement::WrapNode(JSContext* aCx, JSObject* aScope,
@@ -2153,25 +2127,12 @@ namespace dom {
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFEFuncGElement)
 
-
-NS_IMPL_ADDREF_INHERITED(SVGFEFuncBElement,SVGComponentTransferFunctionElement)
-NS_IMPL_RELEASE_INHERITED(SVGFEFuncBElement,SVGComponentTransferFunctionElement)
-
-} // namespace dom
-} // namespace mozilla
-
-DOMCI_NODE_DATA(SVGFEFuncBElement, SVGFEFuncBElement)
-
-namespace mozilla {
-namespace dom {
-
-NS_INTERFACE_TABLE_HEAD(SVGFEFuncBElement)
-  NS_NODE_INTERFACE_TABLE5(SVGFEFuncBElement, nsIDOMNode, nsIDOMElement,
-                           nsIDOMSVGElement,
-                           nsIDOMSVGComponentTransferFunctionElement,
-                           nsIDOMSVGFEFuncBElement)
-  NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(SVGFEFuncBElement)
-NS_INTERFACE_MAP_END_INHERITING(SVGComponentTransferFunctionElement)
+NS_IMPL_ISUPPORTS_INHERITED5(SVGFEFuncBElement,
+                             SVGComponentTransferFunctionElement,
+                             nsIDOMNode, nsIDOMElement,
+                             nsIDOMSVGElement,
+                             nsIDOMSVGComponentTransferFunctionElement,
+                             nsIDOMSVGFEFuncBElement)
 
 /* virtual */ JSObject*
 SVGFEFuncBElement::WrapNode(JSContext* aCx, JSObject* aScope,
@@ -2190,25 +2151,12 @@ namespace dom {
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFEFuncBElement)
 
-
-NS_IMPL_ADDREF_INHERITED(SVGFEFuncAElement,SVGComponentTransferFunctionElement)
-NS_IMPL_RELEASE_INHERITED(SVGFEFuncAElement,SVGComponentTransferFunctionElement)
-
-} // namespace dom
-} // namespace mozilla
-
-DOMCI_NODE_DATA(SVGFEFuncAElement, SVGFEFuncAElement)
-
-namespace mozilla {
-namespace dom {
-
-NS_INTERFACE_TABLE_HEAD(SVGFEFuncAElement)
-  NS_NODE_INTERFACE_TABLE5(SVGFEFuncAElement, nsIDOMNode, nsIDOMElement,
-                           nsIDOMSVGElement,
-                           nsIDOMSVGComponentTransferFunctionElement,
-                           nsIDOMSVGFEFuncAElement)
-  NS_DOM_INTERFACE_MAP_ENTRY_CLASSINFO(SVGFEFuncAElement)
-NS_INTERFACE_MAP_END_INHERITING(SVGComponentTransferFunctionElement)
+NS_IMPL_ISUPPORTS_INHERITED5(SVGFEFuncAElement,
+                             SVGComponentTransferFunctionElement,
+                             nsIDOMNode, nsIDOMElement,
+                             nsIDOMSVGElement,
+                             nsIDOMSVGComponentTransferFunctionElement,
+                             nsIDOMSVGFEFuncAElement)
 
 /* virtual */ JSObject*
 SVGFEFuncAElement::WrapNode(JSContext* aCx, JSObject* aScope,
@@ -4890,14 +4838,22 @@ nsSVGFELightingElement::ComputeChangeBBox(const nsTArray<nsIntRect>& aSourceChan
 
 static int32_t
 Convolve3x3(const uint8_t *index, int32_t stride,
-            const int8_t kernel[3][3])
+            const int8_t kernel[3][3]
+#ifdef DEBUG
+            , const uint8_t *minData, const uint8_t *maxData
+#endif // DEBUG
+)
 {
   int32_t sum = 0;
   for (int32_t y = 0; y < 3; y++) {
     for (int32_t x = 0; x < 3; x++) {
       int8_t k = kernel[y][x];
-      if (k)
-        sum += k * index[4 * (x - 1) + stride * (y - 1)];
+      if (k) {
+        const uint8_t *valPtr = index + (4 * (x - 1) + stride * (y - 1));
+        NS_ASSERTION(valPtr >= minData, "out of bounds read (before buffer)");
+        NS_ASSERTION(valPtr < maxData,  "out of bounds read (after buffer)");
+        sum += k * (*valPtr);
+      }
     }
   }
   return sum;
@@ -4966,10 +4922,30 @@ GenerateNormal(float *N, const uint8_t *data, int32_t stride,
 
   const uint8_t *index = data + y * stride + 4 * x + GFX_ARGB32_OFFSET_A;
 
+#ifdef DEBUG
+  // For sanity-checking, to be sure we're not reading outside source buffer:
+  const uint8_t* minData = data;
+  const uint8_t* maxData = minData + (surfaceHeight * surfaceWidth * stride);
+
+  // We'll sanity-check each value we read inside of Convolve3x3, but we
+  // might as well ensure we're passing it a valid pointer to start with, too:
+  NS_ASSERTION(index >= minData, "index points before buffer start");
+  NS_ASSERTION(index < maxData, "index points after buffer end");
+#endif // DEBUG
+
   N[0] = -surfaceScale * FACTORx[yflag][xflag] *
-    Convolve3x3(index, stride, Kx[yflag][xflag]);
+    Convolve3x3(index, stride, Kx[yflag][xflag]
+#ifdef DEBUG
+                , minData, maxData
+#endif // DEBUG
+                );
+
   N[1] = -surfaceScale * FACTORy[yflag][xflag] *
-    Convolve3x3(index, stride, Ky[yflag][xflag]);
+    Convolve3x3(index, stride, Ky[yflag][xflag]
+#ifdef DEBUG
+                , minData, maxData
+#endif // DEBUG
+                );
   N[2] = 255;
   NORMALIZE(N);
 }
@@ -5753,7 +5729,7 @@ nsSVGFEImageElement::Notify(imgIRequest* aRequest, int32_t aType, const nsIntRec
 void
 nsSVGFEImageElement::Invalidate()
 {
-  if (GetParent()->IsSVG(nsGkAtoms::filter)) {
+  if (GetParent() && GetParent()->IsSVG(nsGkAtoms::filter)) {
     static_cast<SVGFilterElement*>(GetParent())->Invalidate();
   }
 }

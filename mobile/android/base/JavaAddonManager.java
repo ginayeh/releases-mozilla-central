@@ -72,6 +72,10 @@ class JavaAddonManager implements GeckoEventListener {
     }
 
     void init(Context applicationContext) {
+        if (mApplicationContext != null) {
+            // we've already done this registration. don't do it again
+            return;
+        }
         mApplicationContext = applicationContext;
         mDispatcher.registerEventListener("Dex:Load", this);
         mDispatcher.registerEventListener("Dex:Unload", this);
@@ -147,7 +151,7 @@ class JavaAddonManager implements GeckoEventListener {
             // XXX right now we only support primitive types;
             // we don't recurse down into JSONArray or JSONObject instances
             Bundle b = new Bundle();
-            for (Iterator keys = json.keys(); keys.hasNext(); ) {
+            for (Iterator<?> keys = json.keys(); keys.hasNext(); ) {
                 try {
                     String key = (String)keys.next();
                     Object value = json.get(key);

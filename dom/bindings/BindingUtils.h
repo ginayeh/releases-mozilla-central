@@ -62,6 +62,10 @@ ThrowMethodFailedWithDetails(JSContext* cx, ErrorResult& rv,
     rv.ReportTypeError(cx);
     return false;
   }
+  if (rv.IsJSException()) {
+    rv.ReportJSException(cx);
+    return false;
+  }
   return Throw<mainThread>(cx, rv.ErrorCode());
 }
 
@@ -308,6 +312,13 @@ struct JSNativeHolder
   const NativePropertyHooks* mPropertyHooks;
 };
 
+struct NamedConstructor
+{
+  const char* mName;
+  const JSNativeHolder mHolder;
+  unsigned mNargs;
+};
+
 /*
  * Create a DOM interface object (if constructorClass is non-null) and/or a
  * DOM interface prototype object (if protoClass is non-null).
@@ -349,9 +360,9 @@ struct JSNativeHolder
 void
 CreateInterfaceObjects(JSContext* cx, JSObject* global, JSObject* protoProto,
                        JSClass* protoClass, JSObject** protoCache,
-                       JSClass* constructorClass, JSNativeHolder* constructor,
-                       unsigned ctorNargs, JSObject** constructorCache,
-                       const DOMClass* domClass,
+                       JSClass* constructorClass, const JSNativeHolder* constructor,
+                       unsigned ctorNargs, const NamedConstructor* namedConstructors,
+                       JSObject** constructorCache, const DOMClass* domClass,
                        const NativeProperties* regularProperties,
                        const NativeProperties* chromeOnlyProperties,
                        const char* name);

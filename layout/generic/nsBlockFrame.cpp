@@ -4838,11 +4838,15 @@ static bool
 ShouldPutNextSiblingOnNewLine(nsIFrame* aLastFrame)
 {
   nsIAtom* type = aLastFrame->GetType();
-  if (type == nsGkAtoms::brFrame)
+  if (type == nsGkAtoms::brFrame) {
     return true;
-  if (type == nsGkAtoms::textFrame)
+  }
+  // XXX the IS_DIRTY check is a wallpaper for bug 822910.
+  if (type == nsGkAtoms::textFrame &&
+      !(aLastFrame->GetStateBits() & NS_FRAME_IS_DIRTY)) {
     return aLastFrame->HasTerminalNewline() &&
-           aLastFrame->StyleText()->NewlineIsSignificant();
+      aLastFrame->StyleText()->NewlineIsSignificant();
+  }
   return false;
 }
 
@@ -6687,6 +6691,9 @@ nsBlockFrame::RenumberLists(nsPresContext* aPresContext)
     for (nsIContent* kid = mContent->GetFirstChild(); kid;
          kid = kid->GetNextSibling()) {
       if (kid->IsHTML(nsGkAtoms::li)) {
+        // FIXME: This isn't right in terms of what CSS says to do for
+        // overflow of counters (but it only matters when this node has
+        // more than numeric_limits<int32_t>::max() children).
         ordinal -= increment;
       }
     }

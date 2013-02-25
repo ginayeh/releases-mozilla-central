@@ -2300,7 +2300,7 @@ struct NS_STACK_CLASS CanvasBidiProcessor : public nsBidiPresUtils::BidiProcesso
 
     uint32_t numRuns;
     const gfxTextRun::GlyphRun *runs = mTextRun->GetGlyphRuns(&numRuns);
-    const uint32_t appUnitsPerDevUnit = mAppUnitsPerDevPixel;
+    const int32_t appUnitsPerDevUnit = mAppUnitsPerDevPixel;
     const double devUnitsPerAppUnit = 1.0/double(appUnitsPerDevUnit);
     Point baselineOrigin =
       Point(point.x * devUnitsPerAppUnit, point.y * devUnitsPerAppUnit);
@@ -2355,7 +2355,16 @@ struct NS_STACK_CLASS CanvasBidiProcessor : public nsBidiPresUtils::BidiProcesso
           mTextRun->GetDetailedGlyphs(i);
 
         if (glyphs[i].IsMissing()) {
+          newGlyph.mIndex = 0;
+          if (mTextRun->IsRightToLeft()) {
+            newGlyph.mPosition.x = baselineOrigin.x - advanceSum -
+              detailedGlyphs[0].mAdvance * devUnitsPerAppUnit;
+          } else {
+            newGlyph.mPosition.x = baselineOrigin.x + advanceSum;
+          }
+          newGlyph.mPosition.y = baselineOrigin.y;
           advanceSum += detailedGlyphs[0].mAdvance * devUnitsPerAppUnit;
+          glyphBuf.push_back(newGlyph);
           continue;
         }
 
@@ -2424,7 +2433,7 @@ struct NS_STACK_CLASS CanvasBidiProcessor : public nsBidiPresUtils::BidiProcesso
   gfxFontGroup* mFontgrp;
 
   // dev pixel conversion factor
-  uint32_t mAppUnitsPerDevPixel;
+  int32_t mAppUnitsPerDevPixel;
 
   // operation (fill or stroke)
   CanvasRenderingContext2D::TextDrawOperation mOp;

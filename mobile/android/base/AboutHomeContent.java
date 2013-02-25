@@ -13,7 +13,7 @@ import org.mozilla.gecko.db.BrowserDB.PinnedSite;
 import org.mozilla.gecko.db.BrowserDB.TopSitesCursorWrapper;
 import org.mozilla.gecko.sync.setup.SyncAccounts;
 import org.mozilla.gecko.util.ActivityResultHandler;
-import org.mozilla.gecko.util.GeckoAsyncTask;
+import org.mozilla.gecko.util.UiAsyncTask;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -111,6 +111,7 @@ public class AboutHomeContent extends ScrollView
     private static Rect sIconBounds;
     private static TextAppearanceSpan sSubTitleSpan;
     private static Drawable sPinDrawable = null;
+    private int mThumbnailBackground;
 
     public interface UriLoadCallback {
         public void callback(String uriSpec);
@@ -136,6 +137,7 @@ public class AboutHomeContent extends ScrollView
         int iconSize = mContext.getResources().getDimensionPixelSize(R.dimen.abouthome_addon_icon_size);
         sIconBounds = new Rect(0, 0, iconSize, iconSize); 
         sSubTitleSpan = new TextAppearanceSpan(mContext, R.style.AboutHome_TextAppearance_SubTitle);
+        mThumbnailBackground = mContext.getResources().getColor(R.color.abouthome_thumbnail_bg);
 
         inflate();
 
@@ -350,10 +352,12 @@ public class AboutHomeContent extends ScrollView
 
         if (thumbnail == null) {
             thumbnailView.setImageResource(R.drawable.abouthome_thumbnail_bg);
+            thumbnailView.setBackgroundColor(mThumbnailBackground);
             thumbnailView.setScaleType(ImageView.ScaleType.FIT_CENTER);
         } else {
             try {
                 thumbnailView.setImageBitmap(thumbnail);
+                thumbnailView.setBackgroundColor(0x0);
                 thumbnailView.setScaleType(ImageView.ScaleType.CENTER_CROP);
             } catch (OutOfMemoryError oom) {
                 Log.e(LOGTAG, "Unable to load thumbnail bitmap", oom);
@@ -417,7 +421,7 @@ public class AboutHomeContent extends ScrollView
         if (urls.size() == 0)
             return;
 
-        (new GeckoAsyncTask<Void, Void, Cursor>(GeckoApp.mAppContext, GeckoAppShell.getHandler()) {
+        (new UiAsyncTask<Void, Void, Cursor>(getHandler(), GeckoAppShell.getHandler()) {
             @Override
             public Cursor doInBackground(Void... params) {
                 return BrowserDB.getThumbnailsForUrls(cr, urls);
@@ -707,7 +711,7 @@ public class AboutHomeContent extends ScrollView
             return;
         }
 
-        TabsAccessor.getTabs(getContext(), NUMBER_OF_REMOTE_TABS, this);
+        TabsAccessor.getTabs(getContext(), NUMBER_OF_REMOTE_TABS, this, getHandler());
     }
 
     @Override
@@ -977,6 +981,7 @@ public class AboutHomeContent extends ScrollView
         holder.setTitle("");
         holder.setUrl("");
         holder.thumbnailView.setImageResource(R.drawable.abouthome_thumbnail_add);
+        holder.thumbnailView.setBackgroundColor(mThumbnailBackground);
         holder.thumbnailView.setScaleType(ImageView.ScaleType.FIT_CENTER);
         holder.setPinned(false);
     }
@@ -988,7 +993,7 @@ public class AboutHomeContent extends ScrollView
         final String url = holder.getUrl();
         // Quickly update the view so that there isn't as much lag between the request and response
         clearThumbnail(holder);
-        (new GeckoAsyncTask<Void, Void, Void>(GeckoApp.mAppContext, GeckoAppShell.getHandler()) {
+        (new UiAsyncTask<Void, Void, Void>(getHandler(), GeckoAppShell.getHandler()) {
             @Override
             public Void doInBackground(Void... params) {
                 final ContentResolver resolver = mActivity.getContentResolver();
@@ -1009,7 +1014,7 @@ public class AboutHomeContent extends ScrollView
         holder.setPinned(true);
 
         // update the database on a background thread
-        (new GeckoAsyncTask<Void, Void, Void>(GeckoApp.mAppContext, GeckoAppShell.getHandler()) {
+        (new UiAsyncTask<Void, Void, Void>(getHandler(), GeckoAppShell.getHandler()) {
             @Override
             public Void doInBackground(Void... params) {
                 final ContentResolver resolver = mActivity.getContentResolver();
@@ -1053,7 +1058,7 @@ public class AboutHomeContent extends ScrollView
                 holder.setPinned(true);
 
                 // update the database on a background thread
-                (new GeckoAsyncTask<Void, Void, Bitmap>(GeckoApp.mAppContext, GeckoAppShell.getHandler()) {
+                (new UiAsyncTask<Void, Void, Bitmap>(getHandler(), GeckoAppShell.getHandler()) {
                     @Override
                     public Bitmap doInBackground(Void... params) {
                         final ContentResolver resolver = mActivity.getContentResolver();

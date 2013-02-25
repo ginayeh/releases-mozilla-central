@@ -599,6 +599,7 @@ MOCHITEST_FILES_C= \
 		test_bug761120.html \
 		test_bug787778.html \
 		file_bug787778.sjs \
+		test_xbl_userdata.xhtml \
 		test_XHR_onuploadprogress.html \
 		test_XHR_anon.html \
 		file_XHR_anon.sjs \
@@ -613,15 +614,6 @@ MOCHITEST_FILES_C= \
     test_mixed_content_blocker_bug803225.html \
     file_mixed_content_main_bug803225.html \
     file_mixed_content_main_bug803225_websocket_wsh.py \
-    file_bug822367_1.html \
-    file_bug822367_1.js \
-    file_bug822367_2.html \
-    file_bug822367_3.html \
-    file_bug822367_4.html \
-    file_bug822367_4.js \
-    file_bug822367_4B.html \
-    file_bug822367_5.html \
-    file_bug822367_6.html \
     bug803225_test_mailto.html \
 		test_bug789856.html \
 		file_bug804395.jar \
