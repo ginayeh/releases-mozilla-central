@@ -223,9 +223,8 @@ pref("accessibility.browsewithcaret", false);
 // successfully applied.
 pref("app.update.showInstalledUI", false);
 
-// Whether the character encoding menu is under the main Firefox button. This
-// preference is a string so that localizers can alter it.
-pref("browser.menu.showCharacterEncoding", "chrome://browser/locale/browser.properties");
+// Whether the character encoding options are displayed in the app bar.
+pref("browser.menu.showCharacterEncoding", false);
 pref("intl.charsetmenu.browser.static", "chrome://browser/locale/browser.properties");
 
 // pointer to the default engine name
@@ -581,3 +580,18 @@ pref("media.realtime_decoder.enabled", true);
 
 // Mobile manages state by autodetection
 pref("network.manage-offline-status", true);
+
+// Enable HTML fullscreen API in content.
+pref("full-screen-api.enabled", true);
+// But don't require approval when content enters fullscreen; we'll keep our
+// UI/chrome visible still, so there's no need to approve entering fullscreen.
+pref("full-screen-api.approval-required", false);
+// Don't allow fullscreen requests to percolate across content/chrome boundary,
+// so that our chrome/UI remains visible after content enters fullscreen.
+pref("full-screen-api.content-only", true);
+// Don't make top-level widgets fullscreen. This only applies when running in
+// "metrodesktop" mode, not when running in full metro mode. This prevents the
+// window from changing size when we go fullscreen; the content expands to fill
+// the window, the window size doesn't change. This pref has no effect when
+// running in actual Metro mode, as the widget will already be fullscreen then.
+pref("full-screen-api.ignore-widgets", true);

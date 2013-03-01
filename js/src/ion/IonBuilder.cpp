@@ -3031,9 +3031,7 @@ IonBuilder::addTypeBarrier(uint32_t i, CallInfo &callinfo, types::StackTypeSet *
     }
 
     while (excluded) {
-        if (excluded->target == calleeObs) {
-            JS_ASSERT(callerObs->hasType(excluded->type));
-
+        if (excluded->target == calleeObs && callerObs->hasType(excluded->type)) {
             if (excluded->type == types::Type::DoubleType() &&
                 calleeObs->hasType(types::Type::Int32Type())) {
                 // The double type also implies int32, so this implies that
@@ -3237,14 +3235,12 @@ IonBuilder::makeInliningDecision(AutoObjectVector &targets)
     uint32_t totalSize = 0;
     uint32_t maxInlineDepth = js_IonOptions.maxInlineDepth;
     bool allFunctionsAreSmall = true;
-    RootedFunction target(cx);
-    RootedScript targetScript(cx);
     for (size_t i = 0; i < targets.length(); i++) {
-        target = targets[i]->toFunction();
+        JSFunction *target = targets[i]->toFunction();
         if (!target->isInterpreted())
             return false;
 
-        targetScript = target->nonLazyScript();
+        JSScript *targetScript = target->nonLazyScript();
         uint32_t calleeUses = targetScript->getUseCount();
 
         totalSize += targetScript->length;
@@ -3281,6 +3277,7 @@ IonBuilder::makeInliningDecision(AutoObjectVector &targets)
     JSOp op = JSOp(*pc);
     for (size_t i = 0; i < targets.length(); i++) {
         JSFunction *target = targets[i]->toFunction();
+        JSScript *targetScript = target->nonLazyScript();
 
         if (!canInlineTarget(target)) {
             IonSpew(IonSpew_Inlining, "Decided not to inline");

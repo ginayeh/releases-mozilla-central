@@ -75,6 +75,7 @@ abstract public class BrowserApp extends GeckoApp
     private PropertyAnimator mMainLayoutAnimator;
 
     private static final Interpolator sTabsInterpolator = new Interpolator() {
+        @Override
         public float getInterpolation(float t) {
             t -= 1.0f;
             return t * t * t * t * t + 1.0f;
@@ -107,7 +108,10 @@ abstract public class BrowserApp extends GeckoApp
                     final TabsPanel.Panel panel = tab.isPrivate()
                                                 ? TabsPanel.Panel.PRIVATE_TABS
                                                 : TabsPanel.Panel.NORMAL_TABS;
+                    // Delay calling showTabs so that it does not modify the mTabsChangedListeners
+                    // array while we are still iterating through the array.
                     mMainHandler.post(new Runnable() {
+                        @Override
                         public void run() {
                             if (areTabsShown() && mTabsPanel.getCurrentPanel() != panel)
                                 showTabs(panel);
@@ -124,56 +128,25 @@ abstract public class BrowserApp extends GeckoApp
                 }
                 break;
             case PAGE_SHOW:
-                handlePageShow(tab);
+                loadFavicon(tab);
                 break;
             case LINK_ADDED:
-                handleLinkAdded(tab);
-                break;
-            case SECURITY_CHANGE:
-                handleSecurityChange(tab);
-                break;
-            case READER_ENABLED:
-                handleReaderEnabled(tab);
+                // If tab is not loading and the favicon is updated, we
+                // want to load the image straight away. If tab is still
+                // loading, we only load the favicon once the page's content
+                // is fully loaded.
+                if (tab.getState() != Tab.STATE_LOADING) {
+                    loadFavicon(tab);
+                }
                 break;
         }
         super.onTabChanged(tab, msg, data);
-    }
-
-    void handlePageShow(final Tab tab) {
-        mMainHandler.post(new Runnable() {
-            public void run() {
-                loadFavicon(tab);
-            }
-        });
-    }
-
-    void handleLinkAdded(final Tab tab) {
-        // If tab is not loading and the favicon is updated, we
-        // want to load the image straight away. If tab is still
-        // loading, we only load the favicon once the page's content
-        // is fully loaded (see handleContentLoaded()).
-        if (tab.getState() != Tab.STATE_LOADING) {
-            mMainHandler.post(new Runnable() {
-                public void run() {
-                    loadFavicon(tab);
-                }
-            });
-        }
     }
 
     @Override
     void handleClearHistory() {
         super.handleClearHistory();
         updateAboutHomeTopSites();
-    }
-
-    void handleSecurityChange(final Tab tab) {
-        mMainHandler.post(new Runnable() { 
-            public void run() {
-                if (Tabs.getInstance().isSelectedTab(tab))
-                    mBrowserToolbar.setSecurityMode(tab.getSecurityMode());
-            }
-        });
     }
 
     void handleReaderAdded(boolean success, final String title, final String url) {
@@ -183,6 +156,7 @@ abstract public class BrowserApp extends GeckoApp
         }
 
         GeckoAppShell.getHandler().post(new Runnable() {
+            @Override
             public void run() {
                 BrowserDB.addReadingListItem(getContentResolver(), title, url);
                 showToast(R.string.reading_list_added, Toast.LENGTH_SHORT);
@@ -192,6 +166,7 @@ abstract public class BrowserApp extends GeckoApp
 
     void handleReaderRemoved(final String url) {
         GeckoAppShell.getHandler().post(new Runnable() {
+            @Override
             public void run() {
                 BrowserDB.removeReadingListItemWithURL(getContentResolver(), url);
                 showToast(R.string.reading_list_removed, Toast.LENGTH_SHORT);
@@ -199,18 +174,10 @@ abstract public class BrowserApp extends GeckoApp
         });
     }
 
-    void handleReaderEnabled(final Tab tab) {
-        mMainHandler.post(new Runnable() {
-            public void run() {
-                if (Tabs.getInstance().isSelectedTab(tab))
-                    mBrowserToolbar.setReaderMode(tab.getReaderEnabled());
-            }
-        });
-    }
-
     @Override
     void onStatePurged() {
         mMainHandler.post(new Runnable() {
+            @Override
             public void run() {
                 if (mAboutHomeContent != null)
                     mAboutHomeContent.setLastTabsVisibility(false);
@@ -314,6 +281,7 @@ abstract public class BrowserApp extends GeckoApp
     @Override
     void toggleChrome(final boolean aShow) {
         mMainHandler.post(new Runnable() {
+            @Override
             public void run() {
                 if (aShow) {
                     mBrowserToolbar.show();
@@ -332,6 +300,7 @@ abstract public class BrowserApp extends GeckoApp
     @Override
     void focusChrome() {
         mMainHandler.post(new Runnable() {
+            @Override
             public void run() {
                 mBrowserToolbar.show();
                 mBrowserToolbar.requestFocusFromTouch();
@@ -367,7 +336,8 @@ abstract public class BrowserApp extends GeckoApp
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        mBrowserToolbar.fromAwesomeBarSearch();
+        String url = resultCode == Activity.RESULT_OK ? data.getStringExtra(AwesomeBar.URL_KEY) : null;
+        mBrowserToolbar.fromAwesomeBarSearch(url);
     }
 
     public View getActionBarLayout() {
@@ -459,6 +429,7 @@ abstract public class BrowserApp extends GeckoApp
                 } catch (Exception ex) { }
                 final MenuItemInfo menuItemInfo = info;
                 mMainHandler.post(new Runnable() {
+                    @Override
                     public void run() {
                         addAddonMenuItem(menuItemInfo);
                     }
@@ -466,6 +437,7 @@ abstract public class BrowserApp extends GeckoApp
             } else if (event.equals("Menu:Remove")) {
                 final int id = message.getInt("id") + ADDON_MENU_OFFSET;
                 mMainHandler.post(new Runnable() {
+                    @Override
                     public void run() {
                         removeAddonMenuItem(id);
                     }
@@ -474,6 +446,7 @@ abstract public class BrowserApp extends GeckoApp
                 final int id = message.getInt("id") + ADDON_MENU_OFFSET;
                 final JSONObject options = message.getJSONObject("options");
                 mMainHandler.post(new Runnable() {
+                    @Override
                     public void run() {
                         updateAddonMenuItem(id, options);
                     }
@@ -491,6 +464,7 @@ abstract public class BrowserApp extends GeckoApp
 
                 final AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this);
                 dialogBuilder.setSingleChoiceItems(titleArray, selected, new AlertDialog.OnClickListener() {
+                    @Override
                     public void onClick(DialogInterface dialog, int which) {
                         try {
                             JSONObject charset = charsets.getJSONObject(which);
@@ -502,11 +476,13 @@ abstract public class BrowserApp extends GeckoApp
                     }
                 });
                 dialogBuilder.setNegativeButton(R.string.button_cancel, new AlertDialog.OnClickListener() {
+                    @Override
                     public void onClick(DialogInterface dialog, int which) {
                         dialog.dismiss();
                     }
                 });
                 mMainHandler.post(new Runnable() {
+                    @Override
                     public void run() {
                         dialogBuilder.show();
                     }
@@ -516,6 +492,7 @@ abstract public class BrowserApp extends GeckoApp
                 GeckoPreferences.setCharEncodingState(visible);
                 final Menu menu = mMenu;
                 mMainHandler.post(new Runnable() {
+                    @Override
                     public void run() {
                         if (menu != null)
                             menu.findItem(R.id.char_encoding).setVisible(visible);
@@ -535,6 +512,7 @@ abstract public class BrowserApp extends GeckoApp
                 super.handleMessage(event, message);
                 final Menu menu = mMenu;
                 mMainHandler.post(new Runnable() {
+                    @Override
                     public void run() {
                         if (menu != null)
                             menu.findItem(R.id.settings).setEnabled(true);
@@ -566,22 +544,27 @@ abstract public class BrowserApp extends GeckoApp
         }
     }
 
+    @Override
     public void addTab() {
         showAwesomebar(AwesomeBar.Target.NEW_TAB);
     }
 
+    @Override
     public void addPrivateTab() {
         Tabs.getInstance().loadUrl("about:privatebrowsing", Tabs.LOADURL_NEW_TAB | Tabs.LOADURL_PRIVATE);
     }
 
+    @Override
     public void showNormalTabs() {
         showTabs(TabsPanel.Panel.NORMAL_TABS);
     }
 
+    @Override
     public void showPrivateTabs() {
         showTabs(TabsPanel.Panel.PRIVATE_TABS);
     }
 
+    @Override
     public void showRemoteTabs() {
         showTabs(TabsPanel.Panel.REMOTE_TABS);
     }
@@ -593,10 +576,12 @@ abstract public class BrowserApp extends GeckoApp
         mTabsPanel.show(panel);
     }
 
+    @Override
     public void hideTabs() {
         mTabsPanel.hide();
     }
 
+    @Override
     public boolean autoHideTabs() {
         if (!hasTabsSideBar() && areTabsShown()) {
             hideTabs();
@@ -605,6 +590,7 @@ abstract public class BrowserApp extends GeckoApp
         return false;
     }
 
+    @Override
     public boolean areTabsShown() {
         return mTabsPanel.isShown();
     }
@@ -693,6 +679,7 @@ abstract public class BrowserApp extends GeckoApp
         long id = Favicons.getInstance().loadFavicon(tab.getURL(), tab.getFaviconURL(), !tab.isPrivate(),
                         new Favicons.OnFaviconLoadedListener() {
 
+            @Override
             public void onFaviconLoaded(String pageUrl, Bitmap favicon) {
                 // Leave favicon UI untouched if we failed to load the image
                 // for some reason.
@@ -706,9 +693,6 @@ abstract public class BrowserApp extends GeckoApp
 
                 tab.updateFavicon(favicon);
                 tab.setFaviconLoadId(Favicons.NOT_LOADING);
-
-                if (Tabs.getInstance().isSelectedTab(tab))
-                    mBrowserToolbar.setFavicon(tab.getFavicon());
 
                 Tabs.getInstance().notifyListeners(tab, Tabs.TabEvents.FAVICON);
             }
@@ -768,6 +752,7 @@ abstract public class BrowserApp extends GeckoApp
             mShow = show;
         }
 
+        @Override
         public void run() {
             if (mShow) {
                 if (mAboutHomeContent == null) {
@@ -775,12 +760,14 @@ abstract public class BrowserApp extends GeckoApp
                     mAboutHomeContent.init();
                     mAboutHomeContent.update(AboutHomeContent.UpdateFlags.ALL);
                     mAboutHomeContent.setUriLoadCallback(new AboutHomeContent.UriLoadCallback() {
+                        @Override
                         public void callback(String url) {
                             mBrowserToolbar.setProgressVisibility(true);
                             Tabs.getInstance().loadUrl(url);
                         }
                     });
                     mAboutHomeContent.setLoadCompleteCallback(new AboutHomeContent.VoidCallback() {
+                        @Override
                         public void callback() {
                             mAboutHomeStartupTimer.stop();
                         }
@@ -885,6 +872,7 @@ abstract public class BrowserApp extends GeckoApp
             }
             else if (info.icon.startsWith("jar:") || info.icon.startsWith("file://")) {
                 GeckoAppShell.getHandler().post(new Runnable() {
+                    @Override
                     public void run() {
                         try {
                             URL url = new URL(info.icon);
@@ -1024,15 +1012,16 @@ abstract public class BrowserApp extends GeckoApp
 
     @Override
     public void setFullScreen(final boolean fullscreen) {
-      super.setFullScreen(fullscreen);
-      mMainHandler.post(new Runnable() {
-          public void run() {
-              if (fullscreen)
-                  mBrowserToolbar.hide();
-              else
-                  mBrowserToolbar.show();
-          }
-      });
+        super.setFullScreen(fullscreen);
+        mMainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (fullscreen)
+                    mBrowserToolbar.hide();
+                else
+                    mBrowserToolbar.show();
+            }
+        });
     }
 
     @Override
@@ -1224,7 +1213,7 @@ abstract public class BrowserApp extends GeckoApp
         if (!Intent.ACTION_MAIN.equals(intent.getAction()) || !mInitialized)
             return;
 
-        (new UiAsyncTask<Void, Void, Boolean>(mMainHandler, GeckoAppShell.getHandler()) {
+        (new UiAsyncTask<Void, Void, Boolean>(GeckoAppShell.getHandler()) {
             @Override
             public synchronized Boolean doInBackground(Void... params) {
                 // Check to see how many times the app has been launched.
@@ -1261,7 +1250,7 @@ abstract public class BrowserApp extends GeckoApp
     }
 
     private void getLastUrl() {
-        (new UiAsyncTask<Void, Void, String>(mMainHandler, GeckoAppShell.getHandler()) {
+        (new UiAsyncTask<Void, Void, String>(GeckoAppShell.getHandler()) {
             @Override
             public synchronized String doInBackground(Void... params) {
                 // Get the most recent URL stored in browser history.

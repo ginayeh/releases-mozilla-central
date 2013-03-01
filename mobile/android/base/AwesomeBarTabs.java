@@ -33,7 +33,6 @@ public class AwesomeBarTabs extends TabHost
     private View.OnTouchListener mListTouchListener;
     private boolean mSearching = false;
     private String mTarget;
-    private Background mBackground;
     private ViewPager mViewPager;
     private AwesomePagerAdapter mPagerAdapter;
     
@@ -131,14 +130,13 @@ public class AwesomeBarTabs extends TabHost
         setup();
 
         mListTouchListener = new View.OnTouchListener() {
+            @Override
             public boolean onTouch(View view, MotionEvent event) {
                 if (event.getActionMasked() == MotionEvent.ACTION_DOWN)
                     hideSoftInput(view);
                 return false;
             }
         };
-
-        mBackground = (Background) findViewById(R.id.awesomebar_background);
 
         mTabs = new AwesomeBarTab[] {
             new AllPagesTab(mContext),
@@ -225,6 +223,7 @@ public class AwesomeBarTabs extends TabHost
         for (int i = 0; i < tabWidget.getTabCount(); i++) {
             GeckoTextView view = (GeckoTextView) tabWidget.getChildTabViewAt(i);
             if (isPrivate) {
+                view.resetTheme();
                 view.setPrivateMode((i == selIndex) ? false : true);
             } else {
                 if (i == selIndex)
@@ -267,6 +266,7 @@ public class AwesomeBarTabs extends TabHost
         // this MUST be done after tw.addView to overwrite the listener added by tabWidget
         // which delegates to TabHost (which we don't have)
         indicatorView.setOnClickListener(new View.OnClickListener() {
+            @Override
             public void onClick(View v) {
                 mViewPager.setCurrentItem(contentId, true);
             }
@@ -339,29 +339,16 @@ public class AwesomeBarTabs extends TabHost
         if (mTarget.equals(AwesomeBar.Target.CURRENT_TAB.name())) {
             Tab tab = Tabs.getInstance().getSelectedTab();
             if (tab != null && tab.isPrivate())
-                mBackground.setPrivateMode(true);
+                ((BackgroundLayout) findViewById(R.id.tab_widget_container)).setPrivateMode(true);
         }
     }
 
-    public static class Background extends GeckoLinearLayout
-                                   implements LightweightTheme.OnChangeListener { 
+    public static class BackgroundLayout extends GeckoLinearLayout {
         private GeckoActivity mActivity;
 
-        public Background(Context context, AttributeSet attrs) {
+        public BackgroundLayout(Context context, AttributeSet attrs) {
             super(context, attrs);
             mActivity = (GeckoActivity) context;
-        }
-
-        @Override
-        public void onAttachedToWindow() {
-            super.onAttachedToWindow();
-            mActivity.getLightweightTheme().addListener(this);
-        }
-
-        @Override
-        public void onDetachedFromWindow() {
-            super.onDetachedFromWindow();
-            mActivity.getLightweightTheme().removeListener(this);
         }
 
         @Override
@@ -373,7 +360,7 @@ public class AwesomeBarTabs extends TabHost
             drawable.setAlpha(255, 0);
 
             StateListDrawable stateList = new StateListDrawable();
-            stateList.addState(new int[] { R.attr.state_private }, new ColorDrawable(mActivity.getResources().getColor(R.color.background_normal)));
+            stateList.addState(new int[] { R.attr.state_private }, new ColorDrawable(mActivity.getResources().getColor(R.color.background_private)));
             stateList.addState(new int[] {}, drawable);
 
             int[] padding =  new int[] { getPaddingLeft(),
@@ -394,12 +381,6 @@ public class AwesomeBarTabs extends TabHost
                                        };
             setBackgroundResource(R.drawable.address_bar_bg);
             setPadding(padding[0], padding[1], padding[2], padding[3]);
-        }
-
-        @Override
-        protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-            super.onLayout(changed, left, top, right, bottom);
-            onLightweightThemeChanged();
         }
     }
 }

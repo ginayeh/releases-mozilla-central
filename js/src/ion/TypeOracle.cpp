@@ -298,6 +298,9 @@ TypeInferenceOracle::elementReadIsDenseNative(RawScript script, jsbytecode *pc)
     if (idType != JSVAL_TYPE_INT32 && idType != JSVAL_TYPE_DOUBLE)
         return false;
 
+    if (obj->hasType(types::Type::StringType()))
+        return false;
+
     Class *clasp = obj->getKnownClass();
     return clasp && clasp->isNative();
 }
@@ -311,6 +314,9 @@ TypeInferenceOracle::elementReadIsTypedArray(RawScript script, jsbytecode *pc, i
 
     JSValueType idType = id->getKnownTypeTag();
     if (idType != JSVAL_TYPE_INT32 && idType != JSVAL_TYPE_DOUBLE)
+        return false;
+
+    if (obj->hasType(types::Type::StringType()))
         return false;
 
     *arrayType = obj->getTypedArrayType();
@@ -603,9 +609,11 @@ TypeInferenceOracle::canEnterInlinedFunction(RawScript caller, jsbytecode *pc, R
     AssertCanGC();
     RootedScript targetScript(cx, target->nonLazyScript());
 
-    // Always permit the empty script.
-    if (targetScript->length == 1)
-        return true;
+    // Make sure empty script has type information, to allow inlining in more cases.
+    if (targetScript->length == 1) {
+        if (!targetScript->ensureRanInference(cx))
+            return false;
+    }
 
     if (!targetScript->hasAnalysis() ||
         !targetScript->analysis()->ranInference() ||

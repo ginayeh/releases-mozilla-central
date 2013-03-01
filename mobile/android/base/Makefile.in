@@ -10,8 +10,6 @@ VPATH		= @srcdir@
 include $(DEPTH)/config/autoconf.mk
 include $(topsrcdir)/ipc/app/defs.mk
 
-DIRS = locales
-
 DIST_FILES = package-name.txt
 
 include $(topsrcdir)/mobile/android/base/android-services-files.mk
@@ -258,6 +256,7 @@ FENNEC_PP_XML_FILES = \
   res/layout/abouthome_content.xml \
   res/layout/awesomebar_search.xml \
   res/layout/awesomebar_suggestion_row.xml \
+  res/layout/awesomebar_tab_indicator.xml \
   res/layout/browser_toolbar.xml \
   res/layout/browser_toolbar_menu.xml \
   res/layout-land-v14/browser_toolbar.xml \
@@ -403,7 +402,6 @@ RES_LAYOUT = \
   res/layout/awesomebar_row.xml \
   res/layout/awesomebar_suggestion_item.xml \
   res/layout/awesomebar_suggestion_prompt.xml \
-  res/layout/awesomebar_tab_indicator.xml \
   res/layout/awesomebar_tabs.xml \
   res/layout/bookmark_edit.xml \
   res/layout/datetime_picker.xml \
@@ -556,9 +554,7 @@ RES_DRAWABLE_MDPI = \
   res/drawable-mdpi/ic_menu_close_all_tabs.png \
   res/drawable-mdpi/ic_menu_forward.png \
   res/drawable-mdpi/ic_menu_new_private_tab.png \
-  res/drawable-mdpi/ic_menu_new_private_tab_small.png \
   res/drawable-mdpi/ic_menu_new_tab.png \
-  res/drawable-mdpi/ic_menu_new_tab_small.png \
   res/drawable-mdpi/ic_menu_reload.png \
   res/drawable-mdpi/ic_status_logo.png \
   res/drawable-mdpi/progress_spinner_1.png \
@@ -669,9 +665,7 @@ RES_DRAWABLE_HDPI = \
   res/drawable-hdpi/ic_menu_close_all_tabs.png \
   res/drawable-hdpi/ic_menu_forward.png \
   res/drawable-hdpi/ic_menu_new_private_tab.png \
-  res/drawable-hdpi/ic_menu_new_private_tab_small.png \
   res/drawable-hdpi/ic_menu_new_tab.png \
-  res/drawable-hdpi/ic_menu_new_tab_small.png \
   res/drawable-hdpi/ic_menu_reload.png \
   res/drawable-hdpi/ic_status_logo.png \
   res/drawable-hdpi/tab_indicator_divider.9.png \
@@ -762,9 +756,7 @@ RES_DRAWABLE_XHDPI = \
   res/drawable-xhdpi/ic_menu_close_all_tabs.png \
   res/drawable-xhdpi/ic_menu_forward.png \
   res/drawable-xhdpi/ic_menu_new_private_tab.png \
-  res/drawable-xhdpi/ic_menu_new_private_tab_small.png \
   res/drawable-xhdpi/ic_menu_new_tab.png \
-  res/drawable-xhdpi/ic_menu_new_tab_small.png \
   res/drawable-xhdpi/ic_menu_reload.png \
   res/drawable-xhdpi/ic_status_logo.png \
   res/drawable-xhdpi/spinner_default.9.png \
@@ -912,7 +904,6 @@ RES_DRAWABLE_LARGE_MDPI_V11 = \
   res/drawable-large-mdpi-v11/tabs_carat.png \
   res/drawable-large-mdpi-v11/tabs_carat_contracted.png \
   res/drawable-large-mdpi-v11/tabs_carat_expanded.png \
-  res/drawable-large-mdpi-v11/tabs_menu.png \
   $(NULL)
 
 RES_DRAWABLE_LARGE_HDPI_V11 = \
@@ -922,7 +913,6 @@ RES_DRAWABLE_LARGE_HDPI_V11 = \
   res/drawable-large-hdpi-v11/tabs_carat.png \
   res/drawable-large-hdpi-v11/tabs_carat_contracted.png \
   res/drawable-large-hdpi-v11/tabs_carat_expanded.png \
-  res/drawable-large-hdpi-v11/tabs_menu.png \
   $(NULL)
 
 RES_DRAWABLE_LARGE_XHDPI_V11 = \
@@ -932,7 +922,6 @@ RES_DRAWABLE_LARGE_XHDPI_V11 = \
   res/drawable-large-xhdpi-v11/tabs_carat.png \
   res/drawable-large-xhdpi-v11/tabs_carat_contracted.png \
   res/drawable-large-xhdpi-v11/tabs_carat_expanded.png \
-  res/drawable-large-xhdpi-v11/tabs_menu.png \
   $(NULL)
 
 RES_DRAWABLE_XLARGE_MDPI_V11 = \
@@ -967,10 +956,8 @@ RES_COLOR = \
 RES_MENU = \
   res/menu/awesomebar_contextmenu.xml \
   res/menu/gecko_app_menu.xml \
-  res/menu/tabs_menu.xml \
   res/menu/titlebar_contextmenu.xml \
   res/menu/abouthome_topsites_contextmenu.xml \
-  res/menu-v11/tabs_menu.xml \
   $(NULL)
 
 JAVA_CLASSPATH = $(ANDROID_SDK)/android.jar
@@ -1139,7 +1126,9 @@ android-tgts = \
 
 android-preqs = \
   Makefile.in \
-  $(call mkdir_deps,mozglue,db,sync/repositories/android,background/announcements) \
+  $(call mkdir_deps,$(sort $(dir $(MOZGLUE_PP_JAVA_FILES)))) \
+  $(call mkdir_deps,$(sort $(dir $(FENNEC_PP_JAVA_FILES)))) \
+  $(call mkdir_deps,$(sort $(dir $(SYNC_PP_JAVA_FILES)))) \
   $(SERVICES_MANIFEST_FRAGMENTS) \
   WebAppManifestFragment.xml.in \
   WebAppsFragments.java \
