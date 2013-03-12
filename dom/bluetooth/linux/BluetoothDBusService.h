@@ -30,12 +30,15 @@ public:
 
   virtual nsresult StopInternal();
 
-  virtual nsresult GetDefaultAdapterPathInternal(BluetoothReplyRunnable* aRunnable);
+  virtual nsresult GetDefaultAdapterPathInternal(
+                                             BluetoothReplyRunnable* aRunnable);
 
-  virtual nsresult GetPairedDevicePropertiesInternal(const nsTArray<nsString>& aDeviceAddresses,
-                                                     BluetoothReplyRunnable* aRunnable);
+  virtual nsresult GetPairedDevicePropertiesInternal(
+                                     const nsTArray<nsString>& aDeviceAddresses,
+                                     BluetoothReplyRunnable* aRunnable);
 
-  virtual nsresult GetConnectedDevicePropertiesInternal(uint16_t aProfileId,
+  virtual nsresult GetConnectedDevicePropertiesInternal(
+                                             uint16_t aProfileId,
                                              BluetoothReplyRunnable* aRunnable);
 
   virtual nsresult StartDiscoveryInternal(const nsAString& aAdapterPath,

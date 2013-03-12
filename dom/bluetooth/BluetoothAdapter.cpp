@@ -172,7 +172,6 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow* aWindow,
   , mJsDeviceAddresses(nullptr)
   , mIsRooted(false)
 {
-  BindToOwner(aWindow);
   LOG("[A] %s", __FUNCTION__);
   MOZ_ASSERT(aWindow);
 
@@ -294,6 +293,13 @@ BluetoothAdapter::SetPropertyByValue(const BluetoothNamedValue& aValue)
     Root();
   } else if (name.EqualsLiteral("Devices")) {
     mDeviceAddresses = value.get_ArrayOfnsString();
+
+    uint32_t length = mDeviceAddresses.Length();
+    for (int i = 0; i < length; i++) {
+      mDeviceAddresses[i] = GetAddressFromObjectPath(mDeviceAddresses[i]);
+      LOG("[A] mDeviceAddress[%d]: %s", i, NS_ConvertUTF16toUTF8(mDeviceAddresses[i]).get());
+    }
+
     nsresult rv;
     nsIScriptContext* sc = GetContextForEventHandlers(&rv);
     NS_ENSURE_SUCCESS_VOID(rv);
