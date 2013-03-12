@@ -96,7 +96,6 @@ IonCache::CacheName(IonCache::Kind kind)
 IonCache::LinkStatus
 IonCache::linkCode(JSContext *cx, MacroAssembler &masm, IonScript *ion, IonCode **code)
 {
-    AssertCanGC();
     Linker linker(masm);
     *code = linker.newCode(cx);
     if (!code)
@@ -243,7 +242,7 @@ IsCacheableProtoChain(JSObject *obj, JSObject *holder)
 }
 
 static bool
-IsCacheableGetPropReadSlot(JSObject *obj, JSObject *holder, UnrootedShape shape)
+IsCacheableGetPropReadSlot(JSObject *obj, JSObject *holder, RawShape shape)
 {
     if (!shape || !IsCacheableProtoChain(obj, holder))
         return false;
@@ -255,7 +254,7 @@ IsCacheableGetPropReadSlot(JSObject *obj, JSObject *holder, UnrootedShape shape)
 }
 
 static bool
-IsCacheableNoProperty(JSObject *obj, JSObject *holder, UnrootedShape shape, jsbytecode *pc,
+IsCacheableNoProperty(JSObject *obj, JSObject *holder, RawShape shape, jsbytecode *pc,
                       const TypedOrValueRegister &output)
 {
     if (shape)
@@ -306,7 +305,7 @@ IsCacheableNoProperty(JSObject *obj, JSObject *holder, UnrootedShape shape, jsby
 }
 
 static bool
-IsCacheableGetPropCallNative(JSObject *obj, JSObject *holder, UnrootedShape shape)
+IsCacheableGetPropCallNative(JSObject *obj, JSObject *holder, RawShape shape)
 {
     if (!shape || !IsCacheableProtoChain(obj, holder))
         return false;
@@ -319,7 +318,7 @@ IsCacheableGetPropCallNative(JSObject *obj, JSObject *holder, UnrootedShape shap
 }
 
 static bool
-IsCacheableGetPropCallPropertyOp(JSObject *obj, JSObject *holder, UnrootedShape shape)
+IsCacheableGetPropCallPropertyOp(JSObject *obj, JSObject *holder, RawShape shape)
 {
     if (!shape || !IsCacheableProtoChain(obj, holder))
         return false;
@@ -715,7 +714,7 @@ bool
 GetPropertyIC::attachReadSlot(JSContext *cx, IonScript *ion, JSObject *obj, JSObject *holder,
                               HandleShape shape)
 {
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
     RepatchLabel failures;
 
     GetNativePropertyStub getprop;
@@ -732,7 +731,7 @@ GetPropertyIC::attachCallGetter(JSContext *cx, IonScript *ion, JSObject *obj,
                                 JSObject *holder, HandleShape shape,
                                 const SafepointIndex *safepointIndex, void *returnAddr)
 {
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
     RepatchLabel failures;
 
     JS_ASSERT(!idempotent());
@@ -763,7 +762,7 @@ GetPropertyIC::attachArrayLength(JSContext *cx, IonScript *ion, JSObject *obj)
     JS_ASSERT(!idempotent());
 
     Label failures;
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     // Guard object is a dense array.
     RootedObject globalObj(cx, &script->global());
@@ -814,7 +813,7 @@ GetPropertyIC::attachTypedArrayLength(JSContext *cx, IonScript *ion, JSObject *o
     JS_ASSERT(!idempotent());
 
     Label failures;
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     Register tmpReg;
     if (output().hasValue()) {
@@ -1062,7 +1061,7 @@ bool
 SetPropertyIC::attachNativeExisting(JSContext *cx, IonScript *ion,
                                     HandleObject obj, HandleShape shape)
 {
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     RepatchLabel exit_;
     CodeOffsetJump exitOffset =
@@ -1103,7 +1102,7 @@ SetPropertyIC::attachSetterCall(JSContext *cx, IonScript *ion,
                                 HandleObject obj, HandleObject holder, HandleShape shape,
                                 void *returnAddr)
 {
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     // Need to set correct framePushed on the masm so that exit frame descriptors are
     // properly constructed.
@@ -1266,7 +1265,7 @@ SetPropertyIC::attachNativeAdding(JSContext *cx, IonScript *ion, JSObject *obj,
                                   HandleShape oldShape, HandleShape newShape,
                                   HandleShape propShape)
 {
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     Label failures;
 
@@ -1283,7 +1282,7 @@ SetPropertyIC::attachNativeAdding(JSContext *cx, IonScript *ion, JSObject *obj,
     JSObject *proto = obj->getProto();
     Register protoReg = object();
     while (proto) {
-        UnrootedShape protoShape = proto->lastProperty();
+        RawShape protoShape = proto->lastProperty();
 
         // load next prototype
         masm.loadPtr(Address(protoReg, JSObject::offsetOfType()), protoReg);
@@ -1349,7 +1348,7 @@ IsPropertyInlineable(JSObject *obj)
 static bool
 IsPropertySetInlineable(JSContext *cx, HandleObject obj, HandleId id, MutableHandleShape pshape)
 {
-    UnrootedShape shape = obj->nativeLookup(cx, id);
+    RawShape shape = obj->nativeLookup(cx, id);
 
     if (!shape)
         return false;
@@ -1423,7 +1422,7 @@ IsPropertyAddInlineable(JSContext *cx, HandleObject obj, HandleId id, uint32_t o
             return false;
 
         // if prototype defines this property in a non-plain way, don't optimize
-        UnrootedShape protoShape = proto->nativeLookup(cx, id);
+        RawShape protoShape = proto->nativeLookup(cx, id);
         if (protoShape && !protoShape->hasDefaultSetter())
             return false;
 
@@ -1526,7 +1525,7 @@ GetElementIC::attachGetProp(JSContext *cx, IonScript *ion, HandleObject obj,
 
     RepatchLabel failures;
     Label nonRepatchFailures;
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     // Guard on the index value.
     ValueOperand val = index().reg().valueReg();
@@ -1546,7 +1545,7 @@ GetElementIC::attachDenseElement(JSContext *cx, IonScript *ion, JSObject *obj, c
     JS_ASSERT(idval.isInt32());
 
     Label failures;
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     Register scratchReg = output().scratchReg().gpr();
     JS_ASSERT(scratchReg != InvalidReg);
@@ -1615,7 +1614,7 @@ GetElementIC::attachTypedArrayElement(JSContext *cx, IonScript *ion, JSObject *o
     JS_ASSERT(idval.isInt32());
 
     Label failures;
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     // The array type is the object within the table of typed array classes.
     int arrayType = TypedArray::type(obj);
@@ -1757,7 +1756,7 @@ BindNameIC::attachGlobal(JSContext *cx, IonScript *ion, JSObject *scopeChain)
 {
     JS_ASSERT(scopeChain->isGlobal());
 
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     // Guard on the scope chain.
     RepatchLabel exit_;
@@ -1775,9 +1774,8 @@ BindNameIC::attachGlobal(JSContext *cx, IonScript *ion, JSObject *scopeChain)
 
 static inline void
 GenerateScopeChainGuard(MacroAssembler &masm, JSObject *scopeObj,
-                        Register scopeObjReg, UnrootedShape shape, Label *failures)
+                        Register scopeObjReg, RawShape shape, Label *failures)
 {
-    AutoAssertNoGC nogc;
     if (scopeObj->isCall()) {
         // We can skip a guard on the call object if the script's bindings are
         // guaranteed to be immutable (and thus cannot introduce shadowing
@@ -1785,7 +1783,7 @@ GenerateScopeChainGuard(MacroAssembler &masm, JSObject *scopeObj,
         CallObject *callObj = &scopeObj->asCall();
         if (!callObj->isForEval()) {
             RawFunction fun = &callObj->callee();
-            UnrootedScript script = fun->nonLazyScript();
+            RawScript script = fun->nonLazyScript();
             if (!script->funHasExtensibleScope)
                 return;
         }
@@ -1827,7 +1825,7 @@ BindNameIC::attachNonGlobal(JSContext *cx, IonScript *ion, JSObject *scopeChain,
 {
     JS_ASSERT(IsCacheableNonGlobalScope(scopeChain));
 
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     // Guard on the shape of the scope chain.
     RepatchLabel failures;
@@ -1925,8 +1923,7 @@ BindNameIC::update(JSContext *cx, size_t cacheIndex, HandleObject scopeChain)
 bool
 NameIC::attach(JSContext *cx, IonScript *ion, HandleObject scopeChain, HandleObject holder, HandleShape shape)
 {
-    AssertCanGC();
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
     Label failures;
 
     Register scratchReg = outputReg().valueReg().scratchReg();
@@ -2048,7 +2045,7 @@ bool
 CallsiteCloneIC::attach(JSContext *cx, IonScript *ion, HandleFunction original,
                         HandleFunction clone)
 {
-    MacroAssembler masm;
+    MacroAssembler masm(cx);
 
     // Guard against object identity on the original.
     RepatchLabel exit;

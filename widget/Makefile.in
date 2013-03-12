@@ -9,7 +9,6 @@ srcdir		= @srcdir@
 VPATH		= @srcdir@
 
 MODULE = widget
-XPIDL_MODULE	= widget
 GRE_MODULE	= 1
 
 include $(DEPTH)/config/autoconf.mk
@@ -122,6 +121,7 @@ ifeq ($(MOZ_WIDGET_TOOLKIT),cocoa)
 XPIDLSRCS +=	nsIMacDockSupport.idl \
 		nsIStandaloneNativeMenu.idl \
 		nsIMacWebAppUtils.idl \
+		nsITaskbarProgress.idl \
 		$(NULL)
 endif
 

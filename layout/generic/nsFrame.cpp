@@ -868,7 +868,7 @@ nsIFrame::GetUsedMargin() const
   nsMargin margin(0, 0, 0, 0);
   if (((mState & NS_FRAME_FIRST_REFLOW) &&
        !(mState & NS_FRAME_IN_REFLOW)) ||
-      (mState & NS_FRAME_IS_SVG_TEXT))
+      IsSVGText())
     return margin;
 
   nsMargin *m = static_cast<nsMargin*>
@@ -891,7 +891,7 @@ nsIFrame::GetUsedBorder() const
   nsMargin border(0, 0, 0, 0);
   if (((mState & NS_FRAME_FIRST_REFLOW) &&
        !(mState & NS_FRAME_IN_REFLOW)) ||
-      (mState & NS_FRAME_IS_SVG_TEXT))
+      IsSVGText())
     return border;
 
   // Theme methods don't use const-ness.
@@ -927,7 +927,7 @@ nsIFrame::GetUsedPadding() const
   nsMargin padding(0, 0, 0, 0);
   if (((mState & NS_FRAME_FIRST_REFLOW) &&
        !(mState & NS_FRAME_IN_REFLOW)) ||
-      (mState & NS_FRAME_IS_SVG_TEXT))
+      IsSVGText())
     return padding;
 
   // Theme methods don't use const-ness.
@@ -7474,7 +7474,7 @@ ConvertSVGDominantBaselineToVerticalAlign(uint8_t aDominantBaseline)
 uint8_t
 nsIFrame::VerticalAlignEnum() const
 {
-  if (mState & NS_FRAME_IS_SVG_TEXT) {
+  if (IsSVGText()) {
     uint8_t dominantBaseline;
     for (const nsIFrame* frame = this; frame; frame = frame->GetParent()) {
       dominantBaseline = frame->StyleSVGReset()->mDominantBaseline;
@@ -8090,12 +8090,8 @@ nsFrame::BoxMetrics() const
   return metrics;
 }
 
-/**
- * Adds the NS_FRAME_IN_POPUP state bit to the current frame,
- * and all descendant frames (including cross-doc ones).
- */
-static void
-AddInPopupStateBitToDescendants(nsIFrame* aFrame)
+/* static */ void
+nsIFrame::AddInPopupStateBitToDescendants(nsIFrame* aFrame)
 {
   aFrame->AddStateBits(NS_FRAME_IN_POPUP);
 
@@ -8111,17 +8107,11 @@ AddInPopupStateBitToDescendants(nsIFrame* aFrame)
   }
 }
 
-/**
- * Removes the NS_FRAME_IN_POPUP state bit from the current
- * frames and all descendant frames (including cross-doc ones),
- * unless the frame is a popup itself.
- */
-static void
-RemoveInPopupStateBitFromDescendants(nsIFrame* aFrame)
+/* static */ void
+nsIFrame::RemoveInPopupStateBitFromDescendants(nsIFrame* aFrame)
 {
   if (!aFrame->HasAnyStateBits(NS_FRAME_IN_POPUP) ||
-      aFrame->GetType() == nsGkAtoms::listControlFrame ||
-      aFrame->GetType() == nsGkAtoms::menuPopupFrame) {
+      nsLayoutUtils::IsPopup(aFrame)) {
     return;
   }
 

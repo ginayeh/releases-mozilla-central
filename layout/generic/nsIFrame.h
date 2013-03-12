@@ -2094,11 +2094,12 @@ public:
     eXULBox =                           1 << 10,
     eCanContainOverflowContainers =     1 << 11,
     eBlockFrame =                       1 << 12,
+    eTablePart =                        1 << 13,
     // If this bit is set, the frame doesn't allow ignorable whitespace as
     // children. For example, the whitespace between <table>\n<tr>\n<td>
     // will be excluded during the construction of children. 
-    eExcludesIgnorableWhitespace =      1 << 13,
-    eSupportsCSSTransforms =            1 << 14,
+    eExcludesIgnorableWhitespace =      1 << 14,
+    eSupportsCSSTransforms =            1 << 15,
 
     // These are to allow nsFrame::Init to assert that IsFrameOfType
     // implementations all call the base class method.  They are only
@@ -2954,6 +2955,18 @@ NS_PTR_TO_INT32(frame->Properties().Get(nsIFrame::ParagraphDepthProperty()))
   bool IsSVGText() const { return mState & NS_FRAME_IS_SVG_TEXT; }
 
   void CreateOwnLayerIfNeeded(nsDisplayListBuilder* aBuilder, nsDisplayList* aList);
+
+  /**
+   * Adds the NS_FRAME_IN_POPUP state bit to aFrame, and
+   * all descendant frames (including cross-doc ones).
+   */
+  static void AddInPopupStateBitToDescendants(nsIFrame* aFrame);
+  /**
+   * Removes the NS_FRAME_IN_POPUP state bit from aFrame and
+   * all descendant frames (including cross-doc ones), unless
+   * the frame is a popup itself.
+   */
+  static void RemoveInPopupStateBitFromDescendants(nsIFrame* aFrame);
 
 protected:
   // Members

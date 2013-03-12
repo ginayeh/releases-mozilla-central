@@ -432,8 +432,6 @@ public:
 
   bool MozBackgroundRequest();
   void SetMozBackgroundRequest(bool aMozBackgroundRequest, nsresult& aRv);
-  bool Multipart();
-  void SetMultipart(bool aMultipart, nsresult& aRv);
 
   bool MozAnon();
   bool MozSystem();
@@ -448,7 +446,7 @@ public:
 
   // This creates a trusted readystatechange event, which is not cancelable and
   // doesn't bubble.
-  static nsresult CreateReadystatechangeEvent(nsIDOMEvent** aDOMEvent);
+  nsresult CreateReadystatechangeEvent(nsIDOMEvent** aDOMEvent);
   void DispatchProgressEvent(nsDOMEventTargetHelper* aTarget,
                              const nsAString& aType,
                              bool aLengthComputable,
@@ -472,8 +470,6 @@ public:
   virtual void DisconnectFromOwner();
 
 protected:
-  friend class nsMultipartProxyListener;
-
   nsresult DetectCharset();
   nsresult AppendToResponseText(const char * aBuffer, uint32_t aBufferLen);
   static NS_METHOD StreamReaderFunc(nsIInputStream* in,
@@ -520,8 +516,6 @@ protected:
   nsCOMPtr<nsISupports> mContext;
   nsCOMPtr<nsIPrincipal> mPrincipal;
   nsCOMPtr<nsIChannel> mChannel;
-  // mReadRequest is different from mChannel for multipart requests
-  nsCOMPtr<nsIRequest> mReadRequest;
   nsCOMPtr<nsIDocument> mResponseXML;
   nsCOMPtr<nsIChannel> mCORSPreflightChannel;
   nsTArray<nsCString> mCORSUnsafeHeaders;

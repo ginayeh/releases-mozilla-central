@@ -40,13 +40,13 @@ Debug_SetSlotRangeToCrashOnTouch(HeapSlot *begin, HeapSlot *end)
 
 } // namespace js
 
-inline js::UnrootedShape
+inline js::RawShape
 js::ObjectImpl::nativeLookup(JSContext *cx, PropertyId pid)
 {
     return nativeLookup(cx, pid.asId());
 }
 
-inline js::UnrootedShape
+inline js::RawShape
 js::ObjectImpl::nativeLookup(JSContext *cx, PropertyName *name)
 {
     return nativeLookup(cx, NameToId(name));
@@ -314,7 +314,7 @@ js::ObjectImpl::dynamicSlotsCount(uint32_t nfixed, uint32_t span)
 inline size_t
 js::ObjectImpl::sizeOfThis() const
 {
-    return arenaHeader()->getThingSize();
+    return js::gc::Arena::thingSize(getAllocKind());
 }
 
 /* static */ inline void
@@ -359,7 +359,7 @@ js::ObjectImpl::writeBarrierPre(ObjectImpl *obj)
      * This would normally be a null test, but TypeScript::global uses 0x1 as a
      * special value.
      */
-    if (uintptr_t(obj) < 32)
+    if (IsNullTaggedPointer(obj))
         return;
 
     Zone *zone = obj->zone();
@@ -376,7 +376,7 @@ js::ObjectImpl::writeBarrierPre(ObjectImpl *obj)
 js::ObjectImpl::writeBarrierPost(ObjectImpl *obj, void *addr)
 {
 #ifdef JSGC_GENERATIONAL
-    if (uintptr_t(obj) < 32)
+    if (IsNullTaggedPointer(obj))
         return;
     obj->runtime()->gcStoreBuffer.putCell((Cell **)addr);
 #endif

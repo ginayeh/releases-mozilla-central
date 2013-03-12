@@ -866,8 +866,9 @@ CodeGenerator::visitConvertElementsToDoubles(LConvertElementsToDoubles *lir)
     if (!ool)
         return false;
 
-    Address convertedAddress(elements, ObjectElements::offsetOfConvertDoubleElements());
-    masm.branch32(Assembler::Equal, convertedAddress, Imm32(0), ool->entry());
+    Address convertedAddress(elements, ObjectElements::offsetOfFlags());
+    Imm32 bit(ObjectElements::CONVERT_DOUBLE_ELEMENTS);
+    masm.branchTest32(Assembler::Zero, convertedAddress, bit, ool->entry());
     masm.bind(ool->rejoin());
     return true;
 }
@@ -906,8 +907,7 @@ CodeGenerator::visitParWriteGuard(LParWriteGuard *lir)
     if (!ensureOutOfLineParallelAbort(&bail))
         return false;
 
-    // branch to the OOL failure code if false is returned
-    masm.branchTestBool(Assembler::Zero, ReturnReg, ReturnReg, bail);
+    masm.branchIfFalseBool(ReturnReg, bail);
 
     return true;
 }
@@ -953,20 +953,6 @@ CodeGenerator::visitMonitorTypes(LMonitorTypes *lir)
     if (!bailoutFrom(&miss, lir->snapshot()))
         return false;
     masm.bind(&matched);
-    return true;
-}
-
-bool
-CodeGenerator::visitExcludeType(LExcludeType *lir)
-{
-    ValueOperand operand = ToValue(lir, LExcludeType::Input);
-    Register scratch = ToRegister(lir->temp());
-
-    Label matched, miss;
-    masm.guardType(operand, lir->mir()->type(), scratch, &matched, &miss);
-    if (matched.used() && !bailoutFrom(&matched, lir->snapshot()))
-        return false;
-    masm.bind(&miss);
     return true;
 }
 
@@ -1134,7 +1120,7 @@ CodeGenerator::visitCallDOMNative(LCallDOMNative *call)
     } else {
         // Test for failure.
         Label success, exception;
-        masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg, &exception);
+        masm.branchIfFalseBool(ReturnReg, &exception);
 
         // Load the outparam vp[0] into output register(s).
         masm.loadValue(Address(StackPointer, IonDOMMethodExitFrameLayout::offsetOfResult()),
@@ -1718,6 +1704,25 @@ CodeGenerator::visitGetDynamicName(LGetDynamicName *lir)
     return bailoutIf(cond, lir->snapshot());
 }
 
+bool
+CodeGenerator::visitFilterArguments(LFilterArguments *lir)
+{
+    Register string = ToRegister(lir->getString());
+    Register temp1 = ToRegister(lir->temp1());
+    Register temp2 = ToRegister(lir->temp2());
+
+    masm.loadJSContext(temp2);
+
+    masm.setupUnalignedABICall(2, temp1);
+    masm.passABIArg(temp2);
+    masm.passABIArg(string);
+    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, FilterArguments));
+
+    Label bail;
+    masm.branch32(Assembler::Equal, ReturnReg, Imm32(0), &bail);
+    return bailoutFrom(&bail, lir->snapshot());
+}
+
 typedef bool (*DirectEvalFn)(JSContext *, HandleObject, HandleScript, HandleValue, HandleString,
                              MutableHandleValue);
 static const VMFunction DirectEvalInfo = FunctionInfo<DirectEvalFn>(DirectEvalFromIon);
@@ -1959,7 +1964,7 @@ CodeGenerator::visitParCheckOverRecursedFailure(ParCheckOverRecursedFailure *ool
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, ParCheckOverRecursed));
     masm.movePtr(ReturnReg, tempReg);
     masm.PopRegsInMask(saveSet);
-    masm.branchTestBool(Assembler::Zero, tempReg, tempReg, bail);
+    masm.branchIfFalseBool(tempReg, bail);
     masm.jump(ool->rejoin());
 
     return true;
@@ -2021,7 +2026,7 @@ CodeGenerator::visitOutOfLineParCheckInterrupt(OutOfLineParCheckInterrupt *ool)
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, ParCheckInterrupt));
     masm.movePtr(ReturnReg, tempReg);
     masm.PopRegsInMask(saveSet);
-    masm.branchTestBool(Assembler::Zero, tempReg, tempReg, bail);
+    masm.branchIfFalseBool(tempReg, bail);
     masm.jump(ool->rejoin());
 
     return true;
@@ -2904,8 +2909,20 @@ CodeGenerator::visitMathFunctionD(LMathFunctionD *ins)
       case MMathFunction::Cos:
         funptr = JS_FUNC_TO_DATA_PTR(void *, js::math_cos_impl);
         break;
+      case MMathFunction::Exp:
+        funptr = JS_FUNC_TO_DATA_PTR(void *, js::math_exp_impl);
+        break;
       case MMathFunction::Tan:
         funptr = JS_FUNC_TO_DATA_PTR(void *, js::math_tan_impl);
+        break;
+      case MMathFunction::ATan:
+        funptr = JS_FUNC_TO_DATA_PTR(void *, js::math_atan_impl);
+        break;
+      case MMathFunction::ASin:
+        funptr = JS_FUNC_TO_DATA_PTR(void *, js::math_asin_impl);
+        break;
+      case MMathFunction::ACos:
+        funptr = JS_FUNC_TO_DATA_PTR(void *, js::math_acos_impl);
         break;
       default:
         JS_NOT_REACHED("Unknown math function");
@@ -4344,7 +4361,6 @@ CodeGenerator::generate()
 bool
 CodeGenerator::link()
 {
-    AssertCanGC();
     JSContext *cx = GetIonContext()->cx;
 
     Linker linker(masm);
@@ -4607,7 +4623,6 @@ const VMFunction CallsiteCloneIC::UpdateInfo =
 bool
 CodeGenerator::visitCallsiteCloneIC(OutOfLineUpdateCache *ool, CallsiteCloneIC *ic)
 {
-    AssertCanGC();
     LInstruction *lir = ool->lir();
     saveLive(lir);
 
@@ -4639,7 +4654,6 @@ const VMFunction NameIC::UpdateInfo = FunctionInfo<NameICFn>(NameIC::update);
 bool
 CodeGenerator::visitNameIC(OutOfLineUpdateCache *ool, NameIC *ic)
 {
-    AssertCanGC();
     LInstruction *lir = ool->lir();
     saveLive(lir);
 
@@ -4687,7 +4701,6 @@ const VMFunction GetPropertyIC::UpdateInfo =
 bool
 CodeGenerator::visitGetPropertyIC(OutOfLineUpdateCache *ool, GetPropertyIC *ic)
 {
-    AssertCanGC();
     LInstruction *lir = ool->lir();
     saveLive(lir);
 
@@ -4733,7 +4746,6 @@ const VMFunction GetElementIC::UpdateInfo =
 bool
 CodeGenerator::visitGetElementIC(OutOfLineUpdateCache *ool, GetElementIC *ic)
 {
-    AssertCanGC();
     LInstruction *lir = ool->lir();
     saveLive(lir);
 
@@ -4766,7 +4778,6 @@ const VMFunction BindNameIC::UpdateInfo =
 bool
 CodeGenerator::visitBindNameIC(OutOfLineUpdateCache *ool, BindNameIC *ic)
 {
-    AssertCanGC();
     LInstruction *lir = ool->lir();
     saveLive(lir);
 
@@ -4860,7 +4871,6 @@ const VMFunction SetPropertyIC::UpdateInfo =
 bool
 CodeGenerator::visitSetPropertyIC(OutOfLineUpdateCache *ool, SetPropertyIC *ic)
 {
-    AssertCanGC();
     LInstruction *lir = ool->lir();
     saveLive(lir);
 
@@ -5511,7 +5521,7 @@ CodeGenerator::visitGetDOMProperty(LGetDOMProperty *ins)
                        JSReturnOperand);
     } else {
         Label success, exception;
-        masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg, &exception);
+        masm.branchIfFalseBool(ReturnReg, &exception);
 
         masm.loadValue(Address(StackPointer, IonDOMExitFrameLayout::offsetOfResult()),
                        JSReturnOperand);
@@ -5573,7 +5583,7 @@ CodeGenerator::visitSetDOMProperty(LSetDOMProperty *ins)
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void *, ins->mir()->fun()));
 
     Label success, exception;
-    masm.branchTest32(Assembler::Zero, ReturnReg, ReturnReg, &exception);
+    masm.branchIfFalseBool(ReturnReg, &exception);
 
     masm.jump(&success);
 
@@ -5595,7 +5605,6 @@ static const VMFunction SPSExitInfo = FunctionInfo<SPSFn>(SPSExit);
 bool
 CodeGenerator::visitFunctionBoundary(LFunctionBoundary *lir)
 {
-    AssertCanGC();
     Register temp = ToRegister(lir->temp()->output());
 
     switch (lir->type()) {

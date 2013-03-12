@@ -44,6 +44,7 @@
     _(CallNative)                   \
     _(ApplyArgsGeneric)             \
     _(GetDynamicName)               \
+    _(FilterArguments)              \
     _(CallDirectEval)               \
     _(StackArgT)                    \
     _(StackArgV)                    \
@@ -133,7 +134,6 @@
     _(ParDump)                      \
     _(TypeBarrier)                  \
     _(MonitorTypes)                 \
-    _(ExcludeType)                  \
     _(InitializedLength)            \
     _(SetInitializedLength)         \
     _(BoundsCheck)                  \

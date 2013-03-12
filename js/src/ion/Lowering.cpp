@@ -252,6 +252,12 @@ bool
 LIRGenerator::visitPrepareCall(MPrepareCall *ins)
 {
     allocateArguments(ins->argc());
+
+#ifdef DEBUG
+    if (!prepareCallStack_.append(ins))
+        return false;
+#endif
+
     return true;
 }
 
@@ -324,6 +330,9 @@ LIRGenerator::visitCall(MCall *call)
     // Height of the current argument vector.
     uint32_t argslot = getArgumentSlotForCall();
     freeArguments(call->numStackArgs());
+
+    // Check MPrepareCall/MCall nesting.
+    JS_ASSERT(prepareCallStack_.popCopy() == call->getPrepareCall());
 
     JSFunction *target = call->getSingleTarget();
 
@@ -426,6 +435,19 @@ LIRGenerator::visitGetDynamicName(MGetDynamicName *ins)
                                                tempFixed(CallTempReg4));
 
     return assignSnapshot(lir) && defineReturn(lir, ins);
+}
+
+bool
+LIRGenerator::visitFilterArguments(MFilterArguments *ins)
+{
+    MDefinition *string = ins->getString();
+    JS_ASSERT(string->type() == MIRType_String);
+
+    LFilterArguments *lir = new LFilterArguments(useFixed(string, CallTempReg0),
+                                                 tempFixed(CallTempReg1),
+                                                 tempFixed(CallTempReg2));
+
+    return assignSnapshot(lir) && add(lir, ins);
 }
 
 bool
@@ -1637,7 +1659,7 @@ LIRGenerator::visitTypeBarrier(MTypeBarrier *ins)
         return false;
     if (!assignSnapshot(barrier, ins->bailoutKind()))
         return false;
-    return defineAs(barrier, ins, ins->input()) && add(barrier);
+    return redefine(ins, ins->input()) && add(barrier, ins);
 }
 
 bool
@@ -1649,18 +1671,6 @@ LIRGenerator::visitMonitorTypes(MMonitorTypes *ins)
     if (!useBox(lir, LMonitorTypes::Input, ins->input()))
         return false;
     return assignSnapshot(lir, Bailout_Monitor) && add(lir, ins);
-}
-
-bool
-LIRGenerator::visitExcludeType(MExcludeType *ins)
-{
-    LExcludeType *filter = new LExcludeType(temp());
-    if (!useBox(filter, LExcludeType::Input, ins->input()))
-        return false;
-    if (!assignSnapshot(filter, ins->bailoutKind()))
-        return false;
-    filter->setMir(ins);
-    return add(filter);
 }
 
 bool
@@ -2631,6 +2641,8 @@ LIRGenerator::generate()
 
     lirGraph_.setArgumentSlotCount(maxargslots_);
 
+    JS_ASSERT(argslots_ == 0);
+    JS_ASSERT(prepareCallStack_.empty());
     return true;
 }
 

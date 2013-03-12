@@ -9,6 +9,7 @@ generated_webidl_files = \
   $(NULL)
 
 webidl_files = \
+  ArchiveReader.webidl \
   AudioBuffer.webidl \
   AudioBufferSourceNode.webidl \
   AudioContext.webidl \
@@ -45,6 +46,7 @@ webidl_files = \
   DummyBinding.webidl \
   DynamicsCompressorNode.webidl \
   Element.webidl \
+  Event.webidl \
   EventHandler.webidl \
   EventListener.webidl \
   EventSource.webidl \
@@ -89,6 +91,7 @@ webidl_files = \
   HTMLMetaElement.webidl \
   HTMLMeterElement.webidl \
   HTMLModElement.webidl \
+  HTMLObjectElement.webidl \
   HTMLOListElement.webidl \
   HTMLOptGroupElement.webidl \
   HTMLOptionElement.webidl \
@@ -158,10 +161,17 @@ webidl_files = \
   SVGElement.webidl \
   SVGEllipseElement.webidl \
   SVGFilterElement.webidl \
+  SVGFilterPrimitiveStandardAttributes.webidl \
+  SVGFEBlendElement.webidl \
+  SVGFEFloodElement.webidl \
   SVGFEFuncAElement.webidl \
   SVGFEFuncBElement.webidl \
   SVGFEFuncGElement.webidl \
   SVGFEFuncRElement.webidl \
+  SVGFEImageElement.webidl \
+  SVGFEMergeElement.webidl \
+  SVGFEMergeNodeElement.webidl \
+  SVGFETileElement.webidl \
   SVGFitToViewBox.webidl \
   SVGForeignObjectElement.webidl \
   SVGGElement.webidl \
@@ -216,6 +226,7 @@ webidl_files = \
   TreeWalker.webidl \
   URL.webidl \
   ValidityState.webidl \
+  WebComponents.webidl \
   WebSocket.webidl \
   UndoManager.webidl \
   URLUtils.webidl \

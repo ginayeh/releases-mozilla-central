@@ -48,8 +48,8 @@ public:
   DOMSVGTranslatePoint(DOMSVGTranslatePoint* aPt)
     : nsISVGPoint(&aPt->mPt), mElement(aPt->mElement) {}
 
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMSVGTranslatePoint)
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(DOMSVGTranslatePoint, nsISVGPoint)
 
   virtual nsISVGPoint* Clone();
 
@@ -398,6 +398,7 @@ class NS_STACK_CLASS AutoSVGRenderingState
 {
 public:
   AutoSVGRenderingState(const SVGImageContext* aSVGContext,
+                        float aFrameTime,
                         dom::SVGSVGElement* aRootElem
                         MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
     : mHaveOverrides(!!aSVGContext)
@@ -412,10 +413,14 @@ public:
       mRootElem->SetImageOverridePreserveAspectRatio(
           aSVGContext->GetPreserveAspectRatio());
     }
+
+    mOriginalTime = mRootElem->GetCurrentTime();
+    mRootElem->SetCurrentTime(aFrameTime); // Does nothing if there's no change.
   }
 
   ~AutoSVGRenderingState()
   {
+    mRootElem->SetCurrentTime(mOriginalTime);
     if (mHaveOverrides) {
       mRootElem->ClearImageOverridePreserveAspectRatio();
     }
@@ -423,6 +428,7 @@ public:
 
 private:
   const bool mHaveOverrides;
+  float mOriginalTime;
   const nsRefPtr<dom::SVGSVGElement> mRootElem;
   MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };

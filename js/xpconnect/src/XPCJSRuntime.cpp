@@ -1354,7 +1354,7 @@ XPCJSRuntime::~XPCJSRuntime()
     }
 #ifdef MOZ_ENABLE_PROFILER_SPS
     // Tell the profiler that the runtime is gone
-    if (ProfileStack *stack = mozilla_profile_stack())
+    if (PseudoStack *stack = mozilla_get_pseudo_stack())
         stack->sampleRuntime(nullptr);
 #endif
 
@@ -2341,7 +2341,6 @@ CompartmentNameCallback(JSRuntime *rt, JSCompartment *comp,
     memcpy(buf, name.get(), name.Length() + 1);
 }
 
-bool XPCJSRuntime::gExperimentalBindingsEnabled;
 bool XPCJSRuntime::gXBLScopesEnabled;
 
 static bool
@@ -2518,9 +2517,6 @@ XPCJSRuntime::XPCJSRuntime(nsXPConnect* aXPConnect)
 #endif
 
     DOM_InitInterfaces();
-    Preferences::AddBoolVarCache(&gExperimentalBindingsEnabled,
-                                 "dom.experimental_bindings",
-                                 false);
     Preferences::AddBoolVarCache(&gXBLScopesEnabled,
                                  "dom.xbl_scopes",
                                  false);
@@ -2565,7 +2561,7 @@ XPCJSRuntime::XPCJSRuntime(nsXPConnect* aXPConnect)
     JS_EnumerateDiagnosticMemoryRegions(DiagnosticMemoryCallback);
 #endif
 #ifdef MOZ_ENABLE_PROFILER_SPS
-    if (ProfileStack *stack = mozilla_profile_stack())
+    if (PseudoStack *stack = mozilla_get_pseudo_stack())
         stack->sampleRuntime(mJSRuntime);
 #endif
     JS_SetAccumulateTelemetryCallback(mJSRuntime, AccumulateTelemetryCallback);

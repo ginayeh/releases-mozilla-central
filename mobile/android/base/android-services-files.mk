@@ -20,6 +20,10 @@ SYNC_JAVA_FILES := \
   background/announcements/AnnouncementsService.java \
   background/announcements/AnnouncementsStartReceiver.java \
   background/BackgroundService.java \
+  background/bagheera/BagheeraClient.java \
+  background/bagheera/BagheeraRequestDelegate.java \
+  background/bagheera/BoundedByteArrayEntity.java \
+  background/bagheera/DeflateHelper.java \
   background/common/log/Logger.java \
   background/common/log/writers/AndroidLevelCachingLogWriter.java \
   background/common/log/writers/AndroidLogWriter.java \
@@ -30,6 +34,8 @@ SYNC_JAVA_FILES := \
   background/common/log/writers/StringLogWriter.java \
   background/common/log/writers/TagLogWriter.java \
   background/common/log/writers/ThreadLocalTagLogWriter.java \
+  background/db/CursorDumper.java \
+  background/db/Tab.java \
   sync/AlreadySyncingException.java \
   sync/CollectionKeys.java \
   sync/CommandProcessor.java \
@@ -245,7 +251,6 @@ SYNC_JAVA_FILES := \
   sync/stage/ServerSyncStage.java \
   sync/stage/SyncClientsEngineStage.java \
   sync/stage/UploadMetaGlobalStage.java \
-  sync/StubActivity.java \
   sync/syncadapter/SyncAdapter.java \
   sync/syncadapter/SyncService.java \
   sync/SyncConfiguration.java \
