@@ -2008,6 +2008,7 @@ public:
     dbus_error_init(&err);
 
     BluetoothValue values = InfallibleTArray<BluetoothNamedValue>();
+    nsAutoString errorStr;
 
     for (uint32_t i = 0; i < mDeviceAddresses.Length(); i++) {
       BluetoothValue v;
@@ -2015,15 +2016,12 @@ public:
       nsString deviceObjectPath = GetObjectPathFromAddress(sAdapterPath, mDeviceAddresses[i]);
       LOG("[B] connected object path: %s", NS_ConvertUTF16toUTF8(deviceObjectPath).get());
       if (!GetPropertiesInternal(deviceObjectPath, DBUS_DEVICE_IFACE, v)) {
-        nsAutoString errorStr;
         errorStr.AssignLiteral("Getting properties failed!");
-        NS_WARNING(NS_ConvertUTF16toUTF8(errorStr).get());
-        mRunnable->SetReply(new BluetoothReply(BluetoothReplyError(errorStr)));
-        if (NS_FAILED(NS_DispatchToMainThread(mRunnable))) {
-          NS_WARNING("Failed to dispatch to main thread!");
-        }
+        DispatchBluetoothReply(mRunnable, values, errorStr);
         return NS_OK;
       }
+
+      // We have to manually attach the path to the rest of the elements
       v.get_ArrayOfBluetoothNamedValue().AppendElement(
         BluetoothNamedValue(NS_LITERAL_STRING("Path"), deviceObjectPath)
       );
@@ -2035,16 +2033,13 @@ public:
       );
     }
 
-    mRunnable->SetReply(new BluetoothReply(BluetoothReplySuccess(values)));
-    if (NS_FAILED(NS_DispatchToMainThread(mRunnable))) {
-      NS_WARNING("Failed to dispatch to main thread!");
-    }
+    DispatchBluetoothReply(mRunnable, values, errorStr);
     return NS_OK;
   } 
 
 private:
-  nsRefPtr<BluetoothReplyRunnable> mRunnable;
   nsTArray<nsString> mDeviceAddresses;
+  nsRefPtr<BluetoothReplyRunnable> mRunnable;
 };
 
 class BluetoothPairedDevicePropertiesRunnable : public nsRunnable
@@ -2066,32 +2061,30 @@ public:
     dbus_error_init(&err);
 
     BluetoothValue values = InfallibleTArray<BluetoothNamedValue>();
+    nsAutoString errorStr;
 
+    // Get properties for each device
     for (uint32_t i = 0; i < mDeviceAddresses.Length(); i++) {
       BluetoothValue v;
       if (!GetPropertiesInternal(mDeviceAddresses[i], DBUS_DEVICE_IFACE, v)) {
-        nsAutoString errorStr;
         errorStr.AssignLiteral("Getting properties failed!");
-        NS_WARNING(NS_ConvertUTF16toUTF8(errorStr).get());
-        mRunnable->SetReply(new BluetoothReply(BluetoothReplyError(errorStr)));
-        if (NS_FAILED(NS_DispatchToMainThread(mRunnable))) {
-          NS_WARNING("Failed to dispatch to main thread!");
-        }
+        DispatchBluetoothReply(mRunnable, values, errorStr);
         return NS_OK;
       }
+
+      // We have to manually attach the path to the rest of the elements
       v.get_ArrayOfBluetoothNamedValue().AppendElement(
         BluetoothNamedValue(NS_LITERAL_STRING("Path"), mDeviceAddresses[i])
       );
 
+      // Check property 'Paired' and only paired device will be returned
       InfallibleTArray<BluetoothNamedValue>& deviceProperties =
         v.get_ArrayOfBluetoothNamedValue();
       for (uint32_t p = 0;
            p < v.get_ArrayOfBluetoothNamedValue().Length(); ++p) {
         BluetoothNamedValue& property = v.get_ArrayOfBluetoothNamedValue()[p];
-        // Only paired devices will be return back to main thread
         if (property.name().EqualsLiteral("Paired")) {
-          bool paired = property.value();
-          if (paired) {
+          if (property.value()) {
             values.get_ArrayOfBluetoothNamedValue().AppendElement(
               BluetoothNamedValue(mDeviceAddresses[i], deviceProperties)
             );
@@ -2101,10 +2094,7 @@ public:
       }
     }
 
-    mRunnable->SetReply(new BluetoothReply(BluetoothReplySuccess(values)));
-    if (NS_FAILED(NS_DispatchToMainThread(mRunnable))) {
-      NS_WARNING("Failed to dispatch to main thread!");
-    }
+    DispatchBluetoothReply(mRunnable, values, errorStr);
     return NS_OK;
   }
 
@@ -2139,30 +2129,48 @@ BluetoothDBusService::GetConnectedDevicePropertiesInternal(
                                               BluetoothReplyRunnable* aRunnable)
 {
   LOG("[B] %s", __FUNCTION__);
+//  BluetoothValue v;
+  nsAutoString errorStr;
+  BluetoothValue values = InfallibleTArray<BluetoothNamedValue>();
+
   if (!IsReady()) {
-    BluetoothValue v;
-    nsString errorStr;
     errorStr.AssignLiteral("Bluetooth service is not ready yet!");
-    DispatchBluetoothReply(aRunnable, v, errorStr);
+    DispatchBluetoothReply(aRunnable, values, errorStr);
     return NS_OK;
   }
 
   nsTArray<nsString> deviceAddresses;
 
-  if (aProfileId == BluetoothServiceClass::HANDSFREE) {
+  if (aProfileId == BluetoothServiceClass::HANDSFREE ||
+      aProfileId == BluetoothServiceClass::HEADSET) {
     BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
     if (hfp->GetConnectionStatus() != SocketConnectionStatus::SOCKET_CONNECTED) {
-      // No connection, directly return here
+      DispatchBluetoothReply(aRunnable, values, errorStr);
       return NS_OK;
     }
 
     nsString address;
     hfp->GetSocketAddr(address);
     deviceAddresses.AppendElement(address);
+  } else if (aProfileId == BluetoothServiceClass::OBJECT_PUSH) {
+    BluetoothOppManager* opp = BluetoothOppManager::Get();
+    if (opp->GetConnectionStatus() != SocketConnectionStatus::SOCKET_CONNECTED) {
+      DispatchBluetoothReply(aRunnable, values, errorStr);
+      return NS_OK;
+    }
+
+    nsString address;
+    opp->GetSocketAddr(address);
+    deviceAddresses.AppendElement(address); 
+  } else {
+    errorStr.AssignLiteral("Unknown profile");
+    DispatchBluetoothReply(aRunnable, values, errorStr);
+    return NS_OK;
   }
 
   nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
-  nsRefPtr<nsRunnable> func(new BluetoothConnectedDevicePropertiesRunnable(deviceAddresses, runnable));
+  nsRefPtr<nsRunnable> func(
+    new BluetoothConnectedDevicePropertiesRunnable(deviceAddresses, runnable));
   if (NS_FAILED(mBluetoothCommandThread->Dispatch(func, NS_DISPATCH_NORMAL))) {
     NS_WARNING("Cannot dispatch task!");
     return NS_ERROR_FAILURE;
@@ -2677,7 +2685,8 @@ BluetoothDBusService::Connect(const nsAString& aDeviceAddress,
       DispatchBluetoothReply(aRunnable, v, errorStr);
     }
   } else {
-    NS_WARNING("Unknown Profile");
+    errorStr.AssignLiteral("Unknown Profile");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
   }
 }
 
