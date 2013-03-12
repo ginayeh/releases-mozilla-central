@@ -35,6 +35,9 @@ public:
   virtual nsresult GetPairedDevicePropertiesInternal(const nsTArray<nsString>& aDeviceAddresses,
                                                      BluetoothReplyRunnable* aRunnable);
 
+  virtual nsresult GetConnectedDevicePropertiesInternal(uint16_t aProfileId,
+                                             BluetoothReplyRunnable* aRunnable);
+
   virtual nsresult StartDiscoveryInternal(const nsAString& aAdapterPath,
                                           BluetoothReplyRunnable* aRunnable);
 

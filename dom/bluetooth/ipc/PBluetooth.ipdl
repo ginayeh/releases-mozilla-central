@@ -93,7 +93,12 @@ struct DenyAuthorizationRequest
   nsString path;
 };
 
-struct DevicePropertiesRequest
+struct ConnectedDevicePropertiesRequest
+{
+  uint16_t profileId;
+};
+
+struct PairedDevicePropertiesRequest
 {
   nsString[] addresses;
 };
@@ -146,7 +151,8 @@ union Request
   DenyPairingConfirmationRequest;
   ConfirmAuthorizationRequest;
   DenyAuthorizationRequest;
-  DevicePropertiesRequest;
+  ConnectedDevicePropertiesRequest;
+  PairedDevicePropertiesRequest;
   ConnectRequest;
   DisconnectRequest;
   SendFileRequest;

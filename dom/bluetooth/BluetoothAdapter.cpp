@@ -73,11 +73,11 @@ NS_INTERFACE_MAP_END_INHERITING(nsDOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(BluetoothAdapter, nsDOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(BluetoothAdapter, nsDOMEventTargetHelper)
 
-class GetPairedDevicesTask : public BluetoothReplyRunnable
+class GetDevicesTask : public BluetoothReplyRunnable
 {
 public:
-  GetPairedDevicesTask(BluetoothAdapter* aAdapterPtr,
-                       nsIDOMDOMRequest* aReq) :
+  GetDevicesTask(BluetoothAdapter* aAdapterPtr,
+                 nsIDOMDOMRequest* aReq) :
     BluetoothReplyRunnable(aReq),
     mAdapterPtr(aAdapterPtr)
   {
@@ -561,6 +561,29 @@ BluetoothAdapter::SetDiscoverableTimeout(const uint32_t aDiscoverableTimeout,
 }
 
 NS_IMETHODIMP
+BluetoothAdapter::GetConnectedDevices(uint16_t aProfileId, nsIDOMDOMRequest** aRequest)
+{
+  LOG("[A] %s", __FUNCTION__);
+  nsCOMPtr<nsIDOMDOMRequest> req;
+  nsresult rv;
+  rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
+  NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
+
+  nsRefPtr<BluetoothReplyRunnable> results =
+    new GetDevicesTask(this, req);
+
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  if (NS_FAILED(bs->GetConnectedDevicePropertiesInternal(aProfileId, results))) {
+    NS_WARNING("GetConnectedDevices failed!");
+    return NS_ERROR_FAILURE;
+  }
+
+  req.forget(aRequest);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 BluetoothAdapter::GetPairedDevices(nsIDOMDOMRequest** aRequest)
 {
   LOG("[A] %s", __FUNCTION__);
@@ -570,7 +593,7 @@ BluetoothAdapter::GetPairedDevices(nsIDOMDOMRequest** aRequest)
   NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
 
   nsRefPtr<BluetoothReplyRunnable> results =
-    new GetPairedDevicesTask(this, req);
+    new GetDevicesTask(this, req);
 
   BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
