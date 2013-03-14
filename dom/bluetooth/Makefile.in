@@ -49,6 +49,7 @@ CPPSRCS += \
   BluetoothUtils.cpp \
   BluetoothChild.cpp \
   BluetoothParent.cpp \
+	BluetoothProfileManagerCollector.cpp \
   BluetoothServiceChildProcess.cpp \
   BluetoothUnixSocketConnector.cpp \
   BluetoothHfpManager.cpp \

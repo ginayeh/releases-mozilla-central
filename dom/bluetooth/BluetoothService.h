@@ -280,6 +280,12 @@ public:
 
   void
   RemoveObserverFromTable(const nsAString& key);
+  
+//  BluetoothProfileManagerCollector mBluetoothProfileManagerCollector;
+/*  typedef nsClassHashtable<nsUint32HashKey, BluetoothProfileManager*>
+    BluetoothProfileManagerTable;
+
+  BluetoothProfileManagerTable mBluetoothProfileManagerTable;*/
 
 protected:
   BluetoothService()
@@ -367,6 +373,8 @@ protected:
   BluetoothSignalObserverTable;
 
   BluetoothSignalObserverTable mBluetoothSignalObserverTable;
+
+//  BluetoothProfileManagerCollector mBluetoothProfileManagerCollector;
 
   bool mEnabled;
 };

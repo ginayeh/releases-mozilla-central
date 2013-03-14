@@ -19,6 +19,7 @@
 #include "base/basictypes.h"
 #include "BluetoothDBusService.h"
 #include "BluetoothProfileManager.h"
+#include "BluetoothProfileManagerCollector.h"
 #include "BluetoothHfpManager.h"
 #include "BluetoothOppManager.h"
 #include "BluetoothReplyRunnable.h"
@@ -155,6 +156,7 @@ static nsDataHashtable<nsStringHashKey, DBusMessage* > sPairingReqTable;
 static nsDataHashtable<nsStringHashKey, DBusMessage* > sAuthorizeReqTable;
 static PRInt32 sIsPairing = 0;
 static nsString sAdapterPath;
+static BluetoothProfileManagerCollector mBluetoothProfileManagerCollector;
 
 typedef void (*UnpackFunc)(DBusMessage*, DBusError*, BluetoothValue&, nsAString&);
 
@@ -825,9 +827,19 @@ public:
     }*/
 
     BluetoothProfileManager* profile = BluetoothHfpManager::Get();
+    mBluetoothProfileManagerCollector.Add(BluetoothServiceClass::HANDSFREE, profile);
+    mBluetoothProfileManagerCollector.Add(BluetoothServiceClass::HEADSET, profile);
     profile->Listen();
     profile = BluetoothOppManager::Get();
+    mBluetoothProfileManagerCollector.Add(BluetoothServiceClass::OBJECT_PUSH, profile);
     profile->Listen();
+
+    BT_LOG("[B] Length: %d", mBluetoothProfileManagerCollector.Length());
+    if (mBluetoothProfileManagerCollector.Find(BluetoothServiceClass::HANDSFREE, &profile)) {
+      BT_LOG("[B] Find HANDSFREE");
+    } else {
+      BT_LOG("[B] CANNOT Find HANDSFREE"); 
+    }
 
 /*    BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
     if (!hfp || !hfp->Listen()) {
@@ -857,6 +869,11 @@ public:
   NS_IMETHOD
   Run()
   {
+
+    mBluetoothProfileManagerCollector.Delete(BluetoothServiceClass::HANDSFREE);
+    mBluetoothProfileManagerCollector.Delete(BluetoothServiceClass::HEADSET);
+    mBluetoothProfileManagerCollector.Delete(BluetoothServiceClass::OBJECT_PUSH);
+
     BluetoothProfileManager* profile = BluetoothHfpManager::Get();
     profile->Disconnect();
     profile = BluetoothOppManager::Get();
@@ -2580,57 +2597,16 @@ void
 BluetoothDBusService::Disconnect(const uint16_t aProfileId,
                                  BluetoothReplyRunnable* aRunnable)
 {
-  // BluetoothProfileManagerCollection mCollection;
-  // mCollection.AddProfile(BluetoothHfpManager::Get();
-  // mCollection.AddProfile(BluetoothHspManager::Get();
-  // mCollection.AddProfile(BluetoothOppManager::Get();
-  //
-  // class BluetoothProfileManager
-  // {
-  //   public:
-  //     GetServiceId() { return uuid; }
-  //
-  //   private:
-  //     Create(uint16_t aUuid);
-  //
-  //     uint16_t uuid;
-  // }
-  //
-  // class BluetoothProfileManagerCollection
-  // {
-  //   public:
-  //     BluetoothProfileManager* find(uint16_t aProfileId)
-  //     {
-  //       for (int i = 0;i < managers.length();++i) 
-  //       {
-  //         if (managers[i].GetServiceId == aProfileId)
-  //         {
-  //           return managers[i];
-  //         }
-  //       }
-  //     }
-  //
-  //   private:
-  //     nsTArray<BluetoothProfileManager*> managers;
-  //     nsHashTable<uuid, BluetoothProfileManager*>  
-  // }
-  
-
-
-
 /*  BluetoothProfileManager* profile = mCollection.find(aProfileId);
   profile.Disconnect();*/
 
-
-
-
-
-
-
-
   BluetoothProfileManager* profile;
-//  profile->DisconnectProfile(aProfileId);
-  if (aProfileId == BluetoothServiceClass::HANDSFREE ||
+  if (!mBluetoothProfileManagerCollector.Find(aProfileId, &profile)) {
+    NS_WARNING("Unknown profile");
+    return;
+  }
+
+/*  if (aProfileId == BluetoothServiceClass::HANDSFREE ||
       aProfileId == BluetoothServiceClass::HEADSET) {
     profile = BluetoothHfpManager::Get();
   } else if (aProfileId == BluetoothServiceClass::OBJECT_PUSH) {
@@ -2638,9 +2614,10 @@ BluetoothDBusService::Disconnect(const uint16_t aProfileId,
   } else {
     NS_WARNING("Unknown profile");
     return;
-  }
+  }*/
+  if (profile)
+    profile->Disconnect();
 
-  profile->Disconnect();
   // Currently, just fire success because Disconnect() doesn't fail, 
   // but we still make aRunnable pass into this function for future
   // once Disconnect will fail.
