@@ -354,7 +354,8 @@ public:
     MOZ_ASSERT(NS_IsMainThread());
 
     BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
-    a2dp->Disconnect(mDeviceAddress);
+//    a2dp->Disconnect(mDeviceAddress);
+    a2dp->Disconnect();
 
     return NS_OK;
   }
@@ -1062,9 +1063,6 @@ BluetoothHfpManager::Listen()
     true, true);
   mSocket = new BluetoothSocket(c, this);
 
-  BluetoothService* bs = BluetoothService::Get();
-  NS_ENSURE_TRUE(bs, false);
-
   if (!mSocket->Listen()) {
     LOG("[HFP] Can't listen on socket!");
     return false;
@@ -1083,7 +1081,8 @@ BluetoothHfpManager::Disconnect()
     return;
   }
 
-  mSocket->CloseSocket();
+//  mSocket->CloseSocket();
+  mSocket->Disconnect();
 }
 
 bool

@@ -14,16 +14,27 @@ using namespace mozilla::ipc;
 
 BEGIN_BLUETOOTH_NAMESPACE
 
+class BluetoothReplyRunnable;
+
 class BluetoothProfileManager
 {
 public:
-  BluetoothProfileManager()
-  {
-  };
+/*  BluetoothProfileManager() = 0;
+  ~BluetoothProfileManager() = 0;*/
 
-  ~BluetoothProfileManager()
-  {
-  };
+//  virtual bool Connect(const nsAString& aDeviceAddress, BluetoothReplyRunnable* aRunnable) = 0;
+  virtual void Disconnect() = 0;
+  virtual bool Listen() = 0;
+//  virtual int GetConnectedDevices(nsTArray<nsAString>& aDeviceArray) = 0;
+/*  bool ConnectProfile(unsigned short aProfileId,
+                      const nsAString& aDevicePath,
+                      BluetoothReplyRunnable* aRunnable);
+  void DisconnectProfile(unsigned short aProfileId);
+  bool ListenProfile(unsigned short aProfileId);*/
+
+private:
+//  bool SetProfilePtr(unsigned short aProfileId);
+//  nsRefPtr<BluetoothProfileManager> mProfilePtr;
 };
 
 END_BLUETOOTH_NAMESPACE

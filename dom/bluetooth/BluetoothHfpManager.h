@@ -60,8 +60,11 @@ public:
   bool Connect(const nsAString& aDeviceObjectPath,
                const bool aIsHandsfree,
                BluetoothReplyRunnable* aRunnable);
-  void Disconnect();
-  bool Listen();
+  void Disconnect() MOZ_OVERRIDE;
+  bool Listen() MOZ_OVERRIDE;
+  void OnConnectSuccess() MOZ_OVERRIDE;
+  void OnConnectError() MOZ_OVERRIDE;
+  void OnDisconnect() MOZ_OVERRIDE;
 
   /**
    * @param aSend A boolean indicates whether we need to notify headset or not
@@ -70,10 +73,6 @@ public:
                               const nsAString& aNumber, bool aSend);
 
   RefPtr<BluetoothSocket> mSocket;
-
-  void OnConnectSuccess() MOZ_OVERRIDE;
-  void OnConnectError() MOZ_OVERRIDE;
-  void OnDisconnect() MOZ_OVERRIDE;
 
 private:
   class GetVolumeTask;

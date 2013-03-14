@@ -42,9 +42,7 @@ BluetoothSocket::Listen()
 void
 BluetoothSocket::Disconnect()
 {
-  if (GetConnectionStatus() != SOCKET_DISCONNECTED) {
-    CloseSocket();
-  }
+  CloseSocket();
 }
 
 void

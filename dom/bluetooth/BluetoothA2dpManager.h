@@ -18,7 +18,8 @@ public:
   ~BluetoothA2dpManager();
   static BluetoothA2dpManager* Get();
   bool Connect(const nsAString& aDeviceAddress);
-  void Disconnect(const nsAString& aDeviceAddress);
+//  void Disconnect(const nsAString& aDeviceAddress);
+  void Disconnect();
   bool Listen();
 
 private:

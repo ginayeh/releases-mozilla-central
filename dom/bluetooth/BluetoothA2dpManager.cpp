@@ -106,7 +106,8 @@ BluetoothA2dpManager::Connect(const nsAString& aDeviceAddress)
 }
 
 void
-BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
+//BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
+BluetoothA2dpManager::Disconnect()
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -115,12 +116,14 @@ BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
   }
 
   BluetoothService* bs = BluetoothService::Get();
-  if (!bs->DisconnectSink(aDeviceAddress, nullptr)) {
+//  if (!bs->DisconnectSink(aDeviceAddress, nullptr)) {
+  if (!bs->DisconnectSink(mConnectedDeviceAddress, nullptr)) {
     BT_LOG("[A2DP] Disconnect failed!");
     return;
   }
 
-  TeardownA2dpDevice(aDeviceAddress);
+//  TeardownA2dpDevice(aDeviceAddress);
+  TeardownA2dpDevice(mConnectedDeviceAddress);
   BT_LOG("[A2DP] Disconnect successfully!");
 
   mConnectedDeviceAddress.AssignLiteral(BLUETOOTH_INVALID_ADDRESS);

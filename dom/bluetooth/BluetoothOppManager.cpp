@@ -344,12 +344,6 @@ BluetoothOppManager::Listen()
 
   mSocket = new BluetoothSocket(c, this);
 
-  BluetoothService* bs = BluetoothService::Get();
-  if (!bs) {
-    NS_WARNING("BluetoothService not available!");
-    return false;
-  }
-
   LOG("[OPP] socket->Listen");
 
   if (!mSocket->Listen()) {
