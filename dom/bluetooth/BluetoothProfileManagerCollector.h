@@ -21,13 +21,33 @@ class BluetoothProfileManager;
 class BluetoothProfileManagerCollector
 {
 public:
-  BluetoothProfileManagerCollector();
-  ~BluetoothProfileManagerCollector();
-  bool Find(uint16_t aProfileId, BluetoothProfileManager** aProfilePtr) const;
-  void Add(uint16_t aProfileId, BluetoothProfileManager* aProfilePtr);
-  void Delete(uint16_t aProfileId); 
+  BluetoothProfileManagerCollector()
+  {
+    mBluetoothProfileManagerTable.Init();
+  }
 
-  uint32_t Length() {
+  ~BluetoothProfileManagerCollector()
+  {
+    mBluetoothProfileManagerTable.Clear();
+  }
+
+  bool Find(uint16_t aProfileId, BluetoothProfileManager** aProfilePtr) const
+  {
+    return mBluetoothProfileManagerTable.Get(aProfileId, aProfilePtr);
+  }
+
+  void Add(uint16_t aProfileId, BluetoothProfileManager* aProfilePtr)
+  {
+    mBluetoothProfileManagerTable.Put(aProfileId, aProfilePtr);
+  }
+
+  void Delete(uint16_t aProfileId)
+  {
+    mBluetoothProfileManagerTable.Remove(aProfileId);
+  }
+
+  uint32_t Length()
+  {
     return mBluetoothProfileManagerTable.Count();
   }
 
