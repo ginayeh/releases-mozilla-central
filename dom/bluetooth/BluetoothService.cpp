@@ -53,7 +53,7 @@
 
 #define DEFAULT_SHUTDOWN_TIMER_MS 5000
 
-bool gBluetoothDebugFlag = false;
+bool gBluetoothDebugFlag = true;
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -793,10 +793,10 @@ BluetoothService::Notify(const BluetoothSignal& aData)
     NS_ASSERTION(aData.value().get_ArrayOfBluetoothNamedValue().Length() == 0,
       "Cancel: Wrong length of parameters");
     type.AssignLiteral("bluetooth-cancel");
-  } else if (aData.name().EqualsLiteral("PairedStatusChanged")) {
+/*  } else if (aData.name().EqualsLiteral("PairedStatusChanged")) {
     NS_ASSERTION(aData.value().get_ArrayOfBluetoothNamedValue().Length() == 1,
       "PairedStatusChagned: Wrong length of parameters");
-    type.AssignLiteral("bluetooth-pairedstatuschanged");
+    type.AssignLiteral("bluetooth-pairedstatuschanged");*/
   } else {
 #ifdef DEBUG
     nsCString warningMsg;

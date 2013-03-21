@@ -16,6 +16,7 @@
 #include "nsDOMClassInfo.h"
 #include "nsIDOMBluetoothDeviceAddressEvent.h"
 #include "nsIDOMBluetoothDeviceEvent.h"
+#include "nsIDOMBluetoothPairedStatusChangedEvent.h"
 #include "nsTArrayHelpers.h"
 #include "DOMRequest.h"
 #include "nsThreadUtils.h"
@@ -287,7 +288,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     e->InitBluetoothDeviceEvent(NS_LITERAL_STRING("devicefound"),
                                 false, false, device);
     DispatchTrustedEvent(event);
-  } else if (aData.name().EqualsLiteral("DeviceDisappeared")) {
+/*  } else if (aData.name().EqualsLiteral("DeviceDisappeared")) {
     const nsAString& deviceAddress = aData.value().get_nsString();
 
     nsCOMPtr<nsIDOMEvent> event;
@@ -318,7 +319,39 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
 
     NS_ASSERTION(arr.Length() == 1,
                  "Got more than one property in a change message!");
-    SetPropertyByValue(arr[0]);
+    SetPropertyByValue(arr[0]);*/
+  } else if (aData.name().EqualsLiteral("PairedStatusChanged")) {
+    const InfallibleTArray<BluetoothNamedValue>& arr =
+      aData.value().get_ArrayOfBluetoothNamedValue();
+    BT_LOG("[A] length: %d", arr.Length());
+
+    nsAutoString deviceAddress;
+    bool paired;
+
+    deviceAddress = arr[0].value().get_nsString();
+    paired = arr[1].value().get_bool();
+
+    BT_LOG("[A] deviceAddress: %s, paired: %d",
+           NS_ConvertUTF16toUTF8(deviceAddress).get(), paired);
+
+    nsCOMPtr<nsIDOMEvent> event;
+    NS_NewDOMBluetoothPairedStatusChangedEvent(
+      getter_AddRefs(event), this, nullptr, nullptr);
+
+    nsCOMPtr<nsIDOMBluetoothPairedStatusChangedEvent> e = do_QueryInterface(event);
+    e->InitBluetoothPairedStatusChangedEvent(NS_LITERAL_STRING("pairedstatuschanged"),
+                                false, false, deviceAddress, paired);
+
+    DispatchTrustedEvent(event); 
+/*    const nsAString& isPaired = aData.value().get_nsString();
+
+    nsCOMPtr<nsIDOMEvent> event;
+    NS_NewDOMBluetoothDeviceAddressEvent(getter_AddRefs(event), this, nullptr, nullptr);
+
+    nsCOMPtr<nsIDOMBluetoothDeviceAddressEvent> e = do_QueryInterface(event);
+    e->InitBluetoothDeviceAddressEvent(NS_LITERAL_STRING("devicedisappeared"),
+                                       false, false, deviceAddress);
+    DispatchTrustedEvent(e);*/
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -761,12 +794,13 @@ BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
   return NS_OK;
 }
 
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
+//NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisappeared)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, pairedstatuschanged)
+/*NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisappeared)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicecreated)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestconfirmation)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpincode)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpasskey)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, authorize)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, cancel)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, cancel)*/

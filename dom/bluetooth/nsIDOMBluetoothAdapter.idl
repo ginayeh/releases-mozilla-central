@@ -10,7 +10,7 @@ interface nsIDOMDOMRequest;
 interface nsIDOMBlob;
 interface nsIDOMBluetoothDevice;
 
-[scriptable, builtinclass, uuid(6a4a9415-cda3-4a19-b79e-05d9bc2c2700)]
+[scriptable, builtinclass, uuid(e9451343-d04c-4b51-ab76-ba7554b8c543)]
 interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 {
   readonly attribute DOMString address;
@@ -61,7 +61,7 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   // Fired when discoverying and any device is discovered.
   [implicit_jscontext] attribute jsval ondevicefound;
   // Fired when any device is out of discoverable range.
-  [implicit_jscontext] attribute jsval ondevicedisappeared;
+/*  [implicit_jscontext] attribute jsval ondevicedisappeared;
   // Fired when any device is created.
   [implicit_jscontext] attribute jsval ondevicecreated;
   // Fired when a property of the adapter is changed
@@ -71,5 +71,11 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   [implicit_jscontext] attribute jsval onrequestpincode;
   [implicit_jscontext] attribute jsval onrequestpasskey;
   [implicit_jscontext] attribute jsval onauthorize;
-  [implicit_jscontext] attribute jsval oncancel;
+  [implicit_jscontext] attribute jsval oncancel;*/
+
+  [implicit_jscontext] attribute jsval onpairedstatuschanged;
+/*  [implicit_jscontext] attribute jsval onhfpconnectionstatuschagned;
+  [implicit_jscontext] attribute jsval onopptransferstart;
+  [implicit_jscontext] attribute jsval onopptransfercomplete;
+  [implicit_jscontext] attribute jsval onoppupdateprogress;*/
 };

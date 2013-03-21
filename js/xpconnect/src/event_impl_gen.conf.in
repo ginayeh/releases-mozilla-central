@@ -27,6 +27,7 @@ simple_events = [
 #ifdef MOZ_B2G_BT
     'BluetoothDeviceEvent',
     'BluetoothDeviceAddressEvent',
+    'BluetoothPairedStatusChangedEvent',
 #endif
 #ifdef MOZ_B2G_RIL
     'CallEvent',

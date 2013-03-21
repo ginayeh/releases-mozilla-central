@@ -1521,11 +1521,25 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
 
     BluetoothNamedValue& property = v.get_ArrayOfBluetoothNamedValue()[0];
     if (property.name().EqualsLiteral("Paired")) {
-      // transfer signal to BluetoothService and
-      // broadcast system message of bluetooth-pairingstatuschanged
+      BT_LOG("[B] PairedStatusChanged");
+      bool paired = property.value();
+
+      v = InfallibleTArray<BluetoothNamedValue>();
+      BluetoothNamedValue value;
+      value.name() = NS_LITERAL_STRING("deviceAddress");
+      value.value() = signalPath;
+      v.get_ArrayOfBluetoothNamedValue().AppendElement(value);
+
+      value.name() = NS_LITERAL_STRING("paired");
+      value.value() = paired;
+      v.get_ArrayOfBluetoothNamedValue().AppendElement(value);
+
+      BT_LOG("[B] deviceAddress: %s, paired: %d", NS_ConvertUTF16toUTF8(signalPath).get(), paired);
+ 
+      // Hand over this signal to BluetoothAdapter to dispatch event
       signalName = NS_LITERAL_STRING("PairedStatusChanged");
-      signalPath = NS_LITERAL_STRING(KEY_LOCAL_AGENT);
-      property.name() = NS_LITERAL_STRING("paired");
+//      signalPath = NS_LITERAL_STRING(KEY_LOCAL_AGENT);
+      signalPath = NS_LITERAL_STRING(KEY_ADAPTER);
     }
   } else if (dbus_message_is_signal(aMsg, DBUS_MANAGER_IFACE, "AdapterAdded")) {
     const char* str;
