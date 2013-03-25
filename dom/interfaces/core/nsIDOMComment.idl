@@ -14,7 +14,7 @@
  * http://www.w3.org/TR/DOM-Level-2-Core/
  */
 
-[scriptable, uuid(02f2c4cc-47c6-4e5e-9934-da93373b9e47)]
+[scriptable, uuid(3bc4c503-bce5-44c5-9554-aba72502a468)]
 interface nsIDOMComment : nsIDOMCharacterData
 {
 };

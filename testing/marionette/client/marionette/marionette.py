@@ -62,6 +62,9 @@ class HTMLElement(object):
     def release(self, touch_id, x=None, y=None):
         return self.marionette._send_message('release', 'ok', element=self.id, touchId=touch_id, x=x, y=y)
 
+    def cancel_touch(self, touch_id):
+        return self.marionette._send_message('cancelTouch', 'ok', element=self.id, touchId=touch_id)
+
     @property
     def text(self):
         return self.marionette._send_message('getElementText', 'value', element=self.id)
@@ -131,8 +134,27 @@ class Actions(object):
         self.action_chain.append(['wait', time])
         return self
 
+    def cancel(self):
+        self.action_chain.append(['cancel'])
+        return self
+
     def perform(self):
         return self.marionette._send_message('actionChain', 'ok', value=self.action_chain)
+
+class MultiActions(object):
+    def __init__(self, marionette):
+        self.multi_actions = []
+        self.max_length = 0
+        self.marionette = marionette
+
+    def add(self, action):
+        self.multi_actions.append(action.action_chain)
+        if len(action.action_chain) > self.max_length:
+          self.max_length = len(action.action_chain)
+        return self
+
+    def perform(self):
+        return self.marionette._send_message('multiAction', 'ok', value=self.multi_actions, max_length=self.max_length)
 
 class Marionette(object):
 

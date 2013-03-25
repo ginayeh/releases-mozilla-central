@@ -142,7 +142,8 @@ class JS_PUBLIC_API(AutoGCRooter) {
         WRAPPER =     -31, /* js::AutoWrapperRooter */
         OBJOBJHASHMAP=-32, /* js::AutoObjectObjectHashMap */
         OBJU32HASHMAP=-33, /* js::AutoObjectUnsigned32HashMap */
-        OBJHASHSET =  -34  /* js::AutoObjectHashSet */
+        OBJHASHSET =  -34, /* js::AutoObjectHashSet */
+        JSONPARSER =  -35  /* js::JSONParser */
     };
 
   private:
@@ -1650,7 +1651,7 @@ ToUint64Slow(JSContext *cx, const JS::Value &v, uint64_t *out);
 namespace JS {
 
 JS_ALWAYS_INLINE bool
-ToUint16(JSContext *cx, const js::Value &v, uint16_t *out)
+ToUint16(JSContext *cx, const JS::Value &v, uint16_t *out)
 {
     AssertArgumentsAreSane(cx, v);
     {
@@ -1666,7 +1667,7 @@ ToUint16(JSContext *cx, const js::Value &v, uint16_t *out)
 }
 
 JS_ALWAYS_INLINE bool
-ToInt32(JSContext *cx, const js::Value &v, int32_t *out)
+ToInt32(JSContext *cx, const JS::Value &v, int32_t *out)
 {
     AssertArgumentsAreSane(cx, v);
     {
@@ -1682,7 +1683,7 @@ ToInt32(JSContext *cx, const js::Value &v, int32_t *out)
 }
 
 JS_ALWAYS_INLINE bool
-ToUint32(JSContext *cx, const js::Value &v, uint32_t *out)
+ToUint32(JSContext *cx, const JS::Value &v, uint32_t *out)
 {
     AssertArgumentsAreSane(cx, v);
     {
@@ -1698,7 +1699,7 @@ ToUint32(JSContext *cx, const js::Value &v, uint32_t *out)
 }
 
 JS_ALWAYS_INLINE bool
-ToInt64(JSContext *cx, const js::Value &v, int64_t *out)
+ToInt64(JSContext *cx, const JS::Value &v, int64_t *out)
 {
     AssertArgumentsAreSane(cx, v);
     {
@@ -1715,7 +1716,7 @@ ToInt64(JSContext *cx, const js::Value &v, int64_t *out)
 }
 
 JS_ALWAYS_INLINE bool
-ToUint64(JSContext *cx, const js::Value &v, uint64_t *out)
+ToUint64(JSContext *cx, const JS::Value &v, uint64_t *out)
 {
     AssertArgumentsAreSane(cx, v);
     {
@@ -1845,7 +1846,7 @@ template <> struct RootMethods<jsid>
 {
     static jsid initial() { return JSID_VOID; }
     static ThingRootKind kind() { return THING_ROOT_ID; }
-    static bool poisoned(jsid id) { return IsPoisonedId(id); }
+    static bool poisoned(jsid id) { return JS::IsPoisonedId(id); }
 };
 
 } /* namespace js */
@@ -2011,8 +2012,9 @@ JS_StringToVersion(const char *string);
                                                    "use strict" annotations. */
 
 #define JSOPTION_ION            JS_BIT(20)      /* IonMonkey */
+#define JSOPTION_ASMJS          JS_BIT(21)      /* optimizingasm.js compiler */
 
-#define JSOPTION_MASK           JS_BITMASK(21)
+#define JSOPTION_MASK           JS_BITMASK(22)
 
 extern JS_PUBLIC_API(uint32_t)
 JS_GetOptions(JSContext *cx);
@@ -2111,7 +2113,6 @@ class JS_PUBLIC_API(JSAutoCompartment)
   public:
     JSAutoCompartment(JSContext *cx, JSRawObject target);
     JSAutoCompartment(JSContext *cx, JSScript *target);
-    JSAutoCompartment(JSContext *cx, JSString *target);
     ~JSAutoCompartment();
 };
 
@@ -2217,6 +2218,15 @@ JS_GetGlobalForCompartmentOrNull(JSContext *cx, JSCompartment *c);
 extern JS_PUBLIC_API(JSObject *)
 JS_GetGlobalForScopeChain(JSContext *cx);
 
+/*
+ * This method returns the global corresponding to the most recent scripted
+ * frame, which may not match the cx's current compartment. This is extremely
+ * dangerous, because it can bypass compartment security invariants in subtle
+ * ways. To use it safely, the caller must perform a subsequent security
+ * check. There is currently only one consumer of this function in Gecko, and
+ * it should probably stay that way. If you'd like to use it, please consult
+ * the XPConnect module owner first.
+ */
 extern JS_PUBLIC_API(JSObject *)
 JS_GetScriptedGlobal(JSContext *cx);
 
@@ -2400,12 +2410,6 @@ js_RemoveRoot(JSRuntime *rt, void *rp);
  */
 extern JS_NEVER_INLINE JS_PUBLIC_API(void)
 JS_AnchorPtr(void *p);
-
-extern JS_PUBLIC_API(JSBool)
-JS_LockGCThingRT(JSRuntime *rt, void *gcthing);
-
-extern JS_PUBLIC_API(JSBool)
-JS_UnlockGCThingRT(JSRuntime *rt, void *gcthing);
 
 /*
  * Register externally maintained GC roots.
@@ -3136,8 +3140,28 @@ JS_GetConstructor(JSContext *cx, JSObject *proto);
 extern JS_PUBLIC_API(JSBool)
 JS_GetObjectId(JSContext *cx, JSRawObject obj, jsid *idp);
 
+namespace JS {
+
+enum {
+    FreshZone,
+    SystemZone,
+    SpecificZones
+};
+
+typedef uintptr_t ZoneSpecifier;
+
+inline ZoneSpecifier
+SameZoneAs(JSObject *obj)
+{
+    JS_ASSERT(uintptr_t(obj) > SpecificZones);
+    return ZoneSpecifier(obj);
+}
+
+} /* namespace JS */
+
 extern JS_PUBLIC_API(JSObject *)
-JS_NewGlobalObject(JSContext *cx, JSClass *clasp, JSPrincipals *principals);
+JS_NewGlobalObject(JSContext *cx, JSClass *clasp, JSPrincipals *principals,
+                   JS::ZoneSpecifier zoneSpec = JS::FreshZone);
 
 extern JS_PUBLIC_API(JSObject *)
 JS_NewObject(JSContext *cx, JSClass *clasp, JSObject *proto, JSObject *parent);
@@ -4521,7 +4545,7 @@ JS_ResetDefaultLocale(JSRuntime *rt);
 struct JSLocaleCallbacks {
     JSLocaleToUpperCase     localeToUpperCase;
     JSLocaleToLowerCase     localeToLowerCase;
-    JSLocaleCompare         localeCompare;
+    JSLocaleCompare         localeCompare; // not used #if ENABLE_INTL_API
     JSLocaleToUnicode       localeToUnicode;
     JSErrorCallback         localeGetErrorMessage;
 };
@@ -4931,5 +4955,91 @@ JS_DecodeScript(JSContext *cx, const void *data, uint32_t length,
 extern JS_PUBLIC_API(JSObject *)
 JS_DecodeInterpretedFunction(JSContext *cx, const void *data, uint32_t length,
                              JSPrincipals *principals, JSPrincipals *originPrincipals);
+
+namespace JS {
+
+extern JS_PUBLIC_DATA(const HandleId) JSID_VOIDHANDLE;
+extern JS_PUBLIC_DATA(const HandleId) JSID_EMPTYHANDLE;
+
+};
+
+namespace js {
+
+/*
+ * Import some JS:: names into the js namespace so we can make unqualified
+ * references to them.
+ */
+
+using JS::Value;
+using JS::IsPoisonedValue;
+using JS::NullValue;
+using JS::UndefinedValue;
+using JS::Int32Value;
+using JS::DoubleValue;
+using JS::StringValue;
+using JS::BooleanValue;
+using JS::ObjectValue;
+using JS::MagicValue;
+using JS::NumberValue;
+using JS::ObjectOrNullValue;
+using JS::PrivateValue;
+using JS::PrivateUint32Value;
+
+using JS::IsPoisonedPtr;
+using JS::IsPoisonedId;
+
+using JS::StableCharPtr;
+using JS::TwoByteChars;
+using JS::Latin1CharsZ;
+
+using JS::AutoIdVector;
+using JS::AutoValueVector;
+using JS::AutoScriptVector;
+using JS::AutoIdArray;
+
+using JS::AutoGCRooter;
+using JS::AutoValueRooter;
+using JS::AutoObjectRooter;
+using JS::AutoArrayRooter;
+using JS::AutoVectorRooter;
+using JS::AutoHashMapRooter;
+using JS::AutoHashSetRooter;
+
+using JS::CallArgs;
+using JS::IsAcceptableThis;
+using JS::NativeImpl;
+using JS::CallReceiver;
+using JS::CompileOptions;
+using JS::CallNonGenericMethod;
+
+using JS::Rooted;
+using JS::RootedObject;
+using JS::RootedModule;
+using JS::RootedFunction;
+using JS::RootedScript;
+using JS::RootedString;
+using JS::RootedId;
+using JS::RootedValue;
+
+using JS::Handle;
+using JS::HandleObject;
+using JS::HandleModule;
+using JS::HandleFunction;
+using JS::HandleScript;
+using JS::HandleString;
+using JS::HandleId;
+using JS::HandleValue;
+
+using JS::MutableHandle;
+using JS::MutableHandleObject;
+using JS::MutableHandleFunction;
+using JS::MutableHandleScript;
+using JS::MutableHandleString;
+using JS::MutableHandleId;
+using JS::MutableHandleValue;
+
+using JS::Zone;
+
+}  /* namespace js */
 
 #endif /* jsapi_h___ */

@@ -271,8 +271,6 @@ class IonBuilder : public MIRGenerator
     bool resumeAfter(MInstruction *ins);
     bool maybeInsertResume();
 
-    void insertRecompileCheck();
-
     bool initParameters();
     void rewriteParameters();
     bool initScopeChain();
@@ -445,6 +443,13 @@ class IonBuilder : public MIRGenerator
     InliningStatus inlineNewDenseArray(CallInfo &callInfo);
     InliningStatus inlineNewDenseArrayForSequentialExecution(CallInfo &callInfo);
     InliningStatus inlineNewDenseArrayForParallelExecution(CallInfo &callInfo);
+    InliningStatus inlineNewParallelArray(CallInfo &callInfo);
+    InliningStatus inlineParallelArray(CallInfo &callInfo);
+    InliningStatus inlineParallelArrayTail(CallInfo &callInfo,
+                                           HandleFunction target,
+                                           MDefinition *ctor,
+                                           types::StackTypeSet *ctorTypes,
+                                           uint32_t discards);
 
     InliningStatus inlineThrowError(CallInfo &callInfo);
     InliningStatus inlineDump(CallInfo &callInfo);
@@ -491,7 +496,8 @@ class IonBuilder : public MIRGenerator
 
     // If off thread compilation is successful, the final code generator is
     // attached here. Code has been generated, but not linked (there is not yet
-    // an IonScript). This is heap allocated, and must be explicitly destroyed.
+    // an IonScript). This is heap allocated, and must be explicitly destroyed,
+    // performed by FinishOffThreadBuilder().
     CodeGenerator *backgroundCodegen_;
 
   public:
@@ -601,6 +607,8 @@ class CallInfo
 
         if (callInfo.hasTypeInfo())
             setTypeInfo(callInfo.types(), callInfo.barrier());
+
+        argsBarriers_ = callInfo.argsBarriers_;
 
         return true;
     }

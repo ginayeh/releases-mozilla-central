@@ -37,6 +37,8 @@ import java.nio.ByteBuffer;
 public class GeckoEvent {
     private static final String LOGTAG = "GeckoEvent";
 
+    // Make sure to keep these values in sync with the enum in
+    // AndroidGeckoEvent in widget/android/AndroidJavaWrapper.h
     private static final int NATIVE_POKE = 0;
     private static final int KEY_EVENT = 1;
     private static final int MOTION_EVENT = 2;
@@ -58,9 +60,10 @@ public class GeckoEvent {
     private static final int ACTIVITY_RESUMING = 24;
     private static final int THUMBNAIL = 25;
     private static final int SCREENORIENTATION_CHANGED = 27;
-    private static final int COMPOSITOR_PAUSE = 28;
-    private static final int COMPOSITOR_RESUME = 29;
-    private static final int NATIVE_GESTURE_EVENT = 30;
+    private static final int COMPOSITOR_CREATE = 28;
+    private static final int COMPOSITOR_PAUSE = 29;
+    private static final int COMPOSITOR_RESUME = 30;
+    private static final int NATIVE_GESTURE_EVENT = 31;
 
     /**
      * These DOM_KEY_LOCATION constants mirror the DOM KeyboardEvent's constants.
@@ -148,6 +151,9 @@ public class GeckoEvent {
 
     private ByteBuffer mBuffer;
 
+    private int mWidth;
+    private int mHeight;
+
     private GeckoEvent(int evType) {
         mType = evType;
     }
@@ -184,9 +190,16 @@ public class GeckoEvent {
         return new GeckoEvent(NOOP);
     }
 
-    public static GeckoEvent createKeyEvent(KeyEvent k) {
+    public static GeckoEvent createKeyEvent(KeyEvent k, int metaState) {
         GeckoEvent event = new GeckoEvent(KEY_EVENT);
-        event.initKeyEvent(k);
+        event.initKeyEvent(k, metaState);
+        return event;
+    }
+
+    public static GeckoEvent createCompositorCreateEvent(int width, int height) {
+        GeckoEvent event = new GeckoEvent(COMPOSITOR_CREATE);
+        event.mWidth = width;
+        event.mHeight = height;
         return event;
     }
 
@@ -198,10 +211,14 @@ public class GeckoEvent {
         return new GeckoEvent(COMPOSITOR_RESUME);
     }
 
-    private void initKeyEvent(KeyEvent k) {
+    private void initKeyEvent(KeyEvent k, int metaState) {
         mAction = k.getAction();
         mTime = k.getEventTime();
-        mMetaState = k.getMetaState();
+        // Normally we expect k.getMetaState() to reflect the current meta-state; however,
+        // some software-generated key events may not have k.getMetaState() set, e.g. key
+        // events from Swype. Therefore, it's necessary to combine the key's meta-states
+        // with the meta-states that we keep separately in KeyListener
+        mMetaState = k.getMetaState() | metaState;
         mFlags = k.getFlags();
         mKeyCode = k.getKeyCode();
         mUnicodeChar = k.getUnicodeChar();

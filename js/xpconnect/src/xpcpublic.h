@@ -52,6 +52,14 @@ TransplantObjectWithWrapper(JSContext *cx,
 JSObject *
 GetXBLScope(JSContext *cx, JSObject *contentScope);
 
+// Returns whether XBL scopes have been explicitly disabled for code running
+// in this compartment. See the comment around mAllowXBLScope.
+bool
+AllowXBLScope(JSCompartment *c);
+
+bool
+IsSandboxPrototypeProxy(JSObject *obj);
+
 } /* namespace xpc */
 
 #define XPCONNECT_GLOBAL_FLAGS                                                \
@@ -236,7 +244,8 @@ public:
                         JS::Value* rval, bool* sharedBuffer)
     {
         if (buf == sCachedBuffer &&
-            js::GetGCThingCompartment(sCachedString) == js::GetContextCompartment(cx)) {
+            JS::GetGCThingZone(sCachedString) == js::GetContextZone(cx))
+        {
             *rval = JS::StringValue(sCachedString);
             *sharedBuffer = false;
             return true;
@@ -407,7 +416,7 @@ Throw(JSContext *cx, nsresult rv);
 } // namespace xpc
 
 nsCycleCollectionParticipant *
-xpc_JSCompartmentParticipant();
+xpc_JSZoneParticipant();
 
 namespace mozilla {
 namespace dom {

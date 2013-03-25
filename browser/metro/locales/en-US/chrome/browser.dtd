@@ -7,13 +7,11 @@
 
 <!ENTITY back.label            "Back">
 <!ENTITY forward.label         "Forward">
-<!ENTITY showTabs.label        "Show Tabs">
 <!ENTITY newtab.label          "New Tab">
 <!ENTITY closetab.label        "Close Tab">
-<!ENTITY undoclosetab.label    "Undo Close Tab">
 
-<!ENTITY appbarFindInPage.label    "Find in Page">
-<!ENTITY appbarViewOnDesktop.label "View on Desktop">
+<!ENTITY appbarFindInPage2.label    "Find in page">
+<!ENTITY appbarViewOnDesktop2.label "View on desktop">
 
 <!ENTITY startTopSitesHeader.label        "Top Sites">
 <!ENTITY startBookmarksHeader.label       "Bookmarks">
@@ -65,8 +63,8 @@
 <!ENTITY contextBookmarkLinkHref.label     "Bookmark link">
 
 <!-- IMAGE CONTEXT MENU -->
-<!-- l10n: contextSaveImageLib saves an image to the users "pictures library"
-     (Explorer -> left hand side navigation ppane -> Libraries -> Pictures) -->
+<!-- LOCALIZATION NOTE (contextSaveImageLib.label): saves an image to the users "pictures library"
+     (Explorer -> left hand side navigation pane -> Libraries -> Pictures) -->
 <!ENTITY contextSaveImageLib.label         "Save to picture library">
 <!ENTITY contextCopyImage.label            "Copy image">
 <!ENTITY contextCopyImageLocation.label    "Copy image location">

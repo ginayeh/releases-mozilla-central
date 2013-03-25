@@ -12,25 +12,28 @@
  * see http://developer.mozilla.org/en/docs/XUL
  */
 
+#include "nsXULContentSink.h"
+
 #include "jsapi.h"
 #include "jsfriendapi.h"
-#include "nsXULContentSink.h"
+
 #include "nsCOMPtr.h"
 #include "nsForwardReference.h"
+#include "nsHTMLStyleSheet.h"
 #include "nsIContentSink.h"
+#include "nsIDocument.h"
 #include "nsIDOMEventListener.h"
 #include "nsIDOMHTMLFormElement.h"
 #include "nsIDOMXULDocument.h"
-#include "nsIDocument.h"
 #include "nsIFormControl.h"
-#include "nsHTMLStyleSheet.h"
 #include "nsINameSpaceManager.h"
 #include "nsINodeInfo.h"
 #include "nsIScriptContext.h"
-#include "nsIScriptRuntime.h"
 #include "nsIScriptGlobalObject.h"
+#include "nsIScriptRuntime.h"
 #include "nsIServiceManager.h"
 #include "nsIURL.h"
+#include "nsParserBase.h"
 #include "nsViewManager.h"
 #include "nsIXULDocument.h"
 #include "nsIScriptSecurityManager.h"
@@ -545,8 +548,7 @@ XULContentSinkImpl::HandleEndElement(const PRUnichar *aName)
 
         int32_t count = children->Length();
         if (count) {
-            if (!element->mChildren.SetCapacity(count))
-                return NS_ERROR_OUT_OF_MEMORY;
+            element->mChildren.SetCapacity(count);
 
             for (int32_t i = 0; i < count; ++i)
                 element->mChildren.AppendElement(children->ElementAt(i));

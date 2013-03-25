@@ -9,7 +9,6 @@ VPATH            = @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-MODULE           = dom
 LIBRARY_NAME     = domcamera_s
 LIBXUL_LIBRARY   = 1
 FORCE_STATIC_LIB = 1
@@ -24,6 +23,7 @@ CPPSRCS = \
   DOMCameraCapabilities.cpp \
   CameraControlImpl.cpp \
   CameraRecorderProfiles.cpp \
+  CameraPreviewMediaStream.cpp \
   $(NULL)
 
 ifeq ($(MOZ_B2G_CAMERA),1)

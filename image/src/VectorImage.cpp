@@ -5,25 +5,27 @@
 
 #include "VectorImage.h"
 
-#include "imgDecoderObserver.h"
-#include "SVGDocumentWrapper.h"
+#include <algorithm>
+
 #include "gfxContext.h"
+#include "gfxDrawable.h"
 #include "gfxPlatform.h"
-#include "nsPresContext.h"
-#include "nsRect.h"
+#include "gfxUtils.h"
+#include "imgDecoderObserver.h"
+#include "mozilla/AutoRestore.h"
+#include "mozilla/dom/SVGSVGElement.h"
+#include "nsComponentManagerUtils.h"
 #include "nsIObserverService.h"
 #include "nsIPresShell.h"
 #include "nsIStreamListener.h"
 #include "nsMimeTypes.h"
-#include "nsComponentManagerUtils.h"
+#include "nsPresContext.h"
+#include "nsRect.h"
 #include "nsServiceManagerUtils.h"
-#include "nsSVGUtils.h"  // for nsSVGUtils::ConvertToSurfaceSize
+#include "nsStubDocumentObserver.h"
 #include "nsSVGEffects.h" // for nsSVGRenderingObserver
-#include "gfxDrawable.h"
-#include "gfxUtils.h"
-#include "mozilla/AutoRestore.h"
-#include "mozilla/dom/SVGSVGElement.h"
-#include <algorithm>
+#include "nsSVGUtils.h"  // for nsSVGUtils::ConvertToSurfaceSize
+#include "SVGDocumentWrapper.h"
 
 namespace mozilla {
 
@@ -82,11 +84,16 @@ protected:
       }
 
       mVectorImage->InvalidateObserver();
-    }
 
-    // We may have been removed from the observer list by our caller. Rather
-    // than add ourselves back here, we wait until Draw gets called, ensuring
-    // that we coalesce invalidations between Draw calls.
+      // We may have been removed from the observer list by our caller. Rather
+      // than add ourselves back here, we wait until Draw gets called, ensuring
+      // that we coalesce invalidations between Draw calls.
+    } else {
+      // Here we may also have been removed from the observer list, but since
+      // we're not sending an invalidation, Draw won't get called. We need to
+      // add ourselves back immediately.
+      ResumeListening();
+    }
   }
 
   // Private data
@@ -377,7 +384,12 @@ VectorImage::OnImageDataComplete(nsIRequest* aRequest,
     finalStatus = aStatus;
 
   // Actually fire OnStopRequest.
-  GetStatusTracker().OnStopRequest(aLastPart, finalStatus);
+  if (mStatusTracker) {
+    nsRefPtr<imgStatusTracker> clone = mStatusTracker->CloneForRecording();
+    imgDecoderObserver* observer = clone->GetDecoderObserver();
+    observer->OnStopRequest(aLastPart, finalStatus);
+    mStatusTracker->SyncAndSyncNotifyDifference(clone);
+  }
   return finalStatus;
 }
 
@@ -831,7 +843,10 @@ VectorImage::OnStartRequest(nsIRequest* aRequest, nsISupports* aCtxt)
   // unblock it by sending StopDecode in OnSVGDocumentLoaded or
   // OnSVGDocumentError.)
   if (mStatusTracker) {
-    mStatusTracker->GetDecoderObserver()->OnStartDecode();
+    nsRefPtr<imgStatusTracker> clone = mStatusTracker->CloneForRecording();
+    imgDecoderObserver* observer = clone->GetDecoderObserver();
+    observer->OnStartDecode();
+    mStatusTracker->SyncAndSyncNotifyDifference(clone);
   }
 
   // Create a listener to wait until the SVG document is fully loaded, which
@@ -910,12 +925,15 @@ VectorImage::OnSVGDocumentLoaded()
 
   // Tell *our* observers that we're done loading.
   if (mStatusTracker) {
-    imgDecoderObserver* observer = mStatusTracker->GetDecoderObserver();
+    nsRefPtr<imgStatusTracker> clone = mStatusTracker->CloneForRecording();
+    imgDecoderObserver* observer = clone->GetDecoderObserver();
 
     observer->OnStartContainer(); // Signal that width/height are available.
     observer->FrameChanged(&nsIntRect::GetMaxSizedIntRect());
     observer->OnStopFrame();
     observer->OnStopDecode(NS_OK); // Unblock page load.
+
+    mStatusTracker->SyncAndSyncNotifyDifference(clone);
   }
 
   EvaluateAnimation();
@@ -932,8 +950,12 @@ VectorImage::OnSVGDocumentError()
   mError = true;
 
   if (mStatusTracker) {
+    nsRefPtr<imgStatusTracker> clone = mStatusTracker->CloneForRecording();
+    imgDecoderObserver* observer = clone->GetDecoderObserver();
+
     // Unblock page load.
-    mStatusTracker->GetDecoderObserver()->OnStopDecode(NS_ERROR_FAILURE);
+    observer->OnStopDecode(NS_ERROR_FAILURE);
+    mStatusTracker->SyncAndSyncNotifyDifference(clone);
   }
 }
 
@@ -963,9 +985,8 @@ void
 VectorImage::InvalidateObserver()
 {
   if (mStatusTracker) {
-    imgDecoderObserver* observer = mStatusTracker->GetDecoderObserver();
-    observer->FrameChanged(&nsIntRect::GetMaxSizedIntRect());
-    observer->OnStopFrame();
+    mStatusTracker->FrameChanged(&nsIntRect::GetMaxSizedIntRect());
+    mStatusTracker->OnStopFrame();
   }
 }
 

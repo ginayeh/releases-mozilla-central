@@ -969,7 +969,7 @@ public:
 
   virtual void RequestPointerLock(Element* aElement) = 0;
 
-  static void UnlockPointer();
+  static void UnlockPointer(nsIDocument* aDoc = nullptr);
 
 
   //----------------------------------------------------------------------
@@ -1551,6 +1551,13 @@ public:
    * OnPageHide having been called and OnPageShow not yet having been called)
    */
   bool IsVisible() const { return mVisible; }
+
+  /**
+   * Return whether the document and all its ancestors are visible in the sense of
+   * pageshow / hide.
+   */
+  bool IsVisibleConsideringAncestors() const;
+
   /**
    * Return true when this document is active, i.e., the active document
    * in a content viewer.
@@ -2014,7 +2021,7 @@ public:
   Element* GetMozPointerLockElement();
   void MozExitPointerLock()
   {
-    UnlockPointer();
+    UnlockPointer(this);
   }
   bool Hidden() const
   {
@@ -2138,6 +2145,10 @@ protected:
     mDirectionality = aDir;
   }
 
+  // All document WrapNode implementations MUST call this method.  A
+  // false return value means an exception was thrown.
+  bool PostCreateWrapper(JSContext* aCx, JSObject *aNewObject);
+
   nsCString mReferrer;
   nsString mLastModified;
 
@@ -2215,7 +2226,7 @@ protected:
   // as scripts and plugins, disabled.
   bool mLoadedAsData;
 
-  // This flag is only set in nsXMLDocument, for e.g. documents used in XBL. We
+  // This flag is only set in XMLDocument, for e.g. documents used in XBL. We
   // don't want animations to play in such documents, so we need to store the
   // flag here so that we can check it in nsDocument::GetAnimationController.
   bool mLoadedAsInteractiveData;

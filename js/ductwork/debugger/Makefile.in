@@ -10,9 +10,7 @@ relativesrcdir = @relativesrcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-MODULE = jsdebugger
 MODULE_NAME = jsdebugger
-GRE_MODULE = 1
 
 LIBRARY_NAME = jsdebugger
 LIBXUL_LIBRARY = 1

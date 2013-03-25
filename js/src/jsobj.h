@@ -387,8 +387,6 @@ class JSObject : public js::ObjectImpl
 
     inline bool hasShapeTable() const;
 
-    inline size_t computedSizeOfThisSlotsElements() const;
-
     inline void sizeOfExcludingThis(JSMallocSizeOfFun mallocSizeOf, JS::ObjectsExtraSizes *sizes);
 
     bool hasIdempotentProtoChain() const;
@@ -541,6 +539,7 @@ class JSObject : public js::ObjectImpl
     inline JSObject *enclosingScope();
 
     inline js::GlobalObject &global() const;
+    inline JSCompartment *compartment() const;
 
     /* Remove the type (and prototype) or parent from a new object. */
     static inline bool clearType(JSContext *cx, js::HandleObject obj);

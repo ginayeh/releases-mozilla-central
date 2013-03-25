@@ -24,6 +24,24 @@ SCRIPT_DIR = os.path.abspath(os.path.realpath(os.path.dirname(sys.argv[0])))
 sys.path.insert(0, SCRIPT_DIR)
 import automationutils
 
+# --------------------------------------------------------------
+# TODO: this is a hack for mozbase without virtualenv, remove with bug 849900
+#
+here = os.path.dirname(__file__)
+mozbase = os.path.realpath(os.path.join(os.path.dirname(here), 'mozbase'))
+
+try:
+    import mozcrash
+except:
+    deps = ['mozcrash',
+            'mozlog']
+    for dep in deps:
+        module = os.path.join(mozbase, dep)
+        if module not in sys.path:
+            sys.path.append(module)
+    import mozcrash
+# ---------------------------------------------------------------
+
 _DEFAULT_WEB_SERVER = "127.0.0.1"
 _DEFAULT_HTTP_PORT = 8888
 _DEFAULT_SSL_PORT = 4443
@@ -530,6 +548,14 @@ user_pref("security.notification_enable_delay", 0);
 // Make enablePrivilege continue to work for test code. :-(
 user_pref("security.turn_off_all_security_so_that_viruses_can_take_over_this_computer", true);
 
+// In the default configuration, we bypass XBL scopes (a security feature) for
+// domains whitelisted for remote XUL, so that intranet apps and such continue
+// to work without major rewrites. However, we also use the whitelist mechanism
+// to run our XBL tests in automation, in which case we really want to be testing
+// the configuration that we ship to users without special whitelisting. So we
+// use an additional pref here to allow automation to use the "normal" behavior.
+user_pref("dom.use_xbl_scopes_for_remote_xul", true);
+
 // Get network events.
 user_pref("network.activity.blipIntervalMilliseconds", 250);
 
@@ -830,7 +856,8 @@ user_pref("camino.use_system_proxy_settings", false); // Camino-only, harmless t
     # Additional temporary logging while we try to debug some intermittent
     # WebRTC conditions. This is necessary to troubleshoot bugs 841496,
     # 841150, and 839677 (at least)
-    env['NSPR_LOG_MODULES'] = 'signaling:5,mtransport:3'
+    if 'NSPR_LOG_MODULES' not in env:
+      env['NSPR_LOG_MODULES'] = 'signaling:5,mtransport:3'
     env['R_LOG_LEVEL'] = '5'
     env['R_LOG_DESTINATION'] = 'stderr'
     env['R_LOG_VERBOSE'] = '1'
@@ -1131,7 +1158,7 @@ user_pref("camino.use_system_proxy_settings", false); // Camino-only, harmless t
     return foundZombie
 
   def checkForCrashes(self, profileDir, symbolsPath):
-    return automationutils.checkForCrashes(os.path.join(profileDir, "minidumps"), symbolsPath, self.lastTestSeen)
+    return mozcrash.check_for_crashes(os.path.join(profileDir, "minidumps"), symbolsPath, test_name=self.lastTestSeen)
 
   def runApp(self, testURL, env, app, profileDir, extraArgs,
              runSSLTunnel = False, utilityPath = None,

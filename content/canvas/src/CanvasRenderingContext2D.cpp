@@ -93,10 +93,10 @@
 #include "XPCQuickStubs.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/HTMLImageElement.h"
-#include "nsHTMLVideoElement.h"
+#include "mozilla/dom/HTMLVideoElement.h"
 #include "mozilla/dom/CanvasRenderingContext2DBinding.h"
 
-#ifdef USE_SKIA
+#ifdef USE_SKIA_GPU
 #include "GLContext.h"
 #include "GLContextProvider.h"
 #include "SurfaceTypes.h"
@@ -467,7 +467,7 @@ public:
     }
   }
 
-#ifdef USE_SKIA
+#ifdef USE_SKIA_GPU
   static void PreTransactionCallback(void* aData)
   {
     CanvasRenderingContext2DUserData* self =
@@ -799,7 +799,7 @@ CanvasRenderingContext2D::EnsureTarget()
     }
 
      if (layerManager) {
-#ifdef USE_SKIA
+#ifdef USE_SKIA_GPU
        if (gfxPlatform::GetPlatform()->UseAcceleratedSkiaCanvas()) {
          mGLContext = mozilla::gl::GLContextProvider::CreateOffscreen(gfxIntSize(size.width,
                                                                                  size.height),
@@ -1447,7 +1447,7 @@ CanvasRenderingContext2D::CreatePattern(const HTMLImageOrCanvasOrVideoElement& e
   } else if (element.IsHTMLImageElement()) {
     htmlElement = &element.GetAsHTMLImageElement();
   } else {
-    htmlElement = element.GetAsHTMLVideoElement();
+    htmlElement = &element.GetAsHTMLVideoElement();
   }
 
   // The canvas spec says that createPattern should use the first frame
@@ -2940,7 +2940,7 @@ CanvasRenderingContext2D::DrawImage(const HTMLImageOrCanvasOrVideoElement& image
       HTMLImageElement* img = &image.GetAsHTMLImageElement();
       element = img;
     } else {
-      nsHTMLVideoElement* video = image.GetAsHTMLVideoElement();
+      HTMLVideoElement* video = &image.GetAsHTMLVideoElement();
       element = video;
     }
 
@@ -3786,7 +3786,7 @@ CanvasRenderingContext2D::GetCanvasLayer(nsDisplayListBuilder* aBuilder,
   canvasLayer->SetUserData(&g2DContextLayerUserData, userData);
 
   CanvasLayer::Data data;
-#ifdef USE_SKIA
+#ifdef USE_SKIA_GPU
   if (mGLContext) {
     canvasLayer->SetPreTransactionCallback(
             CanvasRenderingContext2DUserData::PreTransactionCallback, userData);

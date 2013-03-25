@@ -419,8 +419,6 @@ public:
     return SetAttr(aNameSpaceID, aName, nullptr, aValue, aNotify);
   }
 
-  NS_IMETHOD GetAttributes(nsIDOMMozNamedAttrMap** aAttributes);
-
   /**
    * Helper for SetAttr/SetParsedAttr. This method will return true if aNotify
    * is true or there are mutation listeners that must be triggered, the
@@ -657,7 +655,7 @@ public:
   already_AddRefed<nsIDOMAttr> SetAttributeNodeNS(nsIDOMAttr* aNewAttr,
                                                   ErrorResult& aError);
 
-  already_AddRefed<nsClientRectList> GetClientRects(ErrorResult& aError);
+  already_AddRefed<nsClientRectList> GetClientRects();
   already_AddRefed<nsClientRect> GetBoundingClientRect();
   void ScrollIntoView(bool aTop);
   int32_t ScrollTop()
@@ -1209,11 +1207,6 @@ inline const mozilla::dom::Element* nsINode::AsElement() const
   return static_cast<const mozilla::dom::Element*>(this);
 }
 
-inline bool nsINode::HasAttributes() const
-{
-  return IsElement() && AsElement()->GetAttrCount() > 0;
-}
-
 /**
  * Macros to implement Clone(). _elementName is the class for which to implement
  * Clone.
@@ -1318,6 +1311,11 @@ NS_IMETHOD GetTagName(nsAString& aTagName) MOZ_FINAL                          \
 NS_IMETHOD GetClassList(nsISupports** aClassList) MOZ_FINAL                   \
 {                                                                             \
   Element::GetClassList(aClassList);                                          \
+  return NS_OK;                                                               \
+}                                                                             \
+NS_IMETHOD GetAttributes(nsIDOMMozNamedAttrMap** aAttributes) MOZ_FINAL       \
+{                                                                             \
+  NS_ADDREF(*aAttributes = Attributes());                                     \
   return NS_OK;                                                               \
 }                                                                             \
 using Element::GetAttribute;                                                  \
@@ -1507,9 +1505,8 @@ NS_IMETHOD SetOnmouseleave(JSContext* cx,                                     \
 }                                                                             \
 NS_IMETHOD GetClientRects(nsIDOMClientRectList** _retval) MOZ_FINAL           \
 {                                                                             \
-  mozilla::ErrorResult rv;                                                    \
-  *_retval = Element::GetClientRects(rv).get();                               \
-  return rv.ErrorCode();                                                      \
+  *_retval = Element::GetClientRects().get();                                 \
+  return NS_OK;                                                               \
 }                                                                             \
 NS_IMETHOD GetBoundingClientRect(nsIDOMClientRect** _retval) MOZ_FINAL        \
 {                                                                             \

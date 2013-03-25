@@ -1097,6 +1097,9 @@ function synthKey(aNodeOrID, aKey, aArgs, aCheckerOrEventSeq)
       case "VK_HOME":
         key = "home";
         break;
+      case "VK_END":
+        key = "end";
+        break;
       case "VK_ESCAPE":
         key = "escape";
         break;
@@ -1180,6 +1183,14 @@ function synthRightKey(aNodeOrID, aCheckerOrEventSeq)
 function synthHomeKey(aNodeOrID, aCheckerOrEventSeq)
 {
   this.__proto__ = new synthKey(aNodeOrID, "VK_HOME", null, aCheckerOrEventSeq);
+}
+
+/**
+ * End key invoker.
+ */
+function synthEndKey(aNodeOrID, aCheckerOrEventSeq)
+{
+  this.__proto__ = new synthKey(aNodeOrID, "VK_END", null, aCheckerOrEventSeq);
 }
 
 /**
@@ -1408,6 +1419,63 @@ function synthSelectAll(aNodeOrID, aCheckerOrEventSeq)
 }
 
 /**
+ * Move the caret to the end of line.
+ */
+function moveToLineEnd(aID, aCaretOffset)
+{
+  if (MAC) {
+    this.__proto__ = new synthKey(aID, "VK_RIGHT", { metaKey: true },
+                                  new caretMoveChecker(aCaretOffset, aID));
+  } else {
+    this.__proto__ = new synthEndKey(aID,
+                                     new caretMoveChecker(aCaretOffset, aID));
+  }
+
+  this.getID = function moveToLineEnd_getID()
+  {
+    return "move to line end in " + prettyName(aID);
+  }
+}
+
+/**
+ * Move the caret to begining of the line.
+ */
+function moveToLineStart(aID, aCaretOffset)
+{
+  if (MAC) {
+    this.__proto__ = new synthKey(aID, "VK_LEFT", { metaKey: true },
+                                  new caretMoveChecker(aCaretOffset, aID));
+  } else {
+    this.__proto__ = new synthHomeKey(aID,
+                                      new caretMoveChecker(aCaretOffset, aID));
+  }
+
+  this.getID = function moveToLineEnd_getID()
+  {
+    return "move to line start in " + prettyName(aID);
+  }
+}
+
+/**
+ * Move the caret to begining of the text.
+ */
+function moveToTextStart(aID)
+{
+  if (MAC) {
+    this.__proto__ = new synthKey(aID, "VK_UP", { metaKey: true },
+                                  new caretMoveChecker(0, aID));
+  } else {
+    this.__proto__ = new synthKey(aID, "VK_HOME", { ctrlKey: true },
+                                  new caretMoveChecker(0, aID));
+  }
+
+  this.getID = function moveToTextStart_getID()
+  {
+    return "move to text start in " + prettyName(aID);
+  }
+}
+
+/**
  * Move the caret in text accessible.
  */
 function moveCaretToDOMPoint(aID, aNode, aOffset, aExpectedOffset,
@@ -1565,7 +1633,7 @@ function textChangeChecker(aID, aStart, aEnd, aTextOrFunc, aIsInserted, aFromUse
        "Wrong start offset for " + prettyName(aID));
     is(aEvent.length, modifiedTextLen, "Wrong length for " + prettyName(aID));
     var changeInfo = (aIsInserted ? "inserted" : "removed");
-    is(aEvent.isInserted(), aIsInserted,
+    is(aEvent.isInserted, aIsInserted,
        "Text was " + changeInfo + " for " + prettyName(aID));
     is(aEvent.modifiedText, modifiedText,
        "Wrong " + changeInfo + " text for " + prettyName(aID));
@@ -1613,11 +1681,11 @@ function stateChangeChecker(aState, aIsExtraState, aIsEnabled,
     if (!event)
       return;
 
-    is(event.isExtraState(), aIsExtraState,
+    is(event.isExtraState, aIsExtraState,
        "Wrong extra state bit of the statechange event.");
     isState(event.state, aState, aIsExtraState,
             "Wrong state of the statechange event.");
-    is(event.isEnabled(), aIsEnabled,
+    is(event.isEnabled, aIsEnabled,
       "Wrong state of statechange event state");
 
     if (aSkipCurrentStateCheck) {
@@ -1670,9 +1738,9 @@ function expandedStateChecker(aIsEnabled, aTargetOrFunc, aTargetFuncArg)
       return;
 
     is(event.state, STATE_EXPANDED, "Wrong state of the statechange event.");
-    is(event.isExtraState(), false,
+    is(event.isExtraState, false,
        "Wrong extra state bit of the statechange event.");
-    is(event.isEnabled(), aIsEnabled,
+    is(event.isEnabled, aIsEnabled,
       "Wrong state of statechange event state");
 
     testStates(event.accessible,
@@ -1730,7 +1798,7 @@ var gA11yEventObserver =
 
         if (event instanceof nsIAccessibleTextChangeEvent) {
           info += ", start: " + event.start + ", length: " + event.length +
-            ", " + (event.isInserted() ? "inserted" : "removed") +
+            ", " + (event.isInserted ? "inserted" : "removed") +
             " text: " + event.modifiedText;
         }
 

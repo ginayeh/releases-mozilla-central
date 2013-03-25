@@ -24,11 +24,30 @@ namespace js {
 namespace ion {
 
 enum Scale {
-    TimesOne,
-    TimesTwo,
-    TimesFour,
-    TimesEight
+    TimesOne = 0,
+    TimesTwo = 1,
+    TimesFour = 2,
+    TimesEight = 3
 };
+
+static inline unsigned
+ScaleToShift(Scale scale)
+{
+    return unsigned(scale);
+}
+
+static inline bool
+IsShiftInScaleRange(int i)
+{
+    return i >= TimesOne && i <= TimesEight;
+}
+
+static inline Scale
+ShiftToScale(int i)
+{
+    JS_ASSERT(IsShiftInScaleRange(i));
+    return Scale(i);
+}
 
 static inline Scale
 ScaleFromElemWidth(int shift)
@@ -242,7 +261,7 @@ class Label : public LabelBase
         // Note: the condition is a hack to silence this assert when OOM testing,
         // see bug 756614.
         if (!js_IonOptions.parallelCompilation)
-            JS_ASSERT_IF(!GetIonContext()->cx->runtime->hadOutOfMemory, !used());
+            JS_ASSERT_IF(!GetIonContext()->runtime->hadOutOfMemory, !used());
 #endif
     }
 };

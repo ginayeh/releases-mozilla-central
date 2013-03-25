@@ -5,6 +5,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#ifndef nsGenericHTMLFrameElement_h
+#define nsGenericHTMLFrameElement_h
+
 #include "nsGenericHTMLElement.h"
 #include "nsIFrameLoader.h"
 #include "nsIMozBrowserFrame.h"
@@ -53,7 +56,9 @@ public:
   }
   virtual nsresult SetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                            nsIAtom* aPrefix, const nsAString& aValue,
-                           bool aNotify);
+                           bool aNotify) MOZ_OVERRIDE;
+  virtual nsresult UnsetAttr(int32_t aNameSpaceID, nsIAtom* aAttribute,
+                             bool aNotify) MOZ_OVERRIDE;
   virtual void DestroyContent();
 
   nsresult CopyInnerTo(mozilla::dom::Element* aDest);
@@ -107,3 +112,5 @@ protected:
   bool                    mBrowserFrameListenersRegistered;
   bool                    mFrameLoaderCreationDisallowed;
 };
+
+#endif // nsGenericHTMLFrameElement_h

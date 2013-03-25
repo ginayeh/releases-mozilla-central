@@ -41,6 +41,7 @@
 
 #include "builtin/Eval.h"
 #include "gc/Marking.h"
+#include "ion/AsmJS.h"
 #include "vm/Debugger.h"
 #include "vm/Shape.h"
 
@@ -449,9 +450,7 @@ js::InvokeConstructorKernel(JSContext *cx, CallArgs args)
         RootedFunction fun(cx, callee.toFunction());
 
         if (fun->isNativeConstructor()) {
-            Probes::calloutBegin(cx, fun);
             bool ok = CallJSNativeConstructor(cx, fun->native(), args);
-            Probes::calloutEnd(cx, fun);
             return ok;
         }
 
@@ -1311,9 +1310,7 @@ js::Interpret(JSContext *cx, StackFrame *entryFrame, InterpMode interpMode)
 /* No-ops for ease of decompilation. */
 ADD_EMPTY_CASE(JSOP_NOP)
 ADD_EMPTY_CASE(JSOP_UNUSED71)
-ADD_EMPTY_CASE(JSOP_UNUSED107)
 ADD_EMPTY_CASE(JSOP_UNUSED132)
-ADD_EMPTY_CASE(JSOP_UNUSED147)
 ADD_EMPTY_CASE(JSOP_UNUSED148)
 ADD_EMPTY_CASE(JSOP_UNUSED161)
 ADD_EMPTY_CASE(JSOP_UNUSED162)
@@ -1526,8 +1523,7 @@ BEGIN_CASE(JSOP_STOP)
         cx->stack.popInlineFrame(regs);
         SET_SCRIPT(regs.fp()->script());
 
-        JS_ASSERT(*regs.pc == JSOP_NEW || *regs.pc == JSOP_CALL ||
-                  *regs.pc == JSOP_FUNCALL || *regs.pc == JSOP_FUNAPPLY);
+        JS_ASSERT(js_CodeSpec[*regs.pc].format & JOF_INVOKE);
 
         /* Resume execution in the calling frame. */
         if (JS_LIKELY(interpReturnOK)) {
@@ -2376,7 +2372,7 @@ BEGIN_CASE(JSOP_FUNCALL)
     funScript = fun->nonLazyScript();
     if (!cx->stack.pushInlineFrame(cx, regs, args, fun, funScript, initial))
         goto error;
- 
+
     if (newType)
         regs.fp()->setUseNewType();
 
@@ -2739,10 +2735,9 @@ BEGIN_CASE(JSOP_LAMBDA)
     RootedFunction &fun = rootFunction0;
     fun = script->getFunction(GET_UINT32_INDEX(regs.pc));
 
-    JSFunction *obj = CloneFunctionObjectIfNotSingleton(cx, fun, regs.fp()->scopeChain());
+    JSObject *obj = Lambda(cx, fun, regs.fp()->scopeChain());
     if (!obj)
         goto error;
-
     JS_ASSERT(obj->getProto());
     PUSH_OBJECT(*obj);
 }
@@ -3425,6 +3420,20 @@ js::Lambda(JSContext *cx, HandleFunction fun, HandleObject parent)
     if (!clone)
         return NULL;
 
+    if (fun->isArrow()) {
+        StackFrame *fp = cx->fp();
+
+        // Note that this will assert if called from Ion code. Ion can't yet
+        // emit code for a bound arrow function (bug 851913).
+        if (!ComputeThis(cx, fp))
+            return NULL;
+
+        RootedValue thisval(cx, fp->thisValue());
+        clone = js_fun_bind(cx, clone, thisval, NULL, 0);
+        if (!clone)
+            return NULL;
+    }
+
     JS_ASSERT(clone->global() == clone->global());
     return clone;
 }
@@ -3443,7 +3452,7 @@ js::DefFunOperation(JSContext *cx, HandleScript script, HandleObject scopeChain,
      * requests in server-side JS.
      */
     RootedFunction fun(cx, funArg);
-    if (fun->environment() != scopeChain) {
+    if (fun->isNative() || fun->environment() != scopeChain) {
         fun = CloneFunctionObjectIfNotSingleton(cx, fun, scopeChain);
         if (!fun)
             return false;

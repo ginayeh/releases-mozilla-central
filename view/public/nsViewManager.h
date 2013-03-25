@@ -50,10 +50,10 @@ public:
    *        XXX We should eliminate this parameter!
    * @param aVisibilityFlag initial visibility state of view
    *        XXX We should eliminate this parameter; you can set it after CreateView
-   * @result The new view
+   * @result The new view.  Never null.
    */
   nsView* CreateView(const nsRect& aBounds,
-                     const nsView* aParent,
+                     nsView* aParent,
                      nsViewVisibility aVisibilityFlag = nsViewVisibility_kShow);
 
   /**

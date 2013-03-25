@@ -16,8 +16,8 @@
 #include "nsIAccessibleSelectable.h"
 #include "nsIAccessibleValue.h"
 #include "nsIAccessibleStates.h"
-#include "nsIContent.h"
 
+#include "nsIContent.h"
 #include "nsStringGlue.h"
 #include "nsTArray.h"
 #include "nsRefPtrHashtable.h"
@@ -25,7 +25,6 @@
 struct nsRoleMapEntry;
 
 struct nsRect;
-class nsIContent;
 class nsIFrame;
 class nsIAtom;
 class nsView;
@@ -333,7 +332,8 @@ public:
   /**
    * Append/insert/remove a child. Return true if operation was successful.
    */
-  virtual bool AppendChild(Accessible* aChild);
+  bool AppendChild(Accessible* aChild)
+    { return InsertChildAt(mChildren.Length(), aChild); }
   virtual bool InsertChildAt(uint32_t aIndex, Accessible* aChild);
   virtual bool RemoveChild(Accessible* aChild);
 

@@ -8,6 +8,7 @@ const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
 Cu.import("resource://services-common/observers.js");
 Cu.import("resource://services-common/preferences.js");
 Cu.import("resource://gre/modules/commonjs/sdk/core/promise.js");
+Cu.import("resource://gre/modules/Metrics.jsm");
 Cu.import("resource://gre/modules/services/healthreport/healthreporter.jsm");
 Cu.import("resource://gre/modules/services/datareporting/policy.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
@@ -255,6 +256,7 @@ add_task(function test_json_payload_simple() {
     do_check_eq(original.thisPingDate, reporter._formatDate(now));
     do_check_eq(Object.keys(original.data.last).length, 0);
     do_check_eq(Object.keys(original.data.days).length, 0);
+    do_check_false("notInitialized" in original);
 
     reporter.lastPingDate = new Date(now.getTime() - 24 * 60 * 60 * 1000 - 10);
 
@@ -390,6 +392,83 @@ add_task(function test_json_payload_multiple_days() {
     do_check_eq(Object.keys(o.data.days).length, 180);
     let today = reporter._formatDate(now);
     do_check_true(today in o.data.days);
+  } finally {
+    reporter._shutdown();
+  }
+});
+
+add_task(function test_json_payload_newer_version_overwrites() {
+  let reporter = yield getReporter("json_payload_newer_version_overwrites");
+
+  try {
+    let now = new Date();
+    // Instead of hacking up the internals to ensure consistent order in Map
+    // iteration (which would be difficult), we instead opt to generate a lot
+    // of measurements of different versions and verify their iterable order
+    // is not increasing.
+    let versions = [1, 6, 3, 9, 2, 3, 7, 4, 10, 8];
+    let protos = [];
+    for (let version of versions) {
+      let m = function () {
+        Metrics.Measurement.call(this);
+      };
+      m.prototype = {
+        __proto__: DummyMeasurement.prototype,
+        name: "DummyMeasurement",
+        version: version,
+      };
+
+      protos.push(m);
+    }
+
+    let ctor = function () {
+      Metrics.Provider.call(this);
+    };
+    ctor.prototype = {
+      __proto__: DummyProvider.prototype,
+
+      name: "MultiMeasurementProvider",
+      measurementTypes: protos,
+    };
+
+    let provider = new ctor();
+
+    yield reporter._providerManager.registerProvider(provider);
+
+    let haveUnordered = false;
+    let last = -1;
+    let highestVersion = -1;
+    for (let [key, measurement] of provider.measurements) {
+      yield measurement.setDailyLastNumeric("daily-last-numeric",
+                                            measurement.version, now);
+      yield measurement.setLastNumeric("last-numeric",
+                                       measurement.version, now);
+
+      if (measurement.version > highestVersion) {
+        highestVersion = measurement.version;
+      }
+
+      if (measurement.version < last) {
+        haveUnordered = true;
+      }
+
+      last = measurement.version;
+    }
+
+    // Ensure Map traversal isn't ordered. If this ever fails, then we'll need
+    // to monkeypatch.
+    do_check_true(haveUnordered);
+
+    let payload = yield reporter.getJSONPayload();
+    let o = JSON.parse(payload);
+    do_check_true("MultiMeasurementProvider.DummyMeasurement" in o.data.last);
+    do_check_eq(o.data.last["MultiMeasurementProvider.DummyMeasurement"]._v, highestVersion);
+
+    let day = reporter._formatDate(now);
+    do_check_true(day in o.data.days);
+    do_check_true("MultiMeasurementProvider.DummyMeasurement" in o.data.days[day]);
+    do_check_eq(o.data.days[day]["MultiMeasurementProvider.DummyMeasurement"]._v, highestVersion);
+
   } finally {
     reporter._shutdown();
   }
@@ -630,3 +709,84 @@ add_task(function test_collect_when_upload_disabled() {
     reporter._shutdown();
   }
 });
+
+add_task(function test_failure_if_not_initialized() {
+  let reporter = yield getReporter("failure_if_not_initialized");
+  reporter._shutdown();
+
+  let error = false;
+  try {
+    yield reporter.requestDataUpload();
+  } catch (ex) {
+    error = true;
+    do_check_true(ex.message.contains("Not initialized."));
+  } finally {
+    do_check_true(error);
+    error = false;
+  }
+
+  try {
+    yield reporter.collectMeasurements();
+  } catch (ex) {
+    error = true;
+    do_check_true(ex.message.contains("Not initialized."));
+  } finally {
+    do_check_true(error);
+    error = false;
+  }
+
+  // getJSONPayload always works (to facilitate error upload).
+  yield reporter.getJSONPayload();
+});
+
+add_task(function test_upload_on_init_failure() {
+  let reporter = yield getJustReporter("upload_on_init_failure", SERVER_URI, true);
+  let server = new BagheeraServer(SERVER_URI);
+  server.createNamespace(reporter.serverNamespace);
+  server.start(SERVER_PORT);
+
+  reporter.onInitializeProviderManagerFinished = function () {
+    throw new Error("Fake error during provider manager initialization.");
+  };
+
+  let deferred = Promise.defer();
+
+  let oldOnResult = reporter._onBagheeraResult;
+  Object.defineProperty(reporter, "_onBagheeraResult", {
+    value: function (request, isDelete, result) {
+      do_check_false(isDelete);
+      do_check_true(result.transportSuccess);
+      do_check_true(result.serverSuccess);
+
+      oldOnResult.call(reporter, request, isDelete, result);
+      deferred.resolve();
+    },
+  });
+
+  reporter._policy.recordUserAcceptance();
+  let error = false;
+  try {
+    yield reporter.onInit();
+  } catch (ex) {
+    error = true;
+  } finally {
+    do_check_true(error);
+  }
+
+  // At this point the emergency upload should have been initiated. We
+  // wait for our monkeypatched response handler to signal request
+  // completion.
+  yield deferred.promise;
+
+  do_check_true(server.hasDocument(reporter.serverNamespace, reporter.lastSubmitID));
+  let doc = server.getDocument(reporter.serverNamespace, reporter.lastSubmitID);
+  do_check_true("notInitialized" in doc);
+  do_check_eq(doc.notInitialized, 1);
+  do_check_true("errors" in doc);
+  do_check_eq(doc.errors.length, 1);
+  do_check_true(doc.errors[0].contains("Fake error during provider manager initialization"));
+
+  reporter._shutdown();
+  yield shutdownServer(server);
+});
+

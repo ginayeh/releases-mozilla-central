@@ -88,9 +88,7 @@
 #include "GStreamerFormatHelper.h"
 #endif
 
-#ifdef MOZ_SYDNEYAUDIO
 #include "AudioStream.h"
-#endif
 
 #ifdef MOZ_WIDGET_GONK
 #include "nsVolumeService.h"
@@ -115,6 +113,7 @@ using namespace mozilla::system;
 #include "nsApplicationCacheService.h"
 #include "mozilla/dom/time/DateCacheCleaner.h"
 #include "nsIMEStateManager.h"
+#include "nsDocument.h"
 
 extern void NS_ShutdownEventTargetChainItemRecyclePool();
 
@@ -246,9 +245,7 @@ nsLayoutStatics::Initialize()
     return rv;
   }
 
-#ifdef MOZ_SYDNEYAUDIO
   AudioStream::InitLibrary();
-#endif
 
   nsContentSink::InitializeStatics();
   nsHtml5Module::InitializeStatics();
@@ -354,9 +351,7 @@ nsLayoutStatics::Shutdown()
   GStreamerFormatHelper::Shutdown();
 #endif
 
-#ifdef MOZ_SYDNEYAUDIO
   AudioStream::ShutdownLibrary();
-#endif
 
 #ifdef MOZ_WMF
   WMFDecoder::UnloadDLLs();
@@ -393,4 +388,6 @@ nsLayoutStatics::Shutdown()
   ContentParent::ShutDown();
 
   nsRefreshDriver::Shutdown();
+
+  nsDocument::XPCOMShutdown();
 }

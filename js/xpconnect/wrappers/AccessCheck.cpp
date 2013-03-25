@@ -10,7 +10,9 @@
 #include "AccessCheck.h"
 
 #include "nsJSPrincipals.h"
+#include "nsIDocument.h"
 #include "nsIDOMWindow.h"
+#include "nsPIDOMWindow.h"
 #include "nsIDOMWindowCollection.h"
 #include "nsContentUtils.h"
 #include "nsJSUtils.h"
@@ -166,7 +168,10 @@ IsPermitted(const char *name, JSFlatString *prop, bool set)
 static bool
 IsFrameId(JSContext *cx, JSObject *obj, jsid id)
 {
-    XPCWrappedNative *wn = XPCWrappedNative::GetWrappedNativeOfJSObject(cx, obj);
+    obj = JS_ObjectToInnerObject(cx, obj);
+    MOZ_ASSERT(!js::IsWrapper(obj));
+    XPCWrappedNative *wn = IS_WN_WRAPPER(obj) ? XPCWrappedNative::Get(obj)
+                                              : nullptr;
     if (!wn) {
         return false;
     }
@@ -267,6 +272,19 @@ AccessCheck::isScriptAccessOnly(JSContext *cx, JSObject *wrapper)
     return false;
 }
 
+bool
+OnlyIfSubjectIsSystem::isSafeToUnwrap()
+{
+    if (XPCJSRuntime::Get()->XBLScopesEnabled())
+        return false;
+    // It's nasty to use the context stack here, but the alternative is passing cx all
+    // the way down through UnwrapObjectChecked, which we just undid in a 100k patch. :-(
+    JSContext *cx = nsContentUtils::GetCurrentJSContext();
+    if (!cx)
+        return true;
+    return AccessCheck::isSystemOnlyAccessPermitted(cx);
+}
+
 enum Access { READ = (1<<0), WRITE = (1<<1), NO_ACCESS = 0 };
 
 static bool
@@ -325,8 +343,7 @@ ExposedPropertiesOnly::check(JSContext *cx, JSObject *wrapper, jsid id, Wrapper:
             nsCOMPtr<nsPIDOMWindow> win =
                 do_QueryInterface(nsJSUtils::GetStaticScriptGlobal(wrapper));
             if (win) {
-                nsCOMPtr<nsIDocument> doc =
-                    do_QueryInterface(win->GetExtantDocument());
+                nsCOMPtr<nsIDocument> doc = win->GetExtantDoc();
                 if (doc) {
                     doc->WarnOnceAbout(nsIDocument::eNoExposedProps,
                                        /* asError = */ true);

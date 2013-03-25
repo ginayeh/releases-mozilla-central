@@ -58,7 +58,7 @@ CheckStackRoot(JSRuntime *rt, uintptr_t *w, Rooter *begin, Rooter *end)
         return;
 
     /* Don't check atoms as these will never be subject to generational collection. */
-    if (IsAtomsCompartment(reinterpret_cast<Cell *>(thing)->compartment()))
+    if (static_cast<Cell *>(thing)->tenuredZone() == rt->atomsCompartment->zone())
         return;
 
     /*
@@ -93,7 +93,7 @@ CheckStackRoot(JSRuntime *rt, uintptr_t *w, Rooter *begin, Rooter *end)
      * overwrite a now-dead GC thing pointer. In this case we want to avoid
      * damaging the smaller value.
      */
-    PoisonPtr(w);
+    JS::PoisonPtr(w);
 }
 
 static void
@@ -533,10 +533,9 @@ gc::StartVerifyPreBarriers(JSRuntime *rt)
     rt->gcVerifyPreData = trc;
     rt->gcIncrementalState = MARK;
     rt->gcMarker.start();
-    for (CompartmentsIter c(rt); !c.done(); c.next())
-        PurgeJITCaches(c);
 
     for (ZonesIter zone(rt); !zone.done(); zone.next()) {
+        PurgeJITCaches(zone);
         zone->setNeedsBarrier(true, Zone::UpdateIon);
         zone->allocator.arenas.purge();
     }
@@ -616,10 +615,8 @@ gc::EndVerifyPreBarriers(JSRuntime *rt)
             compartmentCreated = true;
 
         zone->setNeedsBarrier(false, Zone::UpdateIon);
+        PurgeJITCaches(zone);
     }
-
-    for (CompartmentsIter c(rt); !c.done(); c.next())
-        PurgeJITCaches(c);
 
     /*
      * We need to bump gcNumber so that the methodjit knows that jitcode has
@@ -757,15 +754,13 @@ js::gc::EndVerifyPostBarriers(JSRuntime *rt)
         goto oom;
 
     /* Walk the heap. */
-    for (CompartmentsIter c(rt); !c.done(); c.next()) {
-        if (IsAtomsCompartment(c))
-            continue;
-
-        if (c->watchpointMap)
-            c->watchpointMap->markAll(trc);
-
+    for (CompartmentsIter comp(rt); !comp.done(); comp.next()) {
+        if (comp->watchpointMap)
+            comp->watchpointMap->markAll(trc);
+    }
+    for (GCZoneGroupIter zone(rt); !zone.done(); zone.next()) {
         for (size_t kind = 0; kind < FINALIZE_LIMIT; ++kind) {
-            for (CellIterUnderGC cells(c, AllocKind(kind)); !cells.done(); cells.next()) {
+            for (CellIterUnderGC cells(zone, AllocKind(kind)); !cells.done(); cells.next()) {
                 Cell *src = cells.getCell();
                 if (!rt->gcVerifierNursery.isInside(src))
                     JS_TraceChildren(trc, src, MapAllocToTraceKind(AllocKind(kind)));

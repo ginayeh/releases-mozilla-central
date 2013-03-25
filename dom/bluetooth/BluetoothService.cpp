@@ -8,6 +8,7 @@
 
 #include "BluetoothService.h"
 
+#include "BluetoothCommon.h"
 #include "BluetoothManager.h"
 #include "BluetoothParent.h"
 #include "BluetoothReplyRunnable.h"
@@ -157,7 +158,7 @@ public:
       } else {
         signalName = NS_LITERAL_STRING("Disabled");
       }
-      signalPath = NS_LITERAL_STRING("/");
+      signalPath = NS_LITERAL_STRING(KEY_MANAGER);
       BluetoothSignal signal(signalName, signalPath, v);
       gBluetoothService->DistributeSignal(signal);
     }
@@ -300,7 +301,7 @@ RemoveObserversExceptBluetoothManager
    nsAutoPtr<BluetoothSignalObserverList>& value,
    void* arg)
 {
-  if (!key.EqualsLiteral("/")) {
+  if (!key.EqualsLiteral(KEY_MANAGER)) {
     return PL_DHASH_REMOVE;
   }
 
@@ -442,12 +443,10 @@ BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
   LOG("[S] %s '%s' to %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aSignal.name()).get(), NS_ConvertUTF16toUTF8(aSignal.path()).get());
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (aSignal.path().EqualsLiteral(LOCAL_AGENT_PATH)) {
-    LOG("[S] DistributeSignal to LOCAL_AGENT_PATH");
+  if (aSignal.path().EqualsLiteral(KEY_LOCAL_AGENT)) {
     Notify(aSignal);
     return;
-  } else if (aSignal.path().EqualsLiteral(REMOTE_AGENT_PATH)) {
-    LOG("[S] DistributeSignal to REMOTE_AGENT_PATH");
+  } else if (aSignal.path().EqualsLiteral(KEY_REMOTE_AGENT)) {
     Notify(aSignal);
     return;
   }

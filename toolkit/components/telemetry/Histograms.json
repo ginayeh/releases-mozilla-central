@@ -210,6 +210,14 @@
     "extended_statistics_ok": true,
     "description": "Total JavaScript compartments used for web pages"
   },
+  "MEMORY_JS_MAIN_RUNTIME_TEMPORARY_PEAK": {
+    "kind": "exponential",
+    "low": 1024,
+    "high": "16 * 1024 * 1024",
+    "n_buckets": 200,
+    "extended_statistics_ok": true,
+    "description": "Peak memory used by the main JSRuntime to store transient data (KB)"
+  },
   "MEMORY_JS_GC_HEAP": {
     "kind": "exponential",
     "low": 1024,
@@ -1954,6 +1962,34 @@
     "extended_statistics_ok": true,
     "description": "Time spent in nsDiskCacheStreamIO::Close() on the main thread (ms)"
   },
+  "HTTP_TRANSACTION_TIME_CONNFAST_CACHEON": {
+    "kind": "exponential",
+    "high": "10000",
+    "n_buckets": 50,
+    "extended_statistics_ok": true,
+    "description": "ms from ayncopen to onStopRequest for fast connections with cache enabled"
+  },
+  "HTTP_TRANSACTION_TIME_CONNFAST_CACHEOFF": {
+    "kind": "exponential",
+    "high": "10000",
+    "n_buckets": 50,
+    "extended_statistics_ok": true,
+    "description": "ms from ayncopen to onStopRequest for fast connections with cache disabled"
+  },
+  "HTTP_TRANSACTION_TIME_CONNSLOW_CACHEON": {
+    "kind": "exponential",
+    "high": "10000",
+    "n_buckets": 50,
+    "extended_statistics_ok": true,
+    "description": "ms from ayncopen to onStopRequest for slow connections with cache enabled"
+  },
+  "HTTP_TRANSACTION_TIME_CONNSLOW_CACHEOFF": {
+    "kind": "exponential",
+    "high": "10000",
+    "n_buckets": 50,
+    "extended_statistics_ok": true,
+    "description": "ms from ayncopen to onStopRequest for slow connections with cache disabled"
+  },
   "IDLE_NOTIFY_BACK_MS": {
     "kind": "exponential",
     "high": "5000",
@@ -2453,9 +2489,23 @@
     "extended_statistics_ok": true,
     "description": "Session restore: Time to write the session data to the file on disk (ms)"
   },
+  "FX_SESSION_RESTORE_WRITE_FILE_LONGEST_OP_MS": {
+    "kind": "exponential",
+    "high": "3000",
+    "n_buckets": 10,
+    "extended_statistics_ok": true,
+    "description": "Session restore: Duration of the longest uninterruptible operation while writing session data (ms)"
+  },
   "FX_SESSION_RESTORE_CORRUPT_FILE": {
     "kind": "boolean",
     "description": "Session restore: Whether the file read on startup contained parse-able JSON"
+  },
+  "FX_SESSION_RESTORE_BACKUP_FILE_MS": {
+    "kind": "exponential",
+    "high": "30000",
+    "n_buckets": 10,
+    "extended_statistics_ok": true,
+    "description": "Session restore: Time to make a backup copy of the session file (ms)"
   },
   "INNERWINDOWS_WITH_MUTATION_LISTENERS": {
     "kind": "boolean",

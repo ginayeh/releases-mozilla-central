@@ -199,11 +199,14 @@ class FunctionBox : public ObjectBox, public SharedContext
 {
   public:
     Bindings        bindings;               /* bindings for this function */
-    size_t          bufStart;
-    size_t          bufEnd;
+    uint32_t        bufStart;
+    uint32_t        bufEnd;
+    uint32_t        asmStart;               /* offset of the "use asm" directive, if present */
     uint16_t        ndefaults;
     bool            inWith:1;               /* some enclosing scope is a with-statement */
     bool            inGenexpLambda:1;       /* lambda from generator expression */
+    bool            useAsm:1;               /* function contains "use asm" directive */
+    bool            insideUseAsm:1;         /* nested function of function of "use asm" directive */
 
     FunctionContextFlags funCxFlags;
 
@@ -226,7 +229,20 @@ class FunctionBox : public ObjectBox, public SharedContext
     void setArgumentsHasLocalBinding()     { funCxFlags.argumentsHasLocalBinding = true; }
     void setDefinitelyNeedsArgsObj()       { JS_ASSERT(funCxFlags.argumentsHasLocalBinding);
                                              funCxFlags.definitelyNeedsArgsObj   = true; }
+
+    // Return whether this function has either specified "use asm" or is
+    // (transitively) nested inside a function that has.
+    bool useAsmOrInsideUseAsm() const {
+        return useAsm || insideUseAsm;
+    }
 };
+
+inline FunctionBox *
+SharedContext::asFunctionBox()
+{
+    JS_ASSERT(isFunctionBox());
+    return static_cast<FunctionBox*>(this);
+}
 
 /*
  * NB: If you add a new type of statement that is a scope, add it between

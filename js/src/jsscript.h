@@ -368,7 +368,7 @@ class JSScript : public js::gc::Cell
 
     js::HeapPtrAtom *atoms;     /* maps immediate index to literal struct */
 
-    void            *principalsPad;
+    JSCompartment   *compartment_;
     JSPrincipals    *originPrincipals; /* see jsapi.h 'originPrincipals' comment */
 
     /* Persistent type information retained across GCs. */
@@ -542,6 +542,8 @@ class JSScript : public js::gc::Cell
                                      js::frontend::BytecodeEmitter *bce);
 
     inline JSPrincipals *principals();
+
+    JSCompartment *compartment() const { return compartment_; }
 
     void setVersion(JSVersion v) { version = v; }
 
@@ -941,6 +943,8 @@ class JSScript : public js::gc::Cell
 #endif
 
     void finalize(js::FreeOp *fop);
+
+    JS::Zone *zone() const { return tenuredZone(); }
 
     static inline void writeBarrierPre(js::RawScript script);
     static inline void writeBarrierPost(js::RawScript script, void *addr);

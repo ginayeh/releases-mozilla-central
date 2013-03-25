@@ -34,16 +34,6 @@ enum TokenKind {
     TOK_SEMI,                      /* semicolon */
     TOK_COMMA,                     /* comma operator */
     TOK_HOOK, TOK_COLON,           /* conditional (?:) */
-    TOK_OR,                        /* logical or (||) */
-    TOK_AND,                       /* logical and (&&) */
-    TOK_BITOR,                     /* bitwise-or (|) */
-    TOK_BITXOR,                    /* bitwise-xor (^) */
-    TOK_BITAND,                    /* bitwise-and (&) */
-    TOK_PLUS,                      /* plus */
-    TOK_MINUS,                     /* minus */
-    TOK_STAR,                      /* multiply */
-    TOK_DIV,                       /* divide */
-    TOK_MOD,                       /* modulus */
     TOK_INC, TOK_DEC,              /* increment/decrement (++ --) */
     TOK_DOT,                       /* member operator (.) */
     TOK_TRIPLEDOT,                 /* for rest arguments (...) */
@@ -69,7 +59,6 @@ enum TokenKind {
     TOK_FOR,                       /* for keyword */
     TOK_BREAK,                     /* break keyword */
     TOK_CONTINUE,                  /* continue keyword */
-    TOK_IN,                        /* in keyword */
     TOK_VAR,                       /* var keyword */
     TOK_CONST,                     /* const keyword */
     TOK_WITH,                      /* with keyword */
@@ -80,7 +69,6 @@ enum TokenKind {
     TOK_CATCH,                     /* catch keyword */
     TOK_FINALLY,                   /* finally keyword */
     TOK_THROW,                     /* throw keyword */
-    TOK_INSTANCEOF,                /* instanceof keyword */
     TOK_DEBUGGER,                  /* debugger keyword */
     TOK_YIELD,                     /* yield from generator function */
     TOK_LEXICALSCOPE,              /* block scope AST node label */
@@ -95,6 +83,17 @@ enum TokenKind {
      * range-testing.
      */
 
+    /*
+     * Binary operators tokens, TOK_OR thru TOK_MOD. These must be in the same
+     * order as F(OR) and friends in FOR_EACH_PARSE_NODE_KIND in ParseNode.h.
+     */
+    TOK_OR,                        /* logical or (||) */
+    TOK_BINOP_FIRST = TOK_OR,
+    TOK_AND,                       /* logical and (&&) */
+    TOK_BITOR,                     /* bitwise-or (|) */
+    TOK_BITXOR,                    /* bitwise-xor (^) */
+    TOK_BITAND,                    /* bitwise-and (&) */
+
     /* Equality operation tokens, per TokenKindIsEquality */
     TOK_STRICTEQ,
     TOK_EQUALITY_START = TOK_STRICTEQ,
@@ -102,12 +101,6 @@ enum TokenKind {
     TOK_STRICTNE,
     TOK_NE,
     TOK_EQUALITY_LAST = TOK_NE,
-
-    /* Unary operation tokens */
-    TOK_TYPEOF,
-    TOK_VOID,
-    TOK_NOT,
-    TOK_BITNOT,
 
     /* Relational ops (< <= > >=), per TokenKindIsRelational */
     TOK_LT,
@@ -117,12 +110,30 @@ enum TokenKind {
     TOK_GE,
     TOK_RELOP_LAST = TOK_GE,
 
+    TOK_INSTANCEOF,                /* instanceof keyword */
+    TOK_IN,                        /* in keyword */
+
     /* Shift ops (<< >> >>>), per TokenKindIsShift */
     TOK_LSH,
     TOK_SHIFTOP_START = TOK_LSH,
     TOK_RSH,
     TOK_URSH,
     TOK_SHIFTOP_LAST = TOK_URSH,
+
+    TOK_PLUS,                      /* plus */
+    TOK_MINUS,                     /* minus */
+    TOK_STAR,                      /* multiply */
+    TOK_DIV,                       /* divide */
+    TOK_MOD,                       /* modulus */
+    TOK_BINOP_LAST = TOK_MOD,
+
+    /* Unary operation tokens */
+    TOK_TYPEOF,
+    TOK_VOID,
+    TOK_NOT,
+    TOK_BITNOT,
+
+    TOK_ARROW,                     /* function arrow (=>) */
 
     /* Assignment ops (= += -= etc.), per TokenKindIsAssignment */
     TOK_ASSIGN,                    /* assignment ops (= += -= etc.) */
@@ -142,6 +153,12 @@ enum TokenKind {
 
     TOK_LIMIT                      /* domain size */
 };
+
+inline bool
+TokenKindIsBinaryOp(TokenKind tt)
+{
+    return TOK_BINOP_FIRST <= tt && tt <= TOK_BINOP_LAST;
+}
 
 inline bool
 TokenKindIsEquality(TokenKind tt)
@@ -177,42 +194,11 @@ TokenKindIsDecl(TokenKind tt)
 #endif
 }
 
-struct TokenPtr {
-    uint32_t            index;          /* index of char in physical line */
-    uint32_t            lineno;         /* physical line number */
-
-    bool operator==(const TokenPtr& bptr) const {
-        return index == bptr.index && lineno == bptr.lineno;
-    }
-
-    bool operator!=(const TokenPtr& bptr) const {
-        return index != bptr.index || lineno != bptr.lineno;
-    }
-
-    bool operator <(const TokenPtr& bptr) const {
-        return lineno < bptr.lineno ||
-               (lineno == bptr.lineno && index < bptr.index);
-    }
-
-    bool operator <=(const TokenPtr& bptr) const {
-        return lineno < bptr.lineno ||
-               (lineno == bptr.lineno && index <= bptr.index);
-    }
-
-    bool operator >(const TokenPtr& bptr) const {
-        return !(*this <= bptr);
-    }
-
-    bool operator >=(const TokenPtr& bptr) const {
-        return !(*this < bptr);
-    }
-};
-
 struct TokenPos {
-    TokenPtr          begin;          /* first character and line of token */
-    TokenPtr          end;            /* index 1 past last char, last line */
+    uint32_t          begin;          /* offset of the token's first char */
+    uint32_t          end;            /* offset of 1 past the token's last char */
 
-    static TokenPos make(const TokenPtr &begin, const TokenPtr &end) {
+    static TokenPos make(uint32_t begin, uint32_t end) {
         JS_ASSERT(begin <= end);
         TokenPos pos = {begin, end};
         return pos;
@@ -261,7 +247,6 @@ enum DecimalPoint { NoDecimal = false, HasDecimal = true };
 struct Token {
     TokenKind           type;           /* char value or above enumerator */
     TokenPos            pos;            /* token position in file */
-    const jschar        *ptr;           /* beginning of token in line buffer */
     union {
         struct {                        /* name or string literal */
             JSOp        op;             /* operator, for minimal parser */
@@ -433,7 +418,7 @@ class TokenStream
 
     /* Accessors. */
     JSContext *getContext() const { return cx; }
-    bool onCurrentLine(const TokenPos &pos) const { return lineno == pos.end.lineno; }
+    bool onCurrentLine(const TokenPos &pos) const { return srcCoords.isOnThisLine(pos.end, lineno); }
     const Token &currentToken() const { return tokens[cursor]; }
     bool isCurrentTokenType(TokenKind type) const {
         return currentToken().type == type;
@@ -441,9 +426,6 @@ class TokenStream
     bool isCurrentTokenType(TokenKind type1, TokenKind type2) const {
         TokenKind type = currentToken().type;
         return type == type1 || type == type2;
-    }
-    size_t offsetOfToken(const Token &tok) const {
-        return tok.ptr - userbuf.base();
     }
     const CharBuffer &getTokenbuf() const { return tokenbuf; }
     const char *getFilename() const { return filename; }
@@ -482,12 +464,15 @@ class TokenStream
     // General-purpose error reporters.  You should avoid calling these
     // directly, and instead use the more succinct alternatives (e.g.
     // reportError()) in TokenStream, Parser, and BytecodeEmitter.
-    bool reportCompileErrorNumberVA(const TokenPos &pos, unsigned flags, unsigned errorNumber,
+    bool reportCompileErrorNumberVA(uint32_t offset, unsigned flags, unsigned errorNumber,
                                     va_list args);
-    bool reportStrictModeErrorNumberVA(const TokenPos &pos, bool strictMode, unsigned errorNumber,
+    bool reportStrictModeErrorNumberVA(uint32_t offset, bool strictMode, unsigned errorNumber,
                                        va_list args);
-    bool reportStrictWarningErrorNumberVA(const TokenPos &pos, unsigned errorNumber,
+    bool reportStrictWarningErrorNumberVA(uint32_t offset, unsigned errorNumber,
                                           va_list args);
+
+    // asm.js reporter
+    void reportAsmJSError(uint32_t offset, unsigned errorNumber, ...);
 
   private:
     // These are private because they should only be called by the tokenizer
@@ -556,10 +541,8 @@ class TokenStream
     }
 
     TokenKind peekToken() {
-        if (lookahead != 0) {
-            JS_ASSERT(lookahead < maxLookahead);
-            return tokens[(cursor + lookahead) & ntokensMask].type;
-        }
+        if (lookahead != 0)
+            return tokens[(cursor + 1) & ntokensMask].type;
         TokenKind tt = getTokenInternal();
         ungetToken();
         return tt;
@@ -574,10 +557,8 @@ class TokenStream
         if (!onCurrentLine(currentToken().pos))
             return TOK_EOL;
 
-        if (lookahead != 0) {
-            JS_ASSERT(lookahead < maxLookahead);
-            return tokens[(cursor + lookahead) & ntokensMask].type;
-        }
+        if (lookahead != 0)
+            return tokens[(cursor + 1) & ntokensMask].type;
 
         /*
          * This is the only place TOK_EOL is produced.  No token with TOK_EOL
@@ -619,16 +600,18 @@ class TokenStream
         unsigned lineno;
         const jschar *linebase;
         const jschar *prevLinebase;
+        Token currentToken;
+        unsigned lookahead;
+        Token lookaheadTokens[maxLookahead];
     };
 
     void tell(Position *);
     void seek(const Position &pos);
     void positionAfterLastFunctionKeyword(Position &pos);
 
-    /*
-     * Return the offset into the source buffer of the end of the token.
-     */
-    size_t endOffset(const Token &tok);
+    size_t positionToOffset(const Position &pos) const {
+        return pos.buf - userbuf.base();
+    }
 
     bool hasSourceMap() const {
         return sourceMap != NULL;
@@ -659,6 +642,75 @@ class TokenStream
      * ttp and topp must be either both null or both non-null.
      */
     bool checkForKeyword(const jschar *s, size_t length, TokenKind *ttp, JSOp *topp);
+
+    // This class maps a userbuf offset (which is 0-indexed) to a line number
+    // (which is 1-indexed) and a column index (which is 0-indexed).
+    class SourceCoords
+    {
+        // For a given buffer holding source code, |lineStartOffsets_| has one
+        // element per line of source code, plus one sentinel element.  Each
+        // non-sentinel element holds the buffer offset for the start of the
+        // corresponding line of source code.  For this example script:
+        //
+        // 1  // xyz            [line starts at offset 0]
+        // 2  var x;            [line starts at offset 7]
+        // 3                    [line starts at offset 14]
+        // 4  var y;            [line starts at offset 15]
+        //
+        // |lineStartOffsets_| is:
+        //
+        //   [0, 7, 14, 15, MAX_PTR]
+        //
+        // To convert a "line number" to a "line index" (i.e. an index into
+        // |lineStartOffsets_|), subtract |initialLineNum_|.  E.g. line 3's
+        // line index is (3 - initialLineNum_), which is 2.  Therefore
+        // lineStartOffsets_[2] holds the buffer offset for the start of line 3,
+        // which is 14.  (Note that |initialLineNum_| is often 1, but not
+        // always.)
+        //
+        // The first element is always 0, and the last element is always the
+        // MAX_PTR sentinel.
+        //
+        // offset-to-line/column lookups are O(log n) in the worst case (binary
+        // search), but in practice they're heavily clustered and we do better
+        // than that by using the previous lookup's result (lastLineIndex_) as
+        // a starting point.
+        //
+        // Checking if an offset lies within a particular line number
+        // (isOnThisLine()) is O(1).
+        //
+        Vector<uint32_t, 128> lineStartOffsets_;
+        uint32_t            initialLineNum_;
+
+        // This is mutable because it's modified on every search, but that fact
+        // isn't visible outside this class.
+        mutable uint32_t    lastLineIndex_;
+
+        uint32_t lineIndexOf(uint32_t offset) const;
+
+        static const uint32_t MAX_PTR = UINT32_MAX;
+
+        uint32_t lineIndexToNum(uint32_t lineIndex) const { return lineIndex + initialLineNum_; }
+        uint32_t lineNumToIndex(uint32_t lineNum)   const { return lineNum   - initialLineNum_; }
+
+      public:
+        SourceCoords(JSContext *cx, uint32_t ln);
+
+        void add(uint32_t lineNum, uint32_t lineStartOffset);
+
+        bool isOnThisLine(uint32_t offset, uint32_t lineNum) const {
+            uint32_t lineIndex = lineNumToIndex(lineNum);
+            JS_ASSERT(lineIndex + 1 < lineStartOffsets_.length());  // +1 due to sentinel
+            return lineStartOffsets_[lineIndex] <= offset &&
+                   offset < lineStartOffsets_[lineIndex + 1];
+        }
+
+        uint32_t lineNum(uint32_t offset) const;
+        uint32_t columnIndex(uint32_t offset) const;
+        void lineNumAndColumnIndex(uint32_t offset, uint32_t *lineNum, uint32_t *columnIndex) const;
+    };
+
+    SourceCoords srcCoords;
 
   private:
     /*
@@ -769,12 +821,11 @@ class TokenStream
     bool peekChars(int n, jschar *cp);
     bool getAtSourceMappingURL(bool isMultiline);
 
+    // |expect| cannot be an EOL char.
     bool matchChar(int32_t expect) {
-        int32_t c = getChar();
-        if (c == expect)
-            return true;
-        ungetChar(c);
-        return false;
+        MOZ_ASSERT(!TokenBuf::isRawEOLChar(expect));
+        return JS_LIKELY(userbuf.hasRawChars()) &&
+               userbuf.matchRawChar(expect);
     }
 
     void consumeKnownChar(int32_t expect) {

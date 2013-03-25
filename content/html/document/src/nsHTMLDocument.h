@@ -268,7 +268,7 @@ protected:
 
   static void DocumentWriteTerminationFunc(nsISupports *aRef);
 
-  void GetDomainURI(nsIURI **uri);
+  already_AddRefed<nsIURI> GetDomainURI();
 
   nsresult WriteCommon(JSContext *cx, const nsAString& aText,
                        bool aNewlineTerminate);
@@ -360,6 +360,12 @@ protected:
 
   // When false, the .cookies property is completely disabled
   bool mDisableCookieAccess;
+
+  /**
+   * Temporary flag that is set in EndUpdate() to ignore
+   * MaybeEditingStateChanged() script runners from a nested scope.
+   */
+  bool mPendingMaybeEditingStateChanged;
 };
 
 #define NS_HTML_DOCUMENT_INTERFACE_TABLE_BEGIN(_class)                        \

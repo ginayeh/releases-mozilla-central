@@ -25,7 +25,6 @@
 #include "nsEventListenerManager.h"
 #include "nsIRDFCompositeDataSource.h"
 #include "nsIRDFResource.h"
-#include "nsBindingManager.h"
 #include "nsIURI.h"
 #include "nsIXULTemplateBuilder.h"
 #include "nsIBoxObject.h"
@@ -34,7 +33,6 @@
 #include "nsGkAtoms.h"
 #include "nsAutoPtr.h"
 #include "nsStyledElement.h"
-#include "nsDOMScriptObjectHolder.h"
 #include "nsIFrameLoader.h"
 #include "jspubtd.h"
 #include "nsFrameLoader.h"
@@ -233,10 +231,6 @@ public:
 
     void UnlinkJSObjects();
 
-    void Set(nsScriptObjectHolder<JSScript>& aHolder)
-    {
-        Set(aHolder.get());
-    }
     void Set(JSScript* aObject);
 
     JSScript *GetScriptObject()

@@ -69,7 +69,7 @@ command. Consider filing a bug for this issue.
 '''.lstrip()
 
 MODULE_ERROR = r'''
-The error occured in code that was called by the mach command. This is either
+The error occurred in code that was called by the mach command. This is either
 a bug in the called code itself or in the way that mach is calling it.
 
 You should consider filing a bug for this issue.
@@ -252,6 +252,8 @@ To see more help for a specific command, run:
 
         if args.command == 'help':
             if args.subcommand is None:
+                parser.usage = \
+                    '%(prog)s [global arguments] command [command arguments]'
                 parser.print_help()
                 return 0
 
@@ -418,7 +420,7 @@ To see more help for a specific command, run:
         """Returns an argument parser for the command-line interface."""
 
         parser = ArgumentParser(add_help=False,
-            usage='%(prog)s [global arguments] command [command arguments]')
+            usage='%(prog)s [global arguments]')
 
         # Order is important here as it dictates the order the auto-generated
         # help messages are printed.

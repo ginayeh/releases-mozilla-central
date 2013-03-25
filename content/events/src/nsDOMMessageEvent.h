@@ -36,9 +36,6 @@ public:
   // Forward to base class
   NS_FORWARD_TO_NSDOMEVENT
 
-  void RootData();
-  void UnrootData();
-
   virtual JSObject* WrapObject(JSContext* aCx, JSObject* aScope)
   {
     return mozilla::dom::MessageEventBinding::Wrap(aCx, aScope, this);
@@ -72,8 +69,7 @@ public:
   }
 
 private:
-  jsval mData;
-  bool mDataRooted;
+  JS::Value mData;
   nsString mOrigin;
   nsString mLastEventId;
   nsCOMPtr<nsIDOMWindow> mSource;

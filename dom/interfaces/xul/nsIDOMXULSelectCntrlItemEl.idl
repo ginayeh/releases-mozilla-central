@@ -6,7 +6,7 @@
 #include "nsIDOMXULElement.idl"
 interface nsIDOMXULSelectControlElement;
 
-[scriptable, uuid(09599681-3526-41f9-a7b6-c408ccb3e1cc)]
+[scriptable, uuid(281d86b5-4448-410b-8eeb-9f4834678ab3)]
 interface nsIDOMXULSelectControlItemElement : nsIDOMXULElement {
   attribute boolean disabled;
   attribute DOMString crop;

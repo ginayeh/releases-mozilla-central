@@ -83,7 +83,7 @@ BluetoothDevice::BluetoothDevice(nsPIDOMWindow* aWindow,
 
   BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE_VOID(bs);
-  bs->RegisterBluetoothSignalHandler(mPath, this);
+  bs->RegisterBluetoothSignalHandler(mAddress, this);
 }
 
 BluetoothDevice::~BluetoothDevice()
@@ -92,7 +92,7 @@ BluetoothDevice::~BluetoothDevice()
   BluetoothService* bs = BluetoothService::Get();
   // bs can be null on shutdown, where destruction might happen.
   NS_ENSURE_TRUE_VOID(bs);
-  bs->UnregisterBluetoothSignalHandler(mPath, this);
+  bs->UnregisterBluetoothSignalHandler(mAddress, this);
   Unroot();
 }
 

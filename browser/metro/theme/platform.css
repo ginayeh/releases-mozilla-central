@@ -38,8 +38,8 @@ menulist {
   border-radius: 0;
 }
 
-textbox[disabled="true"],
-menulist[disabled="true"] {
+textbox[disabled],
+menulist[disabled] {
   border-color: @field_disabled_foreground_color@ !important;
   color: @field_disabled_foreground_color@;
 }
@@ -171,7 +171,7 @@ menulist {
   transform: translateY(-@metro_spacing_normal@);
 }
 
-.menu-container[showing="true"] {
+.menu-container[showing] {
   opacity: 1;
   transform: none;
   transition: all ease-out 0.2s;
@@ -352,28 +352,28 @@ richlistitem description.normal-bold {
   font-weight: bold;
 }
 
-richlistitem[selected="true"] {
+richlistitem[selected] {
   color: black;
   background-color: white;
 }
 
-richlistitem:hover:active:not([selected="true"]):not([nohighlight="true"]) {
+richlistitem:hover:active:not([selected]) {
   background-color: #8db8d8;
 }
 
 richlistitem.section-header,
-richlistitem[selected="true"].section-header {
+richlistitem[selected].section-header {
   font-weight: bold;
   color: #000;
   background-color: lightgray;
 }
 
-richlistitem[selected="true"] .hide-on-select,
+richlistitem[selected] .hide-on-select,
 richlistitem .show-on-select {
   visibility: collapse;
 }
 
-richlistitem[selected="true"] .show-on-select,
+richlistitem[selected] .show-on-select,
 richlistitem .hide-on-select {
   visibility: visible;
 }
@@ -469,7 +469,7 @@ richgriditem .richgrid-item-content {
   background: #fff;
 }
 
-richgriditem[selected="true"] .richgrid-item-content {
+richgriditem[selected] .richgrid-item-content {
   border: @metro_border_xthick@ solid @selected_color@;
   padding: @metro_spacing_xxsmall@;
 }
@@ -485,20 +485,20 @@ richgriditem .richgrid-icon-box {
 }
 
 
-richgriditem[customColorPresent="true"] {
+richgriditem[customColor] {
   color: #f1f1f1;
 }
-richgriditem[customImagePresent] {
+richgriditem[customImage] {
   color: #1a1a1a;
 }
 
 
-richgriditem[customColorPresent="true"] .richgrid-icon-box {
+richgriditem[customColor] .richgrid-icon-box {
   opacity: 0.8;
   background-color: #fff;
 }
 
-.richgrid-item-content[customImagePresent] {
+.richgrid-item-content[customImage] {
   height: 120px;
   width: 200px;
   background-size: cover;
@@ -509,7 +509,7 @@ richgriditem[customColorPresent="true"] .richgrid-icon-box {
 }
 
 /* hide icon if there is an image background */
-.richgrid-icon-container[customImagePresent] {
+.richgrid-icon-container[customImage] {
   visibility: collapse;
 }
 
@@ -520,7 +520,7 @@ richgriditem[customColorPresent="true"] .richgrid-icon-box {
   padding-left: 0px !important;
 }
 
-.richgrid-item-content[customImagePresent] > .richgrid-item-desc {
+.richgrid-item-content[customImage] > .richgrid-item-desc {
   background: hsla(0,2%,98%,.95);
   /*margin-bottom: 0px;
   margin-right: 0px;*/

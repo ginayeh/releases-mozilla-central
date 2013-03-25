@@ -338,9 +338,6 @@ IonBuilder::build()
             ins->setResumePoint(current->entryResumePoint());
     }
 
-    // Recompile to inline calls if this function is hot.
-    insertRecompileCheck();
-
     if (script()->argumentsHasVarBinding()) {
         lazyArguments_ = MConstant::New(MagicValue(JS_OPTIMIZED_ARGUMENTS));
         current->add(lazyArguments_);
@@ -763,12 +760,9 @@ IonBuilder::inspectOpcode(JSOp op)
         return true;
 
     switch (op) {
-      case JSOP_LOOPENTRY:
-        insertRecompileCheck();
-        return true;
-
       case JSOP_NOP:
       case JSOP_LINENO:
+      case JSOP_LOOPENTRY:
         return true;
 
       case JSOP_LABEL:
@@ -2947,18 +2941,26 @@ IonBuilder::inlineScriptedCall(HandleFunction target, CallInfo &callInfo)
     if (!oracle.init(cx, calleeScript))
         return false;
 
+    // Copy the CallInfo as the addTypeBarrier is mutating it.
+    bool argsBarrier = callInfo.argsBarrier();
+    CallInfo clonedCallInfo(cx, callInfo.constructing());
+    CallInfo &thisCall = argsBarrier ? clonedCallInfo : callInfo;
+
     // Add exclude type barriers.
-    if (callInfo.argsBarrier()) {
-        addTypeBarrier(0, callInfo, oracle.thisTypeSet(calleeScript));
-        int32_t max = (callInfo.argc() < target->nargs) ? callInfo.argc() : target->nargs;
+    if (argsBarrier) {
+        if (!thisCall.init(callInfo))
+            return false;
+
+        addTypeBarrier(0, thisCall, oracle.thisTypeSet(calleeScript));
+        int32_t max = (thisCall.argc() < target->nargs) ? thisCall.argc() : target->nargs;
         for (int32_t i = 1; i <= max; i++)
-            addTypeBarrier(i, callInfo, oracle.parameterTypeSet(calleeScript, i - 1));
+            addTypeBarrier(i, thisCall, oracle.parameterTypeSet(calleeScript, i - 1));
     }
 
     // Start inlining.
     LifoAlloc *alloc = GetIonContext()->temp->lifoAlloc();
     CompileInfo *info = alloc->new_<CompileInfo>(calleeScript.get(), target,
-                                                 (jsbytecode *)NULL, callInfo.constructing(),
+                                                 (jsbytecode *)NULL, thisCall.constructing(),
                                                  SequentialExecution);
     if (!info)
         return false;
@@ -2968,7 +2970,7 @@ IonBuilder::inlineScriptedCall(HandleFunction target, CallInfo &callInfo)
 
     // Build the graph.
     IonBuilder inlineBuilder(cx, &temp(), &graph(), &oracle, info, inliningDepth_ + 1, loopDepth_);
-    if (!inlineBuilder.buildInline(this, outerResumePoint, callInfo)) {
+    if (!inlineBuilder.buildInline(this, outerResumePoint, thisCall)) {
         JS_ASSERT(calleeScript->hasAnalysis());
 
         // Inlining the callee failed. Disable inlining the function
@@ -2996,7 +2998,7 @@ IonBuilder::inlineScriptedCall(HandleFunction target, CallInfo &callInfo)
 
     // Accumulate return values.
     MIRGraphExits &exits = *inlineBuilder.graph().exitAccumulator();
-    MDefinition *retvalDefn = patchInlinedReturns(callInfo, exits, returnBlock);
+    MDefinition *retvalDefn = patchInlinedReturns(thisCall, exits, returnBlock);
     if (!retvalDefn)
         return false;
     returnBlock->push(retvalDefn);
@@ -3066,6 +3068,16 @@ IonBuilder::addTypeBarrier(uint32_t i, CallInfo &callinfo, types::StackTypeSet *
     if (needsBarrier) {
         MTypeBarrier *barrier = MTypeBarrier::New(ins, cloneTypeSet(calleeObs), Bailout_Normal);
         current->add(barrier);
+
+        // Non-matching types are boxed such as the MIRType does not conflict
+        // with the inferred type.
+        if (callerObs->getKnownTypeTag() != calleeObs->getKnownTypeTag() &&
+            ins->type() != MIRType_Value)
+        {
+            MBox *box = MBox::New(ins);
+            current->add(box);
+            ins = box;
+        }
     }
 
     if (i == 0)
@@ -4475,7 +4487,10 @@ IonBuilder::jsop_eval(uint32_t argc)
         MInstruction *ins = MCallDirectEval::New(scopeChain, string, thisValue);
         current->add(ins);
         current->push(ins);
-        return resumeAfter(ins);
+
+        types::StackTypeSet *barrier;
+        types::StackTypeSet *types = oracle->returnTypeSet(script(), pc, &barrier);
+        return resumeAfter(ins) && pushTypeBarrier(ins, types, barrier);
     }
 
     return jsop_call(argc, /* constructing = */ false);
@@ -4973,29 +4988,6 @@ IonBuilder::maybeInsertResume()
     current->add(ins);
 
     return resumeAfter(ins);
-}
-
-void
-IonBuilder::insertRecompileCheck()
-{
-    if (!inliningEnabled())
-        return;
-
-    if (inliningDepth_ > 0)
-        return;
-
-    // Don't recompile if we are already inlining.
-    if (script()->getUseCount() >= js_IonOptions.usesBeforeInlining())
-        return;
-
-    // Don't recompile if the oracle cannot provide inlining information
-    // or if the script has no calls.
-    if (!oracle->canInlineCalls())
-        return;
-
-    uint32_t minUses = UsesBeforeIonRecompile(script(), pc);
-    MRecompileCheck *check = MRecompileCheck::New(minUses);
-    current->add(check);
 }
 
 static inline bool
@@ -5672,6 +5664,11 @@ IonBuilder::getTypedArrayElements(MDefinition *obj)
     if (obj->isConstant() && obj->toConstant()->value().isObject()) {
         JSObject *array = &obj->toConstant()->value().toObject();
         void *data = TypedArray::viewData(array);
+
+        // The 'data' pointer can change in rare circumstances
+        // (ArrayBufferObject::changeContents).
+        types::HeapTypeSet::WatchObjectStateChange(cx, array->getType(cx));
+
         obj->setFoldedUnchecked();
         return MConstantElements::New(data);
     }
@@ -6924,6 +6921,11 @@ bool
 IonBuilder::jsop_lambda(JSFunction *fun)
 {
     JS_ASSERT(script()->analysis()->usesScopeChain());
+    if (fun->isArrow())
+        return abort("bound arrow function");
+    if (fun->isNative() && IsAsmJSModuleNative(fun->native()))
+        return abort("asm.js module function");
+
     MLambda *ins = MLambda::New(current->scopeChain(), fun);
     current->add(ins);
     current->push(ins);
@@ -6957,6 +6959,8 @@ bool
 IonBuilder::jsop_deffun(uint32_t index)
 {
     RootedFunction fun(cx, script()->getFunction(index));
+    if (fun->isNative() && IsAsmJSModuleNative(fun->native()))
+        return abort("asm.js module function");
 
     JS_ASSERT(script()->analysis()->usesScopeChain());
 

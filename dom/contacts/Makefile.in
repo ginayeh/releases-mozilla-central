@@ -13,11 +13,9 @@ include $(DEPTH)/config/autoconf.mk
 
 VPATH += $(srcdir)/fallback
 
-MODULE         = dom
 LIBRARY_NAME   = jsdomcontacts_s
 LIBXUL_LIBRARY = 1
 
-GRE_MODULE     = 1
 
 EXTRA_COMPONENTS =        \
   ContactManager.js       \

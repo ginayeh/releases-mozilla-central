@@ -53,43 +53,37 @@ class XPCShellRunner(MozbuildObject):
                 keep_going=keep_going, shuffle=shuffle)
             return
 
-        test_src_file = self.get_src_path(test_file)
-        test_src_dir = test_src_file if os.path.isdir(test_src_file) \
-            else mozpack.path.dirname(test_src_file)
+        path_arg = self._wrap_path_argument(test_file)
 
-        relative_dir = mozpack.path.relpath(test_src_dir, self.topsrcdir)
+        test_obj_dir = os.path.join(self.topobjdir, '_tests', 'xpcshell',
+            path_arg.relpath())
+        if os.path.isfile(test_obj_dir):
+            test_obj_dir = mozpack.path.dirname(test_obj_dir)
 
-        test_obj_dir = mozpack.path.join(self.topobjdir, '_tests', 'xpcshell',
-                relative_dir)
+        xpcshell_dirs = []
+        for base, dirs, files in os.walk(test_obj_dir):
+          if os.path.exists(mozpack.path.join(base, 'xpcshell.ini')):
+            xpcshell_dirs.append(base)
 
-        xpcshell_ini_file = mozpack.path.join(test_obj_dir, 'xpcshell.ini')
-        if not os.path.exists(xpcshell_ini_file):
+        if not xpcshell_dirs:
             raise InvalidTestPathError('An xpcshell.ini could not be found '
                 'for the passed test path. Please select a path whose '
-                'directory contains an xpcshell.ini file. It is possible you '
-                'received this error because the tree is not built or tests '
-                'are not enabled.')
+                'directory or subdirectories contain an xpcshell.ini file. '
+                'It is possible you received this error because the tree is '
+                'not built or tests are not enabled.')
 
         args = {
             'debug': debug,
             'interactive': interactive,
             'keep_going': keep_going,
             'shuffle': shuffle,
-            'test_dirs': [test_obj_dir],
+            'test_dirs': xpcshell_dirs,
         }
 
-        if os.path.isfile(test_src_file):
-            args['test_path'] = mozpack.path.basename(test_src_file)
+        if os.path.isfile(path_arg.srcdir_path()):
+            args['test_path'] = mozpack.path.basename(path_arg.srcdir_path())
 
         return self._run_xpcshell_harness(**args)
-
-    def get_src_path(self, test_file):
-        """Returns the absolute path to test_file within topsrcdir."""
-        test_file = mozpack.path.normsep(test_file)
-        topsrcdir = mozpack.path.normsep(self.topsrcdir)
-        if test_file.startswith(topsrcdir):
-            return test_file
-        return mozpack.path.join(topsrcdir, test_file)
 
     def _run_xpcshell_harness(self, test_dirs=None, manifest=None,
         test_path=None, debug=False, shuffle=False, interactive=False,

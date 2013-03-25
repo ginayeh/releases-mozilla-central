@@ -266,6 +266,21 @@ IteratorMore(JSContext *cx, HandleObject obj, JSBool *res)
     return true;
 }
 
+JSObject *
+NewInitParallelArray(JSContext *cx, HandleObject templateObject)
+{
+    JS_ASSERT(templateObject->getClass() == &ParallelArrayObject::class_);
+    JS_ASSERT(!templateObject->hasSingletonType());
+
+    RootedObject obj(cx, ParallelArrayObject::newInstance(cx));
+    if (!obj)
+        return NULL;
+
+    obj->setType(templateObject->type());
+
+    return obj;
+}
+
 JSObject*
 NewInitArray(JSContext *cx, uint32_t count, types::TypeObject *typeArg)
 {
@@ -493,8 +508,12 @@ CreateThis(JSContext *cx, HandleObject callee, MutableHandleValue rval)
 
     if (callee->isFunction()) {
         JSFunction *fun = callee->toFunction();
-        if (fun->isInterpreted())
+        if (fun->isInterpreted()) {
+            JSScript *script = fun->getOrCreateScript(cx);
+            if (!script || !script->ensureHasTypes(cx))
+                return false;
             rval.set(ObjectValue(*CreateThisForFunction(cx, callee, false)));
+        }
     }
 
     return true;

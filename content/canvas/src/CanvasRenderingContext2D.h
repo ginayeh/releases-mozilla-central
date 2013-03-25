@@ -11,7 +11,7 @@
 #include "mozilla/RefPtr.h"
 #include "nsColor.h"
 #include "mozilla/dom/HTMLCanvasElement.h"
-#include "nsHTMLVideoElement.h"
+#include "mozilla/dom/HTMLVideoElement.h"
 #include "CanvasUtils.h"
 #include "gfxFont.h"
 #include "mozilla/ErrorResult.h"
@@ -716,7 +716,7 @@ protected:
   static const uint32_t kCanvasMaxInvalidateCount = 100;
 
 
-#ifdef USE_SKIA
+#ifdef USE_SKIA_GPU
   nsRefPtr<gl::GLContext> mGLContext;
 #endif
 

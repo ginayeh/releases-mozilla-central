@@ -10,7 +10,5 @@ VPATH           = @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-MODULE = pipnss
-GRE_MODULE	= 1
 
 include $(topsrcdir)/config/rules.mk

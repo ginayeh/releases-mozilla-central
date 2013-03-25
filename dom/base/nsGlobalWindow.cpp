@@ -211,6 +211,10 @@
 
 #include "mozilla/dom/StructuredCloneTags.h"
 
+#ifdef MOZ_GAMEPAD
+#include "mozilla/dom/GamepadService.h"
+#endif
+
 #include "nsRefreshDriver.h"
 #include "mozAutoDocUpdate.h"
 
@@ -525,42 +529,57 @@ public:
     return true;
   }
 
-  virtual bool finalizeInBackground(JS::HandleValue priv) {
+  virtual bool finalizeInBackground(JS::Value priv) {
     return false;
   }
 
-  virtual JSString *obj_toString(JSContext *cx, JSObject *wrapper) MOZ_OVERRIDE;
+  virtual JSString *obj_toString(JSContext *cx,
+                                 JS::Handle<JSObject*> wrapper) MOZ_OVERRIDE;
   virtual void finalize(JSFreeOp *fop, JSObject *proxy) MOZ_OVERRIDE;
 
   // Fundamental traps
-  virtual bool getPropertyDescriptor(JSContext* cx, JSObject* proxy,
-                                     jsid id, JSPropertyDescriptor* desc,
+  virtual bool getPropertyDescriptor(JSContext* cx,
+                                     JS::Handle<JSObject*> proxy,
+                                     JS::Handle<jsid> id,
+                                     JSPropertyDescriptor* desc,
                                      unsigned flags) MOZ_OVERRIDE;
-  virtual bool getOwnPropertyDescriptor(JSContext* cx, JSObject* proxy,
-                                        jsid id, JSPropertyDescriptor* desc,
+  virtual bool getOwnPropertyDescriptor(JSContext* cx,
+                                        JS::Handle<JSObject*> proxy,
+                                        JS::Handle<jsid> id,
+                                        JSPropertyDescriptor* desc,
                                         unsigned flags) MOZ_OVERRIDE;
-  virtual bool defineProperty(JSContext* cx, JSObject* proxy,
-                              jsid id, JSPropertyDescriptor* desc) MOZ_OVERRIDE;
-  virtual bool getOwnPropertyNames(JSContext *cx, JSObject *proxy,
+  virtual bool defineProperty(JSContext* cx,
+                              JS::Handle<JSObject*> proxy,
+                              JS::Handle<jsid> id,
+                              JSPropertyDescriptor* desc) MOZ_OVERRIDE;
+  virtual bool getOwnPropertyNames(JSContext *cx,
+                                   JS::Handle<JSObject*> proxy,
                                    JS::AutoIdVector &props) MOZ_OVERRIDE;
-  virtual bool delete_(JSContext *cx, JSObject *proxy, jsid id,
+  virtual bool delete_(JSContext *cx, JS::Handle<JSObject*> proxy,
+                       JS::Handle<jsid> id,
                        bool *bp) MOZ_OVERRIDE;
-  virtual bool enumerate(JSContext *cx, JSObject *proxy,
+  virtual bool enumerate(JSContext *cx, JS::Handle<JSObject*> proxy,
                          JS::AutoIdVector &props) MOZ_OVERRIDE;
 
   // Derived traps
-  virtual bool has(JSContext *cx, JSObject *proxy, jsid id,
-                   bool *bp) MOZ_OVERRIDE;
-  virtual bool hasOwn(JSContext *cx, JSObject *proxy, jsid id,
-                      bool *bp) MOZ_OVERRIDE;
-  virtual bool get(JSContext *cx, JSObject *wrapper, JSObject *receiver,
-                   jsid id, JS::Value *vp) MOZ_OVERRIDE;
-  virtual bool set(JSContext *cx, JSObject *proxy, JSObject *receiver,
-                   jsid id, bool strict, JS::Value *vp) MOZ_OVERRIDE;
-  virtual bool keys(JSContext *cx, JSObject *proxy,
+  virtual bool has(JSContext *cx, JS::Handle<JSObject*> proxy,
+                   JS::Handle<jsid> id, bool *bp) MOZ_OVERRIDE;
+  virtual bool hasOwn(JSContext *cx, JS::Handle<JSObject*> proxy,
+                      JS::Handle<jsid> id, bool *bp) MOZ_OVERRIDE;
+  virtual bool get(JSContext *cx, JS::Handle<JSObject*> proxy,
+                   JS::Handle<JSObject*> receiver,
+                   JS::Handle<jsid> id,
+                   JS::MutableHandle<JS::Value> vp) MOZ_OVERRIDE;
+  virtual bool set(JSContext *cx, JS::Handle<JSObject*> proxy,
+                   JS::Handle<JSObject*> receiver,
+                   JS::Handle<jsid> id,
+                   bool strict,
+                   JS::MutableHandle<JS::Value> vp) MOZ_OVERRIDE;
+  virtual bool keys(JSContext *cx, JS::Handle<JSObject*> proxy,
                     JS::AutoIdVector &props) MOZ_OVERRIDE;
-  virtual bool iterate(JSContext *cx, JSObject *proxy, unsigned flags,
-                       JS::Value *vp) MOZ_OVERRIDE;
+  virtual bool iterate(JSContext *cx, JS::Handle<JSObject*> proxy,
+                       unsigned flags,
+                       JS::MutableHandle<JS::Value> vp) MOZ_OVERRIDE;
 
   static nsOuterWindowProxy singleton;
 
@@ -588,7 +607,7 @@ protected:
 
 
 JSString *
-nsOuterWindowProxy::obj_toString(JSContext *cx, JSObject *proxy)
+nsOuterWindowProxy::obj_toString(JSContext *cx, JS::Handle<JSObject*> proxy)
 {
     MOZ_ASSERT(js::IsProxy(proxy));
 
@@ -605,8 +624,9 @@ nsOuterWindowProxy::finalize(JSFreeOp *fop, JSObject *proxy)
 }
 
 bool
-nsOuterWindowProxy::getPropertyDescriptor(JSContext* cx, JSObject* proxy,
-                                          jsid id,
+nsOuterWindowProxy::getPropertyDescriptor(JSContext* cx,
+                                          JS::Handle<JSObject*> proxy,
+                                          JS::Handle<jsid> id,
                                           JSPropertyDescriptor* desc,
                                           unsigned flags)
 {
@@ -626,8 +646,9 @@ nsOuterWindowProxy::getPropertyDescriptor(JSContext* cx, JSObject* proxy,
 }
 
 bool
-nsOuterWindowProxy::getOwnPropertyDescriptor(JSContext* cx, JSObject* proxy,
-                                             jsid id,
+nsOuterWindowProxy::getOwnPropertyDescriptor(JSContext* cx,
+                                             JS::Handle<JSObject*> proxy,
+                                             JS::Handle<jsid> id,
                                              JSPropertyDescriptor* desc,
                                              unsigned flags)
 {
@@ -645,8 +666,10 @@ nsOuterWindowProxy::getOwnPropertyDescriptor(JSContext* cx, JSObject* proxy,
 }
 
 bool
-nsOuterWindowProxy::defineProperty(JSContext* cx, JSObject* proxy,
-                                   jsid id, JSPropertyDescriptor* desc)
+nsOuterWindowProxy::defineProperty(JSContext* cx,
+                                   JS::Handle<JSObject*> proxy,
+                                   JS::Handle<jsid> id,
+                                   JSPropertyDescriptor* desc)
 {
   int32_t index = GetArrayIndexFromId(cx, id);
   if (IsArrayIndex(index)) {
@@ -661,7 +684,8 @@ nsOuterWindowProxy::defineProperty(JSContext* cx, JSObject* proxy,
 }
 
 bool
-nsOuterWindowProxy::getOwnPropertyNames(JSContext *cx, JSObject *proxy,
+nsOuterWindowProxy::getOwnPropertyNames(JSContext *cx,
+                                        JS::Handle<JSObject*> proxy,
                                         JS::AutoIdVector &props)
 {
   // Just our indexed stuff followed by our "normal" own property names.
@@ -677,8 +701,8 @@ nsOuterWindowProxy::getOwnPropertyNames(JSContext *cx, JSObject *proxy,
 }
 
 bool
-nsOuterWindowProxy::delete_(JSContext *cx, JSObject *proxy, jsid id,
-                            bool *bp)
+nsOuterWindowProxy::delete_(JSContext *cx, JS::Handle<JSObject*> proxy,
+                            JS::Handle<jsid> id, bool *bp)
 {
   if (nsCOMPtr<nsIDOMWindow> frame = GetSubframeWindow(cx, proxy, id)) {
     // Reject (which means throw if strict, else return false) the delete.
@@ -698,7 +722,7 @@ nsOuterWindowProxy::delete_(JSContext *cx, JSObject *proxy, jsid id,
 }
 
 bool
-nsOuterWindowProxy::enumerate(JSContext *cx, JSObject *proxy,
+nsOuterWindowProxy::enumerate(JSContext *cx, JS::Handle<JSObject*> proxy,
                               JS::AutoIdVector &props)
 {
   // Just our indexed stuff followed by our "normal" own property names.
@@ -714,7 +738,8 @@ nsOuterWindowProxy::enumerate(JSContext *cx, JSObject *proxy,
 }
 
 bool
-nsOuterWindowProxy::has(JSContext *cx, JSObject *proxy, jsid id, bool *bp)
+nsOuterWindowProxy::has(JSContext *cx, JS::Handle<JSObject*> proxy,
+                        JS::Handle<jsid> id, bool *bp)
 {
   if (nsCOMPtr<nsIDOMWindow> frame = GetSubframeWindow(cx, proxy, id)) {
     *bp = true;
@@ -725,7 +750,8 @@ nsOuterWindowProxy::has(JSContext *cx, JSObject *proxy, jsid id, bool *bp)
 }
 
 bool
-nsOuterWindowProxy::hasOwn(JSContext *cx, JSObject *proxy, jsid id, bool *bp)
+nsOuterWindowProxy::hasOwn(JSContext *cx, JS::Handle<JSObject*> proxy,
+                           JS::Handle<jsid> id, bool *bp)
 {
   if (nsCOMPtr<nsIDOMWindow> frame = GetSubframeWindow(cx, proxy, id)) {
     *bp = true;
@@ -736,17 +762,19 @@ nsOuterWindowProxy::hasOwn(JSContext *cx, JSObject *proxy, jsid id, bool *bp)
 }
 
 bool
-nsOuterWindowProxy::get(JSContext *cx, JSObject *wrapper, JSObject *receiver,
-                        jsid id, JS::Value *vp)
+nsOuterWindowProxy::get(JSContext *cx, JS::Handle<JSObject*> proxy,
+                        JS::Handle<JSObject*> receiver,
+                        JS::Handle<jsid> id,
+                        JS::MutableHandle<JS::Value> vp)
 {
   if (id == nsDOMClassInfo::sWrappedJSObject_id &&
       xpc::AccessCheck::isChrome(js::GetContextCompartment(cx))) {
-    *vp = JS::ObjectValue(*wrapper);
+    vp.set(JS::ObjectValue(*proxy));
     return true;
   }
 
   bool found;
-  if (!GetSubframeWindow(cx, wrapper, id, vp, found)) {
+  if (!GetSubframeWindow(cx, proxy, id, vp.address(), found)) {
     return false;
   }
   if (found) {
@@ -754,12 +782,15 @@ nsOuterWindowProxy::get(JSContext *cx, JSObject *wrapper, JSObject *receiver,
   }
   // Else fall through to js::Wrapper
 
-  return js::Wrapper::get(cx, wrapper, receiver, id, vp);
+  return js::Wrapper::get(cx, proxy, receiver, id, vp);
 }
 
 bool
-nsOuterWindowProxy::set(JSContext *cx, JSObject *proxy, JSObject *receiver,
-                        jsid id, bool strict, JS::Value *vp)
+nsOuterWindowProxy::set(JSContext *cx, JS::Handle<JSObject*> proxy,
+                        JS::Handle<JSObject*> receiver,
+                        JS::Handle<jsid> id,
+                        bool strict,
+                        JS::MutableHandle<JS::Value> vp)
 {
   int32_t index = GetArrayIndexFromId(cx, id);
   if (IsArrayIndex(index)) {
@@ -774,7 +805,7 @@ nsOuterWindowProxy::set(JSContext *cx, JSObject *proxy, JSObject *receiver,
 }
 
 bool
-nsOuterWindowProxy::keys(JSContext *cx, JSObject *proxy,
+nsOuterWindowProxy::keys(JSContext *cx, JS::Handle<JSObject*> proxy,
                          JS::AutoIdVector &props)
 {
   // BaseProxyHandler::keys seems to do what we want here: call
@@ -783,8 +814,8 @@ nsOuterWindowProxy::keys(JSContext *cx, JSObject *proxy,
 }
 
 bool
-nsOuterWindowProxy::iterate(JSContext *cx, JSObject *proxy, unsigned flags,
-                            JS::Value *vp)
+nsOuterWindowProxy::iterate(JSContext *cx, JS::Handle<JSObject*> proxy,
+                            unsigned flags, JS::MutableHandle<JS::Value> vp)
 {
   // BaseProxyHandler::iterate seems to do what we want here: fall
   // back on the property names returned from keys() and enumerate().
@@ -854,13 +885,14 @@ class nsChromeOuterWindowProxy : public nsOuterWindowProxy
 public:
   nsChromeOuterWindowProxy() : nsOuterWindowProxy() {}
 
-  virtual JSString *obj_toString(JSContext *cx, JSObject *wrapper);
+  virtual JSString *obj_toString(JSContext *cx, JS::Handle<JSObject*> wrapper);
 
   static nsChromeOuterWindowProxy singleton;
 };
 
 JSString *
-nsChromeOuterWindowProxy::obj_toString(JSContext *cx, JSObject *proxy)
+nsChromeOuterWindowProxy::obj_toString(JSContext *cx,
+                                       JS::Handle<JSObject*> proxy)
 {
     MOZ_ASSERT(js::IsProxy(proxy));
 
@@ -921,6 +953,10 @@ nsGlobalWindow::nsGlobalWindow(nsGlobalWindow *aOuterWindow)
 #endif
     mShowFocusRingForContent(false),
     mFocusByKeyOccurred(false),
+    mHasGamepad(false),
+#ifdef MOZ_GAMEPAD
+    mHasSeenGamepadInput(false),
+#endif
     mNotifiedIDDestroyed(false),
     mAllowScriptsToClose(false),
     mTimeoutInsertionPoint(nullptr),
@@ -940,6 +976,10 @@ nsGlobalWindow::nsGlobalWindow(nsGlobalWindow *aOuterWindow)
     mDialogsPermanentlyDisabled(false)
 {
   nsLayoutStatics::AddRef();
+
+#ifdef MOZ_GAMEPAD
+  mGamepads.Init();
+#endif
 
   // Initialize the PRCList (this).
   PR_INIT_CLIST(this);
@@ -1287,6 +1327,9 @@ nsGlobalWindow::CleanUp(bool aIgnoreModalDialog)
   if (inner) {
     inner->CleanUp(aIgnoreModalDialog);
   }
+
+  DisableGamepadUpdates();
+  mHasGamepad = false;
 
   if (mCleanMessageManager) {
     NS_ABORT_IF_FALSE(mIsChrome, "only chrome should have msg manager cleaned");
@@ -1949,12 +1992,23 @@ CreateNativeGlobalForInner(JSContext* aCx,
   MOZ_ASSERT(aNativeGlobal);
   MOZ_ASSERT(aHolder);
 
+  nsGlobalWindow *top = NULL;
+  if (aNewInner->GetOuterWindow()) {
+    top = aNewInner->GetTop();
+  }
+  JS::ZoneSpecifier zoneSpec = JS::FreshZone;
+  if (top) {
+    if (top->GetGlobalJSObject()) {
+      zoneSpec = JS::SameZoneAs(top->GetGlobalJSObject());
+    }
+  }
+
   nsIXPConnect* xpc = nsContentUtils::XPConnect();
 
   nsRefPtr<nsIXPConnectJSObjectHolder> jsholder;
   nsresult rv = xpc->InitClassesWithNewWrappedGlobal(
     aCx, ToSupports(aNewInner),
-    aPrincipal, 0, getter_AddRefs(jsholder));
+    aPrincipal, 0, zoneSpec, getter_AddRefs(jsholder));
   NS_ENSURE_SUCCESS(rv, rv);
 
   MOZ_ASSERT(jsholder);
@@ -2323,9 +2377,7 @@ nsGlobalWindow::SetNewDocument(nsIDocument* aDocument,
   // alive etc.
 
   if ((!reUseInnerWindow || aDocument != oldDoc) && !aState) {
-    nsCOMPtr<nsIHTMLDocument> html_doc(do_QueryInterface(mDocument));
-    nsWindowSH::InstallGlobalScopePolluter(cx, newInnerWindow->mJSObject,
-                                           html_doc);
+    nsWindowSH::InstallGlobalScopePolluter(cx, newInnerWindow->mJSObject);
   }
 
   aDocument->SetScriptGlobalObject(newInnerWindow);
@@ -2365,7 +2417,7 @@ nsGlobalWindow::SetNewDocument(nsIDocument* aDocument,
     newInnerWindow->mChromeEventHandler = mChromeEventHandler;
   }
 
-  mContext->GC(js::gcreason::SET_NEW_DOCUMENT);
+  mContext->GC(JS::gcreason::SET_NEW_DOCUMENT);
   mContext->DidInitializeContext();
 
   if (newInnerWindow && !newInnerWindow->mHasNotifiedGlobalCreated && mDoc) {
@@ -2560,7 +2612,7 @@ nsGlobalWindow::DetachFromDocShell()
   }
 
   if (mContext) {
-    mContext->GC(js::gcreason::SET_DOC_SHELL);
+    mContext->GC(JS::gcreason::SET_DOC_SHELL);
     mContext = nullptr;
   }
 
@@ -2668,17 +2720,16 @@ nsGlobalWindow::GetIsTabModalPromptAllowed()
   return allowTabModal;
 }
 
-nsIDOMEventTarget*
+EventTarget*
 nsGlobalWindow::GetTargetForDOMEvent()
 {
-  return static_cast<nsIDOMEventTarget*>(GetOuterWindowInternal());
+  return GetOuterWindowInternal();
 }
 
-nsIDOMEventTarget*
+EventTarget*
 nsGlobalWindow::GetTargetForEventTargetChain()
 {
-  return IsInnerWindow() ?
-    this : static_cast<nsIDOMEventTarget*>(GetCurrentInnerWindowInternal());
+  return IsInnerWindow() ? this : GetCurrentInnerWindowInternal();
 }
 
 nsresult
@@ -3766,11 +3817,9 @@ nsGlobalWindow::GetName(nsAString& aName)
 {
   FORWARD_TO_OUTER(GetName, (aName), NS_ERROR_NOT_INITIALIZED);
 
-  nsXPIDLString name;
   if (mDocShell)
-    mDocShell->GetName(getter_Copies(name));
+    mDocShell->GetName(aName);
 
-  aName.Assign(name);
   return NS_OK;
 }
 
@@ -3781,7 +3830,7 @@ nsGlobalWindow::SetName(const nsAString& aName)
 
   nsresult result = NS_OK;
   if (mDocShell)
-    result = mDocShell->SetName(PromiseFlatString(aName).get());
+    result = mDocShell->SetName(aName);
   return result;
 }
 
@@ -4625,6 +4674,23 @@ nsGlobalWindow::GetLength(uint32_t* aLength)
 {
   *aLength = GetLength();
   return NS_OK;
+}
+
+already_AddRefed<nsIDOMWindow>
+nsGlobalWindow::GetChildWindow(jsid aName)
+{
+  const jschar *chars = JS_GetInternedStringChars(JSID_TO_STRING(aName));
+
+  nsCOMPtr<nsIDocShellTreeNode> dsn(do_QueryInterface(GetDocShell()));
+  NS_ENSURE_TRUE(dsn, nullptr);
+
+  nsCOMPtr<nsIDocShellTreeItem> child;
+  dsn->FindChildWithName(reinterpret_cast<const PRUnichar*>(chars),
+                         false, true, nullptr, nullptr,
+                         getter_AddRefs(child));
+
+  nsCOMPtr<nsIDOMWindow> child_win(do_GetInterface(child));
+  return child_win.forget();
 }
 
 bool
@@ -6304,20 +6370,48 @@ JSObject* nsGlobalWindow::CallerGlobal()
     return nullptr;
   }
 
-  return JS_GetScriptedGlobal(cx);
+  // If somebody does sameOriginIframeWindow.postMessage(...), they probably
+  // expect the .source attribute of the resulting message event to be |window|
+  // rather than |sameOriginIframeWindow|, even though the transparent wrapper
+  // semantics of same-origin access will cause us to be in the iframe's cx at
+  // the time of the call. So we do some nasty poking in the JS engine and
+  // retrieve the global corresponding to the innermost scripted frame. Then,
+  // we verify that its principal is subsumed by the subject principal. If it
+  // isn't, something is screwy, and we want to clamp to the cx global.
+  JSObject *scriptedGlobal = JS_GetScriptedGlobal(cx);
+  JSObject *cxGlobal = JS_GetGlobalForScopeChain(cx);
+  if (!xpc::AccessCheck::subsumes(cxGlobal, scriptedGlobal)) {
+    NS_WARNING("Something nasty is happening! Applying countermeasures...");
+    return cxGlobal;
+  }
+  return scriptedGlobal;
 }
+
 
 nsGlobalWindow*
 nsGlobalWindow::CallerInnerWindow()
 {
   JSContext *cx = nsContentUtils::GetCurrentJSContext();
-  if (!cx) {
-    NS_ERROR("Please don't call this method from C++!");
-
-    return nullptr;
-  }
-
+  NS_ENSURE_TRUE(cx, nullptr);
   JSObject *scope = CallerGlobal();
+
+  // When Jetpack runs content scripts inside a sandbox, it uses
+  // sandboxPrototype to make them appear as though they're running in the
+  // scope of the page. So when a content script invokes postMessage, it expects
+  // the |source| of the received message to be the window set as the
+  // sandboxPrototype. This used to work incidentally for unrelated reasons, but
+  // now we need to do some special handling to support it.
+  {
+    JSAutoCompartment ac(cx, scope);
+    JSObject *scopeProto;
+    bool ok = JS_GetPrototype(cx, scope, &scopeProto);
+    NS_ENSURE_TRUE(ok, nullptr);
+    if (scopeProto && xpc::IsSandboxPrototypeProxy(scopeProto) &&
+        (scopeProto = js::UnwrapObjectChecked(scopeProto, /* stopAtOuter = */ false)))
+    {
+      scope = scopeProto;
+    }
+  }
   JSAutoCompartment ac(cx, scope);
 
   nsCOMPtr<nsIXPConnectWrappedNative> wrapper;
@@ -7265,7 +7359,7 @@ nsGlobalWindow::GetCachedXBLPrototypeHandler(nsXBLPrototypeHandler* aKey)
 
 void
 nsGlobalWindow::CacheXBLPrototypeHandler(nsXBLPrototypeHandler* aKey,
-                                         nsScriptObjectHolder<JSObject>& aHandler)
+                                         JS::Handle<JSObject*> aHandler)
 {
   if (!mCachedXBLPrototypeHandlers.IsInitialized()) {
     mCachedXBLPrototypeHandlers.Init();
@@ -7287,7 +7381,7 @@ nsGlobalWindow::CacheXBLPrototypeHandler(nsXBLPrototypeHandler* aKey,
     nsContentUtils::HoldJSObjects(thisSupports, participant);
   }
 
-  mCachedXBLPrototypeHandlers.Put(aKey, aHandler.get());
+  mCachedXBLPrototypeHandlers.Put(aKey, aHandler);
 }
 
 /**
@@ -7997,6 +8091,14 @@ void nsGlobalWindow::SetIsBackground(bool aIsBackground)
   if (resetTimers) {
     ResetTimersForNonBackgroundWindow();
   }
+#ifdef MOZ_GAMEPAD
+  if (!aIsBackground) {
+    nsGlobalWindow* inner = GetCurrentInnerWindowInternal();
+    if (inner) {
+      inner->SyncGamepadState();
+    }
+  }
+#endif
 }
 
 void nsGlobalWindow::MaybeUpdateTouchState()
@@ -8037,6 +8139,34 @@ void nsGlobalWindow::UpdateTouchState()
     mainWidget->RegisterTouchWindow();
   } else {
     mainWidget->UnregisterTouchWindow();
+  }
+}
+
+void
+nsGlobalWindow::EnableGamepadUpdates()
+{
+  FORWARD_TO_INNER_VOID(EnableGamepadUpdates, ());
+  if (mHasGamepad) {
+#ifdef MOZ_GAMEPAD
+    nsRefPtr<GamepadService> gamepadsvc(GamepadService::GetService());
+    if (gamepadsvc) {
+      gamepadsvc->AddListener(this);
+    }
+#endif
+  }
+}
+
+void
+nsGlobalWindow::DisableGamepadUpdates()
+{
+  FORWARD_TO_INNER_VOID(DisableGamepadUpdates, ());
+  if (mHasGamepad) {
+#ifdef MOZ_GAMEPAD
+    nsRefPtr<GamepadService> gamepadsvc(GamepadService::GetService());
+    if (gamepadsvc) {
+      gamepadsvc->RemoveListener(this);
+    }
+#endif
   }
 }
 
@@ -10094,11 +10224,11 @@ nsGlobalWindow::RunTimeout(nsTimeout *aTimeout)
   TimeStamp deadline;
 
   if (aTimeout && aTimeout->mWhen > now) {
-    // The OS timer fired early (yikes!), and possibly out of order
-    // too. Set |deadline| to be the time when the OS timer *should*
-    // have fired so that any timers that *should* have fired before
-    // aTimeout *will* be fired now. This happens most of the time on
-    // Win2k.
+    // The OS timer fired early (which can happen due to the timers
+    // having lower precision than TimeStamp does).  Set |deadline| to
+    // be the time when the OS timer *should* have fired so that any
+    // timers that *should* have fired before aTimeout *will* be fired
+    // now.
 
     deadline = aTimeout->mWhen;
   } else {
@@ -10741,6 +10871,7 @@ nsGlobalWindow::SuspendTimeouts(uint32_t aIncrease,
       for (uint32_t i = 0; i < mEnabledSensors.Length(); i++)
         ac->RemoveWindowListener(mEnabledSensors[i], this);
     }
+    DisableGamepadUpdates();
 
     // Suspend all of the workers for this window.
     nsIScriptContext *scx = GetContextInternal();
@@ -10766,6 +10897,11 @@ nsGlobalWindow::SuspendTimeouts(uint32_t aIncrease,
         // timeout.
         t->Release();
       }
+    }
+
+    // Suspend all of the AudioContexts for this window
+    for (uint32_t i = 0; i < mAudioContexts.Length(); ++i) {
+      mAudioContexts[i]->Suspend();
     }
   }
 
@@ -10820,6 +10956,12 @@ nsGlobalWindow::ResumeTimeouts(bool aThawChildren)
     if (ac) {
       for (uint32_t i = 0; i < mEnabledSensors.Length(); i++)
         ac->AddWindowListener(mEnabledSensors[i], this);
+    }
+    EnableGamepadUpdates();
+
+    // Resume all of the AudioContexts for this window
+    for (uint32_t i = 0; i < mAudioContexts.Length(); ++i) {
+      mAudioContexts[i]->Resume();
     }
 
     // Resume all of the workers for this window.
@@ -10972,6 +11114,16 @@ nsGlobalWindow::DisableDeviceSensor(uint32_t aType)
 }
 
 void
+nsGlobalWindow::SetHasGamepadEventListener(bool aHasGamepad/* = true*/)
+{
+  FORWARD_TO_INNER_VOID(SetHasGamepadEventListener, (aHasGamepad));
+  mHasGamepad = aHasGamepad;
+  if (aHasGamepad) {
+    EnableGamepadUpdates();
+  }
+}
+
+void
 nsGlobalWindow::EnableTimeChangeNotifications()
 {
   nsSystemTimeChangeObserver::AddWindowListener(this);
@@ -11035,6 +11187,66 @@ nsGlobalWindow::SizeOfIncludingThis(nsWindowSizes* aWindowSizes) const
       aWindowSizes->mMallocSizeOf);
 }
 
+
+#ifdef MOZ_GAMEPAD
+void
+nsGlobalWindow::AddGamepad(PRUint32 aIndex, nsDOMGamepad* aGamepad)
+{
+  FORWARD_TO_INNER_VOID(AddGamepad, (aIndex, aGamepad));
+  mGamepads.Put(aIndex, aGamepad);
+}
+
+void
+nsGlobalWindow::RemoveGamepad(PRUint32 aIndex)
+{
+  FORWARD_TO_INNER_VOID(RemoveGamepad, (aIndex));
+  mGamepads.Remove(aIndex);
+}
+
+already_AddRefed<nsDOMGamepad>
+nsGlobalWindow::GetGamepad(PRUint32 aIndex)
+{
+  FORWARD_TO_INNER(GetGamepad, (aIndex), nullptr);
+  nsRefPtr<nsDOMGamepad> gamepad;
+  if (mGamepads.Get(aIndex, getter_AddRefs(gamepad))) {
+    return gamepad.forget();
+  }
+
+  return nullptr;
+}
+
+void
+nsGlobalWindow::SetHasSeenGamepadInput(bool aHasSeen)
+{
+  FORWARD_TO_INNER_VOID(SetHasSeenGamepadInput, (aHasSeen));
+  mHasSeenGamepadInput = aHasSeen;
+}
+
+bool
+nsGlobalWindow::HasSeenGamepadInput()
+{
+  FORWARD_TO_INNER(HasSeenGamepadInput, (), false);
+  return mHasSeenGamepadInput;
+}
+
+// static
+PLDHashOperator
+nsGlobalWindow::EnumGamepadsForSync(const PRUint32& aKey, nsDOMGamepad* aData, void* userArg)
+{
+  nsRefPtr<GamepadService> gamepadsvc(GamepadService::GetService());
+  gamepadsvc->SyncGamepadState(aKey, aData);
+  return PL_DHASH_NEXT;
+}
+
+void
+nsGlobalWindow::SyncGamepadState()
+{
+  FORWARD_TO_INNER_VOID(SyncGamepadState, ());
+  if (mHasSeenGamepadInput) {
+    mGamepads.EnumerateRead(EnumGamepadsForSync, NULL);
+  }
+}
+#endif
 // nsGlobalChromeWindow implementation
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(nsGlobalChromeWindow,

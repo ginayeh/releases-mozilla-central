@@ -1169,6 +1169,9 @@ fuzzy(127,2) == 448193.html 448193-ref.html
 # == 448987.html 448987-ref.html  # Disabled for now - it needs privileges
 != 449149-1a.html about:blank
 != 449149-1b.html about:blank
+# Retry the above with our default remote XUL behavior
+test-pref(dom.use_xbl_scopes_for_remote_xul,false) != 449149-1a.html about:blank
+test-pref(dom.use_xbl_scopes_for_remote_xul,false) != 449149-1b.html about:blank
 == 449149-2.html 449149-2-ref.html
 == 449171-1.html 449171-ref.html
 == 449362-1.html 449362-1-ref.html
@@ -1187,9 +1190,9 @@ fuzzy(127,2) == 448193.html 448193-ref.html
 == 455280-1.xhtml 455280-1-ref.xhtml
 skip-if(B2G) == 455826-1.html 455826-1-ref.html
 fails-if(cocoaWidget) == 456147.xul 456147-ref.html # bug 458047
-skip-if(B2G) == 456219-1a.html 456219-1-ref.html
-skip-if(B2G) == 456219-1b.html 456219-1-ref.html
-skip-if(B2G) == 456219-1c.html 456219-1-ref.html
+skip-if(B2G) fuzzy-if(/^Windows\x20NT\x206\.1/.test(http.oscpu),1,1) == 456219-1a.html 456219-1-ref.html # bug 853273
+skip-if(B2G) fuzzy-if(/^Windows\x20NT\x206\.1/.test(http.oscpu),1,1) == 456219-1b.html 456219-1-ref.html # bug 853273
+skip-if(B2G) fuzzy-if(/^Windows\x20NT\x206\.1/.test(http.oscpu),1,1) == 456219-1c.html 456219-1-ref.html # bug 853273
 == 456219-2.html 456219-2-ref.html
 == 456330-1.gif 456330-1-ref.png
 == 456484-1.html 456484-1-ref.html
@@ -1710,7 +1713,7 @@ skip-if(B2G) == 751012-1b.html 751012-1-ref.html
 == 748692-1b.html 748692-1-ref.html
 == 753329-1.html about:blank
 == 758561-1.html 758561-1-ref.html
-fuzzy-if(true,1,19) == 759036-1.html 759036-1-ref.html
+fuzzy-if(true,1,19) fails-if(d2d) == 759036-1.html 759036-1-ref.html
 fuzzy-if(true,17,5859) == 759036-2.html 759036-2-ref.html
 == 776443-1.html 776443-1-ref.html
 == 776443-2.html 776443-2-ref.html

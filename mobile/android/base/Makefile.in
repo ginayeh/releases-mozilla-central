@@ -26,18 +26,19 @@ MOZGLUE_PP_JAVA_FILES := \
   $(NULL)
 
 UTIL_JAVA_FILES := \
-  ActivityResultHandler.java \
-  ActivityResultHandlerMap.java \
-  UiAsyncTask.java \
-  GeckoBackgroundThread.java \
-  GeckoEventListener.java \
-  GeckoEventResponder.java \
-  GeckoJarReader.java \
-  INIParser.java \
-  INISection.java \
+  util/ActivityResultHandler.java \
+  util/ActivityResultHandlerMap.java \
   util/EventDispatcher.java \
   util/FloatUtils.java \
+  util/GeckoBackgroundThread.java \
+  util/GeckoEventListener.java \
+  util/GeckoEventResponder.java \
+  util/GeckoJarReader.java \
+  util/INIParser.java \
+  util/INISection.java \
   util/StringUtils.java \
+  util/ThreadUtils.java \
+  util/UiAsyncTask.java \
   $(NULL)
 
 FENNEC_JAVA_FILES = \
@@ -51,6 +52,7 @@ FENNEC_JAVA_FILES = \
   AndroidImportPreference.java \
   AnimatorProxy.java \
   AnimatedHeightLayout.java \
+  AppNotificationClient.java \
   AwesomeBar.java \
   AwesomebarResultHandler.java \
   AwesomeBarTabs.java \
@@ -118,8 +120,9 @@ FENNEC_JAVA_FILES = \
   MenuPanel.java \
   MenuPopup.java \
   MultiChoicePreference.java \
+  NotificationClient.java \
+  NotificationHandler.java \
   NotificationService.java \
-  NotificationServiceClient.java \
   NSSBridge.java \
   CustomEditText.java \
   OnInterceptTouchListener.java \
@@ -136,6 +139,7 @@ FENNEC_JAVA_FILES = \
   ReaderModeUtils.java \
   RemoteTabs.java \
   RobocopAPI.java \
+  ServiceNotificationClient.java \
   SessionParser.java \
   SetupScreen.java \
   ShapedButton.java \
@@ -153,6 +157,7 @@ FENNEC_JAVA_FILES = \
   TextSelection.java \
   TextSelectionHandle.java \
   ThumbnailHelper.java \
+  VideoPlayer.java \
   WebAppAllocator.java \
   ZoomConstraints.java \
   gfx/Axis.java \
@@ -234,9 +239,7 @@ FENNEC_PP_JAVA_FILES = \
   WebApps.java \
   GeckoActivity.java \
   GeckoAppInfo.java \
-  GeckoAppWidgetProvider.java \
   LauncherShortcuts.java \
-  NotificationHandler.java \
   Restarter.java \
   db/BrowserContract.java \
   db/BrowserProvider.java \
@@ -249,33 +252,6 @@ FENNEC_PP_JAVA_FILES = \
   $(NULL)
 
 FENNEC_PP_XML_FILES = \
-  res/color/abouthome_section_more_text.xml \
-  res/color/abouthome_section_subtitle.xml \
-  res/color/abouthome_section_title.xml \
-  res/color/awesome_bar_title.xml \
-  res/color/awesome_bar_title_hint.xml \
-  res/drawable/abouthome_logo.xml \
-  res/drawable/address_bar_bg.xml \
-  res/drawable/address_bar_nav_button.xml \
-  res/drawable/address_bar_url.xml \
-  res/drawable/menu_item_state.xml \
-  res/drawable/menu_level.xml \
-  res/layout/abouthome_content.xml \
-  res/layout/awesomebar_search.xml \
-  res/layout/awesomebar_suggestion_row.xml \
-  res/layout/awesomebar_tab_indicator.xml \
-  res/layout/browser_toolbar.xml \
-  res/layout/browser_toolbar_menu.xml \
-  res/layout-land-v14/browser_toolbar.xml \
-  res/layout-land-v14/browser_toolbar_menu.xml \
-  res/layout-large-v11/awesomebar_search.xml \
-  res/layout-large-v11/browser_toolbar_menu.xml \
-  res/layout-large-land-v11/tabs_panel.xml \
-  res/layout/gecko_app.xml \
-  res/layout/tabs_panel.xml \
-  res/layout/text_selection_handles.xml \
-  res/layout-xlarge-land-v11/abouthome_content.xml \
-  res/layout-xlarge-v11/awesomebar_search.xml \
   res/xml/preferences.xml \
   res/xml/searchable.xml \
   res/menu/browser_app_menu.xml \
@@ -283,7 +259,6 @@ FENNEC_PP_XML_FILES = \
   res/menu-large-v11/browser_app_menu.xml \
   res/menu-xlarge-v11/browser_app_menu.xml \
   $(NULL)
-
 
 ifneq (,$(findstring -march=armv7,$(OS_CFLAGS)))
 MIN_CPU_VERSION=7
@@ -397,6 +372,7 @@ endif
 
 RES_LAYOUT = \
   $(SYNC_RES_LAYOUT) \
+  res/layout/abouthome_content.xml \
   res/layout/autocomplete_list.xml \
   res/layout/autocomplete_list_item.xml \
   res/layout/awesomebar.xml \
@@ -407,17 +383,22 @@ RES_LAYOUT = \
   res/layout/awesomebar_allpages_list.xml \
   res/layout/awesomebar_list.xml \
   res/layout/awesomebar_row.xml \
+  res/layout/awesomebar_search.xml \
+  res/layout/awesomebar_suggestion_row.xml \
   res/layout/awesomebar_suggestion_item.xml \
   res/layout/awesomebar_suggestion_prompt.xml \
+  res/layout/awesomebar_tab_indicator.xml \
   res/layout/awesomebar_tabs.xml \
   res/layout/bookmark_edit.xml \
+  res/layout/browser_toolbar.xml \
+  res/layout/browser_toolbar_menu.xml \
   res/layout/datetime_picker.xml \
   res/layout/doorhangerpopup.xml \
   res/layout/doorhanger.xml \
   res/layout/doorhanger_button.xml \
   res/layout/find_in_page_content.xml \
   res/layout/font_size_preference.xml \
-  res/layout/gecko_appwidget.xml \
+  res/layout/gecko_app.xml \
   res/layout/web_app.xml \
   res/layout/launch_app_list.xml \
   res/layout/launch_app_listitem.xml \
@@ -434,11 +415,13 @@ RES_LAYOUT = \
   res/layout/site_identity_popup.xml \
   res/layout/remote_tabs_child.xml \
   res/layout/remote_tabs_group.xml \
+  res/layout/tabs_panel.xml \
   res/layout/tabs_counter.xml \
   res/layout/tabs_panel_header.xml \
   res/layout/tabs_panel_indicator.xml \
   res/layout/tabs_item_cell.xml \
   res/layout/tabs_item_row.xml \
+  res/layout/text_selection_handles.xml \
   res/layout/list_item_header.xml \
   res/layout/select_dialog_list.xml \
   res/layout/select_dialog_multichoice.xml \
@@ -448,22 +431,36 @@ RES_LAYOUT = \
   res/layout/abouthome_remote_tab_row.xml \
   res/layout/abouthome_topsite_item.xml \
   res/layout/validation_message.xml \
+  res/layout/videoplayer.xml \
+  $(NULL)
+
+RES_LAYOUT_LAND_V14 = \
+  res/layout-land-v14/browser_toolbar.xml \
+  res/layout-land-v14/browser_toolbar_menu.xml \
   $(NULL)
 
 RES_LAYOUT_LARGE_V11 = \
+  res/layout-large-v11/awesomebar_search.xml \
+  res/layout-large-v11/browser_toolbar_menu.xml \
   res/layout-large-v11/doorhangerpopup.xml \
   res/layout-large-v11/site_identity_popup.xml \
   $(NULL)
 
 RES_LAYOUT_LARGE_LAND_V11 = \
+  res/layout-large-land-v11/tabs_panel.xml \
   res/layout-large-land-v11/tabs_panel_header.xml \
   res/layout-large-land-v11/tabs_panel_footer.xml \
   $(NULL)
 
 RES_LAYOUT_XLARGE_V11 = \
+  res/layout-xlarge-v11/awesomebar_search.xml \
   res/layout-xlarge-v11/font_size_preference.xml \
   res/layout-xlarge-v11/remote_tabs_child.xml \
   res/layout-xlarge-v11/remote_tabs_group.xml \
+  $(NULL)
+
+RES_LAYOUT_XLARGE_LAND_V11 = \
+  res/layout-xlarge-land-v11/abouthome_content.xml \
   $(NULL)
 
 RES_VALUES = \
@@ -518,7 +515,6 @@ RES_VALUES_V14 = \
   $(NULL)
 
 RES_XML = \
-        res/xml/gecko_appwidget_info.xml \
 	$(SYNC_RES_XML) \
 	$(NULL)
 
@@ -549,7 +545,6 @@ RES_DRAWABLE_MDPI = \
   res/drawable-mdpi/alert_addon.png \
   res/drawable-mdpi/alert_app.png \
   res/drawable-mdpi/alert_download.png \
-  res/drawable-mdpi/appwidget_bg.9.png \
   res/drawable-mdpi/autocomplete_list_bg.9.png \
   res/drawable-mdpi/awesomebar_tab_center.9.png \
   res/drawable-mdpi/awesomebar_tab_left.9.png \
@@ -662,7 +657,6 @@ RES_DRAWABLE_HDPI = \
   res/drawable-hdpi/alert_addon.png \
   res/drawable-hdpi/alert_app.png \
   res/drawable-hdpi/alert_download.png \
-  res/drawable-hdpi/appwidget_bg.9.png \
   res/drawable-hdpi/awesomebar_tab_center.9.png \
   res/drawable-hdpi/awesomebar_tab_left.9.png \
   res/drawable-hdpi/awesomebar_tab_right.9.png \
@@ -753,7 +747,6 @@ RES_DRAWABLE_XHDPI = \
   res/drawable-xhdpi/alert_addon.png \
   res/drawable-xhdpi/alert_app.png \
   res/drawable-xhdpi/alert_download.png \
-  res/drawable-xhdpi/appwidget_bg.9.png \
   res/drawable-xhdpi/awesomebar_tab_center.9.png \
   res/drawable-xhdpi/awesomebar_tab_left.9.png \
   res/drawable-xhdpi/awesomebar_tab_right.9.png \
@@ -970,6 +963,11 @@ RES_DRAWABLE_XLARGE_XHDPI_V11 = \
   $(NULL)
 
 RES_COLOR = \
+  res/color/abouthome_section_more_text.xml \
+  res/color/abouthome_section_subtitle.xml \
+  res/color/abouthome_section_title.xml \
+  res/color/awesome_bar_title.xml \
+  res/color/awesome_bar_title_hint.xml \
   res/color/menu_item_title.xml \
   res/color/select_item_multichoice.xml \
   $(NULL)
@@ -991,10 +989,14 @@ endif
 
 MOZ_ANDROID_DRAWABLES += \
   $(SYNC_RES_DRAWABLE)                                                          \
+  mobile/android/base/resources/drawable/abouthome_logo.xml                     \
   mobile/android/base/resources/drawable/abouthome_promo_box.xml                \
   mobile/android/base/resources/drawable/action_bar_button.xml                  \
   mobile/android/base/resources/drawable/action_bar_button_inverse.xml          \
+  mobile/android/base/resources/drawable/address_bar_bg.xml                     \
   mobile/android/base/resources/drawable/address_bar_bg_shadow_repeat.xml       \
+  mobile/android/base/resources/drawable/address_bar_nav_button.xml             \
+  mobile/android/base/resources/drawable/address_bar_url.xml                    \
   mobile/android/base/resources/drawable/awesomebar_row_favicon_bg.xml          \
   mobile/android/base/resources/drawable/awesomebar_tab_indicator.xml           \
   mobile/android/base/resources/drawable/awesomebar_tab_selected.xml            \
@@ -1006,6 +1008,8 @@ MOZ_ANDROID_DRAWABLES += \
   mobile/android/base/resources/drawable/ic_menu_desktop_mode_on.xml            \
   mobile/android/base/resources/drawable/ic_menu_quit.xml                       \
   mobile/android/base/resources/drawable/menu_button.xml                        \
+  mobile/android/base/resources/drawable/menu_item_state.xml                    \
+  mobile/android/base/resources/drawable/menu_level.xml                         \
   mobile/android/base/resources/drawable/progress_spinner.xml                   \
   mobile/android/base/resources/drawable/remote_tabs_child_divider.xml          \
   mobile/android/base/resources/drawable/site_security_level.xml                \
@@ -1021,10 +1025,8 @@ MOZ_ANDROID_DRAWABLES += \
   $(NULL)
 
 MOZ_BRANDING_DRAWABLE_MDPI = $(shell if test -e $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/android-resources.mn; then cat $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/android-resources.mn | tr '\n' ' ';  fi)
-MOZ_BRANDING_DRAWABLE_HDPI = $(shell if test -e $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/android-resources-hdpi.mn; then cat $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/android-resources-hdpi.mn | tr '\n' ' ';  fi)
-MOZ_BRANDING_DRAWABLE_XHDPI = $(shell if test -e $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/android-resources-xhdpi.mn; then cat $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/android-resources-xhdpi.mn | tr '\n' ' ';  fi)
 
-RESOURCES=$(RES_LAYOUT) $(RES_LAYOUT_LARGE_LAND_V11) $(RES_LAYOUT_LARGE_V11) $(RES_LAYOUT_XLARGE_V11) $(RES_VALUES) $(RES_VALUES_LAND) $(RES_VALUES_V11) $(RES_VALUES_LARGE_V11) $(RES_VALUES_LARGE_LAND_V11) $(RES_VALUES_XLARGE_V11) $(RES_VALUES_LAND_V14) $(RES_VALUES_V14) $(RES_XML) $(RES_ANIM) $(RES_DRAWABLE_MDPI) $(RES_DRAWABLE_LDPI) $(RES_DRAWABLE_HDPI) $(RES_DRAWABLE_XHDPI) $(RES_DRAWABLE_MDPI_V11) $(RES_DRAWABLE_HDPI_V11) $(RES_DRAWABLE_XHDPI_V11) $(RES_DRAWABLE_LAND_MDPI_V14) $(RES_DRAWABLE_LAND_HDPI_V14) $(RES_DRAWABLE_LAND_XHDPI_V14) $(RES_DRAWABLE_LARGE_LAND_V11) $(RES_DRAWABLE_LARGE_MDPI_V11) $(RES_DRAWABLE_LARGE_HDPI_V11) $(RES_DRAWABLE_LARGE_XHDPI_V11) $(RES_DRAWABLE_XLARGE_MDPI_V11) $(RES_DRAWABLE_XLARGE_HDPI_V11) $(RES_DRAWABLE_XLARGE_XHDPI_V11) $(RES_COLOR) $(RES_MENU)
+RESOURCES=$(RES_LAYOUT) $(RES_LAYOUT_LAND_V14) $(RES_LAYOUT_LARGE_LAND_V11) $(RES_LAYOUT_LARGE_V11) $(RES_LAYOUT_XLARGE_V11) $(RES_LAYOUT_XLARGE_LAND_V11) $(RES_VALUES) $(RES_VALUES_LAND) $(RES_VALUES_V11) $(RES_VALUES_LARGE_V11) $(RES_VALUES_LARGE_LAND_V11) $(RES_VALUES_XLARGE_V11) $(RES_VALUES_LAND_V14) $(RES_VALUES_V14) $(RES_XML) $(RES_ANIM) $(RES_DRAWABLE_MDPI) $(RES_DRAWABLE_LDPI) $(RES_DRAWABLE_HDPI) $(RES_DRAWABLE_XHDPI) $(RES_DRAWABLE_MDPI_V11) $(RES_DRAWABLE_HDPI_V11) $(RES_DRAWABLE_XHDPI_V11) $(RES_DRAWABLE_LAND_MDPI_V14) $(RES_DRAWABLE_LAND_HDPI_V14) $(RES_DRAWABLE_LAND_XHDPI_V14) $(RES_DRAWABLE_LARGE_LAND_V11) $(RES_DRAWABLE_LARGE_MDPI_V11) $(RES_DRAWABLE_LARGE_HDPI_V11) $(RES_DRAWABLE_LARGE_XHDPI_V11) $(RES_DRAWABLE_XLARGE_MDPI_V11) $(RES_DRAWABLE_XLARGE_HDPI_V11) $(RES_DRAWABLE_XLARGE_XHDPI_V11) $(RES_COLOR) $(RES_MENU)
 
 RES_DIRS= \
   res/layout                    \
@@ -1206,16 +1208,6 @@ $(RES_BRANDING_DRAWABLE_MDPI): $(addprefix $(topsrcdir)/,$(MOZ_BRANDING_DRAWABLE
 	$(NSINSTALL) -D res/drawable-mdpi
 	$(NSINSTALL) $^ res/drawable-mdpi/
 
-RES_BRANDING_DRAWABLE_HDPI = $(addprefix res/drawable-hdpi/,$(notdir $(MOZ_BRANDING_DRAWABLE_HDPI)))
-$(RES_BRANDING_DRAWABLE_HDPI): $(addprefix $(topsrcdir)/,$(MOZ_BRANDING_DRAWABLE_HDPI))
-	$(NSINSTALL) -D res/drawable-hdpi
-	$(NSINSTALL) $^ res/drawable-hdpi/
-
-RES_BRANDING_DRAWABLE_XHDPI = $(addprefix res/drawable-xhdpi/,$(notdir $(MOZ_BRANDING_DRAWABLE_XHDPI)))
-$(RES_BRANDING_DRAWABLE_XHDPI): $(addprefix $(topsrcdir)/,$(MOZ_BRANDING_DRAWABLE_XHDPI))
-	$(NSINSTALL) -D res/drawable-xhdpi
-	$(NSINSTALL) $^ res/drawable-xhdpi/
-
 $(RES_DIRS):
 	$(RM) -r $@
 	$(NSINSTALL) -D $@
@@ -1225,10 +1217,10 @@ $(RESOURCES): $(RES_DIRS) $(subst res/,$(srcdir)/resources/,$(RESOURCES))
 	$(NSINSTALL) $(subst res/,$(srcdir)/resources/,$@) $(dir $@)
 
 
-R.java: $(MOZ_APP_ICON) $(RESOURCES) $(RES_DRAWABLE) $(RES_BRANDING_DRAWABLE_MDPI) $(RES_BRANDING_DRAWABLE_HDPI) $(RES_BRANDING_DRAWABLE_XHDPI) $(PP_RES_XML) res/drawable-mdpi/icon.png res/drawable-hdpi/icon.png res/drawable-xhdpi/icon.png res/drawable-xxhdpi/icon.png res/values/strings.xml AndroidManifest.xml FORCE
+R.java: $(MOZ_APP_ICON) $(RESOURCES) $(RES_DRAWABLE) $(RES_BRANDING_DRAWABLE_MDPI) $(PP_RES_XML) res/drawable-mdpi/icon.png res/drawable-hdpi/icon.png res/drawable-xhdpi/icon.png res/drawable-xxhdpi/icon.png res/values/strings.xml AndroidManifest.xml FORCE
 	$(AAPT) package -f -M AndroidManifest.xml -I $(ANDROID_SDK)/android.jar -S res -J . --custom-package org.mozilla.gecko
 
-gecko.ap_: AndroidManifest.xml res/drawable-mdpi/icon.png res/drawable-hdpi/icon.png res/drawable-xhdpi/icon.png res/drawable-xxhdpi/icon.png $(RESOURCES) $(RES_DRAWABLE) $(RES_BRANDING_DRAWABLE_MDPI) $(RES_BRANDING_DRAWABLE_HDPI) $(RES_BRANDING_DRAWABLE_XHDPI) $(PP_RES_XML) res/values/strings.xml FORCE
+gecko.ap_: AndroidManifest.xml res/drawable-mdpi/icon.png res/drawable-hdpi/icon.png res/drawable-xhdpi/icon.png res/drawable-xxhdpi/icon.png $(RESOURCES) $(RES_DRAWABLE) $(RES_BRANDING_DRAWABLE_MDPI) $(PP_RES_XML) res/values/strings.xml FORCE
 	$(AAPT) package -f -M AndroidManifest.xml -I $(ANDROID_SDK)/android.jar  -S res -F $@
 
 libs:: classes.dex package-name.txt jni-stubs.inc

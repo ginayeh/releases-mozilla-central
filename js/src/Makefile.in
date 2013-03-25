@@ -11,10 +11,8 @@ srcdir		= @srcdir@
 run_for_side_effects := $(shell echo "MAKE: $(MAKE)")
 include $(DEPTH)/config/autoconf.mk
 
-MODULE		    = js
 LIBRARY_NAME	    = mozjs
 STATIC_LIBRARY_NAME = js_static
-GRE_MODULE	    = 1
 
 LIBS		= $(NSPR_LIBS)
 
@@ -138,12 +136,19 @@ CPPSRCS		= \
 		Statistics.cpp \
 		StoreBuffer.cpp \
 		Iteration.cpp \
+		Zone.cpp \
 		Verifier.cpp \
 		StringBuffer.cpp \
 		Unicode.cpp \
 		Xdr.cpp \
 		Module.cpp \
 		$(NULL)
+
+ifdef MOZ_INSTRUMENTS
+CPPSRCS		+= \
+		Instruments.cpp \
+		$(NULL)
+endif
 
 # Changes to internal header files, used externally, massively slow down
 # browser builds.  Don't add new files here unless you know what you're
@@ -170,16 +175,6 @@ INSTALLED_HEADERS = \
 		jsutil.h \
 		jsversion.h \
 		jswrapper.h \
-		$(NULL)
-
-######################################################
-# BEGIN exported headers that are only exported
-#       because of inclusion by an INSTALLED_HEADER
-#
-EXPORTS_NAMESPACES += ds
-
-EXPORTS_ds = \
-		BitArray.h \
 		$(NULL)
 
 ######################################################
@@ -299,6 +294,10 @@ CPPSRCS +=	MIR.cpp \
 		AliasAnalysis.cpp \
 		ParallelArrayAnalysis.cpp \
 		UnreachableCodeElimination.cpp \
+		EffectiveAddressAnalysis.cpp \
+		AsmJS.cpp \
+		AsmJSLink.cpp \
+		AsmJSSignalHandlers.cpp \
 		$(NULL)
 endif #ENABLE_ION
 ifeq (86, $(findstring 86,$(TARGET_CPU)))
@@ -962,24 +961,31 @@ selfhosting:: selfhosted.out.h
 selfhosting_srcs := \
   $(srcdir)/builtin/Utilities.js \
   $(srcdir)/builtin/Array.js \
+  $(srcdir)/builtin/Date.js \
   $(srcdir)/builtin/Intl.js \
   $(srcdir)/builtin/IntlData.js \
+  $(srcdir)/builtin/Number.js \
+  $(srcdir)/builtin/ParallelArray.js \
+  $(srcdir)/builtin/String.js \
   $(NULL)
 
 selfhosted_out_h_deps := \
   $(selfhosting_srcs) \
   $(srcdir)/js.msg \
-  $(srcdir)/builtin/macros.py \
-  $(srcdir)/builtin/js2c.py \
-  $(srcdir)/builtin/embedjs.py
+  $(srcdir)/builtin/embedjs.py \
+  $(NULL)
 
 ifeq ($(MOZ_DEBUG),1)
-selfhosting_embed_flags += -d
+selfhosting_defines += -DDEBUG
+endif
+
+ifneq (,$(MOZ_ZLIB_LIBS)$(MOZ_GLUE_LDFLAGS))
+selfhosting_defines += -DUSE_ZLIB
 endif
 
 selfhosted.out.h: $(selfhosted_out_h_deps)
-	$(PYTHON) $(srcdir)/builtin/embedjs.py $(selfhosting_embed_flags) $@ \
-	  $(srcdir)/js.msg $(srcdir)/builtin/macros.py $(selfhosting_srcs)
+	$(PYTHON) $(srcdir)/builtin/embedjs.py $(selfhosting_defines) \
+	  -p '$(CPP)' -m $(srcdir)/js.msg -o $@ $(selfhosting_srcs)
 
 ###############################################
 # BEGIN kludges for the Nitro assembler

@@ -34,7 +34,6 @@ class nsDOMAttributeMap;
 class nsIContent;
 class nsIDocument;
 class nsIDOMElement;
-class nsIDOMMozNamedAttrMap;
 class nsIDOMNodeList;
 class nsIDOMUserDataHandler;
 class nsIEditor;
@@ -285,7 +284,7 @@ public:
   // - HTMLFrameSetElement:   mRowSpecs, mColSpecs
   // - nsHTMLInputElement:    mInputData, mFiles, mFileList, mStaticDocfileList
   // - nsHTMLMapElement:      mAreas
-  // - nsHTMLMediaElement:    many!
+  // - HTMLMediaElement:      many!
   // - nsHTMLOutputElement:   mDefaultValue, mTokenList
   // - nsHTMLRowElement:      mCells
   // - nsHTMLSelectElement:   mOptions, mRestoreState
@@ -361,7 +360,7 @@ public:
     /** data nodes (comments, PIs, text). Nodes of this type always
      returns a non-null value for nsIContent::GetText() */
     eDATA_NODE           = 1 << 8,
-    /** nsHTMLMediaElement */
+    /** HTMLMediaElement */
     eMEDIA               = 1 << 9,
     /** animation elements */
     eANIMATION           = 1 << 10,
@@ -1559,7 +1558,6 @@ public:
   nsINode* RemoveChild(nsINode& aChild, mozilla::ErrorResult& aError);
   already_AddRefed<nsINode> CloneNode(bool aDeep, mozilla::ErrorResult& aError);
   bool IsEqualNode(nsINode* aNode);
-  bool IsSupported(const nsAString& aFeature, const nsAString& aVersion);
   void GetNamespaceURI(nsAString& aNamespaceURI) const
   {
     mNodeInfo->GetNamespaceURI(aNamespaceURI);
@@ -1574,8 +1572,6 @@ public:
   {
     aLocalName = mNodeInfo->LocalName();
   }
-  // HasAttributes is defined inline in Element.h.
-  bool HasAttributes() const;
   nsDOMAttributeMap* GetAttributes();
   JS::Value SetUserData(JSContext* aCx, const nsAString& aKey, JS::Value aData,
                         nsIDOMUserDataHandler* aHandler,
@@ -1654,7 +1650,6 @@ protected:
   nsresult GetOwnerDocument(nsIDOMDocument** aOwnerDocument);
   nsresult CompareDocumentPosition(nsIDOMNode* aOther,
                                    uint16_t* aReturn);
-  nsresult GetAttributes(nsIDOMMozNamedAttrMap** aAttributes);
 
   nsresult ReplaceOrInsertBefore(bool aReplace, nsIDOMNode *aNewChild,
                                  nsIDOMNode *aRefChild, nsIDOMNode **aReturn);
@@ -1956,10 +1951,6 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsINode, NS_INODE_IID)
   { \
     return nsINode::GetNextSibling(aNextSibling); \
   } \
-  NS_IMETHOD GetAttributes(nsIDOMMozNamedAttrMap** aAttributes) __VA_ARGS__ \
-  { \
-    return nsINode::GetAttributes(aAttributes); \
-  } \
   NS_IMETHOD GetOwnerDocument(nsIDOMDocument** aOwnerDocument) __VA_ARGS__ \
   { \
     return nsINode::GetOwnerDocument(aOwnerDocument); \
@@ -2003,11 +1994,6 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsINode, NS_INODE_IID)
     nsINode::Normalize(); \
     return NS_OK; \
   } \
-  NS_IMETHOD IsSupported(const nsAString& aFeature, const nsAString& aVersion, bool* aResult) __VA_ARGS__ \
-  { \
-    *aResult = nsINode::IsSupported(aFeature, aVersion); \
-    return NS_OK; \
-  } \
   NS_IMETHOD GetNamespaceURI(nsAString& aNamespaceURI) __VA_ARGS__ \
   { \
     nsINode::GetNamespaceURI(aNamespaceURI); \
@@ -2021,12 +2007,6 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsINode, NS_INODE_IID)
   NS_IMETHOD GetLocalName(nsAString& aLocalName) __VA_ARGS__ \
   { \
     nsINode::GetLocalName(aLocalName); \
-    return NS_OK; \
-  } \
-  using nsINode::HasAttributes; \
-  NS_IMETHOD HasAttributes(bool* aResult) __VA_ARGS__ \
-  { \
-    *aResult = nsINode::HasAttributes(); \
     return NS_OK; \
   } \
   NS_IMETHOD GetDOMBaseURI(nsAString& aBaseURI) __VA_ARGS__ \

@@ -12,6 +12,7 @@
 #include "frontend/BytecodeEmitter.h"
 #include "frontend/FoldConstants.h"
 #include "frontend/NameFunctions.h"
+#include "ion/AsmJS.h"
 #include "vm/GlobalObject.h"
 
 #include "jsinferinlines.h"
@@ -65,6 +66,12 @@ CheckArgumentsWithinEval(JSContext *cx, Parser<FullParseHandler> &parser, Handle
             return false;
     }
 
+    // It's an error to use |arguments| in a generator expression.
+    if (script->isGeneratorExp) {
+        parser.report(ParseError, false, NULL, JSMSG_BAD_GENEXP_BODY, js_arguments_str);
+        return false;
+    }
+
     return true;
 }
 
@@ -78,19 +85,6 @@ frontend::CompileScript(JSContext *cx, HandleObject scopeChain,
                         SourceCompressionToken *extraSct /* = NULL */)
 {
     RootedString source(cx, source_);
-
-    class ProbesManager
-    {
-        const char* filename;
-        unsigned lineno;
-
-      public:
-        ProbesManager(const char *f, unsigned l) : filename(f), lineno(l) {
-            Probes::compileScriptBegin(filename, lineno);
-        }
-        ~ProbesManager() { Probes::compileScriptEnd(filename, lineno); }
-    };
-    ProbesManager probesManager(options.filename, options.lineno);
 
     /*
      * The scripted callerFrame can only be given for compile-and-go scripts
@@ -318,8 +312,9 @@ frontend::ParseScript(JSContext *cx, HandleObject scopeChain,
 // Compile a JS function body, which might appear as the value of an event
 // handler attribute in an HTML <INPUT> tag, or in a Function() constructor.
 bool
-frontend::CompileFunctionBody(JSContext *cx, HandleFunction fun, CompileOptions options,
-                              const AutoNameVector &formals, const jschar *chars, size_t length)
+frontend::CompileFunctionBody(JSContext *cx, MutableHandleFunction fun, CompileOptions options,
+                              const AutoNameVector &formals, const jschar *chars, size_t length,
+                              bool isAsmJSRecompile)
 {
     if (!CheckLength(cx, length))
         return false;
@@ -390,12 +385,6 @@ frontend::CompileFunctionBody(JSContext *cx, HandleFunction fun, CompileOptions 
             return false;
     }
 
-    BytecodeEmitter funbce(/* parent = */ NULL, &parser, funbox, script,
-                           /* evalCaller = */ NullPtr(),
-                           /* hasGlobalScope = */ false, options.lineno);
-    if (!funbce.init())
-        return false;
-
     if (!NameFunctions(cx, pn))
         return false;
 
@@ -406,10 +395,36 @@ frontend::CompileFunctionBody(JSContext *cx, HandleFunction fun, CompileOptions 
         pn = fn->pn_body;
     }
 
-    if (!SetSourceMap(cx, parser.tokenStream, ss, script))
-        return false;
+    bool generateBytecode = true;
+#ifdef JS_ION
+    JS_ASSERT_IF(isAsmJSRecompile, fn->pn_funbox->useAsm);
+    if (fn->pn_funbox->useAsm && !isAsmJSRecompile) {
+        RootedFunction moduleFun(cx);
+        if (!CompileAsmJS(cx, parser.tokenStream, fn, options,
+                          ss, /* bufStart = */ 0, /* bufEnd = */ length,
+                          &moduleFun))
+            return false;
 
-    if (!EmitFunctionScript(cx, &funbce, pn))
+        if (moduleFun) {
+            funbox->object = moduleFun;
+            fun.set(moduleFun); // replace the existing function with the LinkAsmJS native
+            generateBytecode = false;
+        }
+    }
+#endif
+
+    if (generateBytecode) {
+        BytecodeEmitter funbce(/* parent = */ NULL, &parser, funbox, script,
+                               /* evalCaller = */ NullPtr(),
+                               /* hasGlobalScope = */ false, options.lineno);
+        if (!funbce.init())
+            return false;
+
+        if (!EmitFunctionScript(cx, &funbce, pn))
+            return false;
+    }
+
+    if (!SetSourceMap(cx, parser.tokenStream, ss, script))
         return false;
 
     if (!sct.complete())

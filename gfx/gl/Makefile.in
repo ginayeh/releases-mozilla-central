@@ -9,7 +9,6 @@ VPATH     = @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-MODULE           = gl
 LIBRARY_NAME     = gl
 LIBXUL_LIBRARY   = 1
 EXPORT_LIBRARY   = 1
@@ -137,7 +136,7 @@ ifdef MOZ_ANDROID_OMTC
 DEFINES += -DMOZ_ANDROID_OMTC
 endif
 
-ifdef MOZ_ENABLE_SKIA
+ifdef MOZ_ENABLE_SKIA_GPU
 CPPSRCS += GLContextSkia.cpp
 EXPORTS += GLContextSkia.h
 endif

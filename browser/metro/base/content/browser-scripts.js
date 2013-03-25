@@ -89,7 +89,6 @@ let ScriptContexts = {};
   ["FormHelperUI", "chrome://browser/content/helperui/FormHelperUI.js"],
   ["BrowserTouchHandler", "chrome://browser/content/BrowserTouchHandler.js"],
   ["AlertsHelper", "chrome://browser/content/helperui/AlertsHelper.js"],
-  ["CapturePickerUI", "chrome://browser/content/helperui/CapturePickerUI.js"],
   ["AutofillMenuUI", "chrome://browser/content/helperui/MenuUI.js"],
   ["ContextMenuUI", "chrome://browser/content/helperui/MenuUI.js"],
   ["MenuControlUI", "chrome://browser/content/helperui/MenuUI.js"],
@@ -118,7 +117,6 @@ let ScriptContexts = {};
   ["TopSitesView", "chrome://browser/content/TopSites.js"],
   ["TopSitesSnappedView", "chrome://browser/content/TopSites.js"],
   ["TopSitesStartView", "chrome://browser/content/TopSites.js"],
-  ["InputSourceHelper", "chrome://browser/content/input.js"],
   ["Sanitizer", "chrome://browser/content/sanitize.js"],
   ["SSLExceptions", "chrome://browser/content/exceptions.js"],
 #ifdef MOZ_SERVICES_SYNC

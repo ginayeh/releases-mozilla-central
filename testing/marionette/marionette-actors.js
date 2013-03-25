@@ -1340,10 +1340,35 @@ MarionetteDriverActor.prototype = {
     let element = aRequest.element;
     let x = aRequest.x;
     let y = aRequest.y;
-    this.sendAsync("press", {value: element,
-                             corx: x,
-                             cory: y,
-                             command_id: this.command_id});
+    if (this.context == "chrome") {
+      this.sendError("Not in Chrome", 500, null, this.command_id);
+    }
+    else {
+      this.sendAsync("press", {value: element,
+                               corx: x,
+                               cory: y,
+                               command_id: this.command_id});
+    }
+  },
+
+  /**
+   * Cancel touch
+   *
+   * @param object aRequest
+   *        'element' represents the ID of the element to touch
+   */
+  cancelTouch: function MDA_cancelTouch(aRequest) {
+    this.command_id = this.getCommandId();
+    let element = aRequest.element;
+    let touchId = aRequest.touchId;
+    if (this.context == "chrome") {
+      this.sendError("Not in Chrome", 500, null, this.command_id);
+    }
+    else {
+      this.sendAsync("cancelTouch", {value: element,
+                                     touchId: touchId,
+                                     command_id: this.command_id});
+    }
   },
 
   /**
@@ -1358,11 +1383,16 @@ MarionetteDriverActor.prototype = {
     let touchId = aRequest.touchId;
     let x = aRequest.x;
     let y = aRequest.y;
-    this.sendAsync("release", {value: element,
-                               touchId: touchId,
-                               corx: x,
-                               cory: y,
-                               command_id: this.command_id});
+    if (this.context == "chrome") {
+      this.sendError("Not in Chrome", 500, null, this.command_id);
+    }
+    else {
+      this.sendAsync("release", {value: element,
+                                 touchId: touchId,
+                                 corx: x,
+                                 cory: y,
+                                 command_id: this.command_id});
+    }
   },
 
   /**
@@ -1381,6 +1411,27 @@ MarionetteDriverActor.prototype = {
                                      command_id: this.command_id});
     }
   },
+
+  /**
+   * multiAction
+   *
+   * @param object aRequest
+   *        'value' represents a nested array: inner array represents each event;
+   *        middle array represents collection of events for each finger
+   *        outer array represents all the fingers
+   */
+
+  multiAction: function MDA_multiAction(aRequest) {
+    this.command_id = this.getCommandId();
+    if (this.context == "chrome") {
+       this.sendError("Not in Chrome", 500, null, this.command_id);
+    }
+    else {
+      this.sendAsync("multiAction", {value: aRequest.value,
+                                     maxlen: aRequest.max_length,
+                                     command_id: this.command_id});
+   }
+ },
 
   /**
    * Find an element using the indicated search strategy.
@@ -2126,7 +2177,9 @@ MarionetteDriverActor.prototype.requestTypes = {
   "doubleTap": MarionetteDriverActor.prototype.doubleTap,
   "press": MarionetteDriverActor.prototype.press,
   "release": MarionetteDriverActor.prototype.release,
+  "cancelTouch": MarionetteDriverActor.prototype.cancelTouch,
   "actionChain": MarionetteDriverActor.prototype.actionChain,
+  "multiAction": MarionetteDriverActor.prototype.multiAction,
   "executeAsyncScript": MarionetteDriverActor.prototype.executeWithCallback,
   "executeJSScript": MarionetteDriverActor.prototype.executeJSScript,
   "setSearchTimeout": MarionetteDriverActor.prototype.setSearchTimeout,

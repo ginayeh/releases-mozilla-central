@@ -9,6 +9,7 @@
 
 #include "ion/Bailouts.h"
 #include "ion/IonMacroAssembler.h"
+#include "ion/MIR.h"
 #include "js/RootingAPI.h"
 #include "vm/ForkJoin.h"
 
@@ -149,10 +150,11 @@ MacroAssembler::PushRegsInMask(RegisterSet set)
     }
     JS_ASSERT(diffG == 0);
 
-    reserveStack(diffF);
 #ifdef JS_CPU_ARM
-    diffF -= transferMultipleByRuns(set.fpus(), IsStore, StackPointer, IA);
+    adjustFrame(diffF);
+    diffF += transferMultipleByRuns(set.fpus(), IsStore, StackPointer, DB);
 #else
+    reserveStack(diffF);
     for (FloatRegisterIterator iter(set.fpus()); iter.more(); iter++) {
         diffF -= sizeof(double);
         storeDouble(*iter, Address(StackPointer, diffF));
@@ -174,6 +176,7 @@ MacroAssembler::PopRegsInMaskIgnore(RegisterSet set, RegisterSet ignore)
     // the registers we previously saved to the stack.
     if (ignore.empty(true)) {
         diffF -= transferMultipleByRuns(set.fpus(), IsLoad, StackPointer, IA);
+        adjustFrame(-reservedF);
     } else
 #endif
     {
@@ -182,8 +185,8 @@ MacroAssembler::PopRegsInMaskIgnore(RegisterSet set, RegisterSet ignore)
             if (!ignore.has(*iter))
                 loadDouble(Address(StackPointer, diffF), *iter);
         }
+        freeStack(reservedF);
     }
-    freeStack(reservedF);
     JS_ASSERT(diffF == 0);
 
 #ifdef JS_CPU_ARM
@@ -241,21 +244,12 @@ MacroAssembler::loadFromTypedArray(int arrayType, const T &src, AnyRegister dest
         break;
       case TypedArray::TYPE_FLOAT32:
       case TypedArray::TYPE_FLOAT64:
-      {
         if (arrayType == js::TypedArray::TYPE_FLOAT32)
             loadFloatAsDouble(src, dest.fpu());
         else
             loadDouble(src, dest.fpu());
-
-        // Make sure NaN gets canonicalized.
-        Label notNaN;
-        branchDouble(DoubleOrdered, dest.fpu(), dest.fpu(), &notNaN);
-        {
-            loadStaticDouble(&js_NaN, dest.fpu());
-        }
-        bind(&notNaN);
+        canonicalizeDouble(dest.fpu());
         break;
-      }
       default:
         JS_NOT_REACHED("Invalid typed array type");
         break;
@@ -401,7 +395,7 @@ MacroAssembler::newGCThing(const Register &result,
 {
     // Inlined equivalent of js::gc::NewGCThing() without failure case handling.
 
-    gc::AllocKind allocKind = templateObject->getAllocKind();
+    gc::AllocKind allocKind = templateObject->tenuredGetAllocKind();
     JS_ASSERT(allocKind >= gc::FINALIZE_OBJECT0 && allocKind <= gc::FINALIZE_OBJECT_LAST);
     int thingSize = (int)gc::Arena::thingSize(allocKind);
 
@@ -448,7 +442,7 @@ MacroAssembler::parNewGCThing(const Register &result,
     // register as `threadContextReg`.  Then we overwrite that
     // register which messed up the OOL code.
 
-    gc::AllocKind allocKind = templateObject->getAllocKind();
+    gc::AllocKind allocKind = templateObject->tenuredGetAllocKind();
     uint32_t thingSize = (uint32_t)gc::Arena::thingSize(allocKind);
 
     // Load the allocator:
@@ -556,7 +550,7 @@ MacroAssembler::compareStrings(JSOp op, Register left, Register right, Register 
     branchTest32(Assembler::Zero, temp, atomBit, &notAtom);
 
     cmpPtr(left, right);
-    emitSet(JSOpToCondition(op), result);
+    emitSet(JSOpToCondition(MCompare::Compare_String, op), result);
     jump(&done);
 
     bind(&notAtom);
@@ -663,7 +657,6 @@ MacroAssembler::generateBailoutTail(Register scratch)
     Label interpret;
     Label exception;
     Label osr;
-    Label recompile;
     Label boundscheck;
     Label overrecursed;
     Label invalidate;
@@ -674,17 +667,15 @@ MacroAssembler::generateBailoutTail(Register scratch)
     // - 0x2: reflow args
     // - 0x3: reflow barrier
     // - 0x4: monitor types
-    // - 0x5: recompile to inline calls
-    // - 0x6: bounds check failure
-    // - 0x7: force invalidation
-    // - 0x8: overrecursed
-    // - 0x9: cached shape guard failure
+    // - 0x5: bounds check failure
+    // - 0x6: force invalidation
+    // - 0x7: overrecursed
+    // - 0x8: cached shape guard failure
 
     branch32(LessThan, ReturnReg, Imm32(BAILOUT_RETURN_FATAL_ERROR), &interpret);
     branch32(Equal, ReturnReg, Imm32(BAILOUT_RETURN_FATAL_ERROR), &exception);
 
-    branch32(LessThan, ReturnReg, Imm32(BAILOUT_RETURN_RECOMPILE_CHECK), &reflow);
-    branch32(Equal, ReturnReg, Imm32(BAILOUT_RETURN_RECOMPILE_CHECK), &recompile);
+    branch32(LessThan, ReturnReg, Imm32(BAILOUT_RETURN_BOUNDS_CHECK), &reflow);
 
     branch32(Equal, ReturnReg, Imm32(BAILOUT_RETURN_BOUNDS_CHECK), &boundscheck);
     branch32(Equal, ReturnReg, Imm32(BAILOUT_RETURN_OVERRECURSED), &overrecursed);
@@ -714,16 +705,6 @@ MacroAssembler::generateBailoutTail(Register scratch)
     {
         setupUnalignedABICall(0, scratch);
         callWithABI(JS_FUNC_TO_DATA_PTR(void *, BoundsCheckFailure));
-
-        branchTest32(Zero, ReturnReg, ReturnReg, &exception);
-        jump(&interpret);
-    }
-
-    // Recompile to inline calls.
-    bind(&recompile);
-    {
-        setupUnalignedABICall(0, scratch);
-        callWithABI(JS_FUNC_TO_DATA_PTR(void *, RecompileForInlining));
 
         branchTest32(Zero, ReturnReg, ReturnReg, &exception);
         jump(&interpret);
@@ -833,3 +814,24 @@ MacroAssembler::printf(const char *output, Register value)
 
     PopRegsInMask(RegisterSet::Volatile());
 }
+
+#ifdef JS_ASMJS
+ABIArgIter::ABIArgIter(const MIRTypeVector &types)
+  : gen_(),
+    types_(types),
+    i_(0)
+{
+    if (!done())
+        gen_.next(types_[i_]);
+}
+
+void
+ABIArgIter::operator++(int)
+{
+    JS_ASSERT(!done());
+    i_++;
+    if (!done())
+        gen_.next(types_[i_]);
+}
+#endif
+

@@ -27,6 +27,8 @@ using mozilla::DebugOnly;
 
 void * const js::NullPtr::constNullValue = NULL;
 
+JS_PUBLIC_DATA(void * const) JS::NullPtr::constNullValue = NULL;
+
 /*
  * There are two mostly separate mark paths. The first is a fast path used
  * internally in the GC. The second is a slow path used for root marking and
@@ -251,7 +253,7 @@ IsMarked(T **thingp)
 {
     JS_ASSERT(thingp);
     JS_ASSERT(*thingp);
-    Zone *zone = (*thingp)->zone();
+    Zone *zone = (*thingp)->tenuredZone();
     if (!zone->isCollecting() || zone->isGCFinished())
         return true;
     return (*thingp)->isMarked();
@@ -263,7 +265,7 @@ IsAboutToBeFinalized(T **thingp)
 {
     JS_ASSERT(thingp);
     JS_ASSERT(*thingp);
-    if (!(*thingp)->zone()->isGCSweeping())
+    if (!(*thingp)->tenuredZone()->isGCSweeping())
         return false;
     return !(*thingp)->isMarked();
 }
@@ -332,6 +334,7 @@ DeclMarkerImpl(Object, GlobalObject)
 DeclMarkerImpl(Object, JSObject)
 DeclMarkerImpl(Object, JSFunction)
 DeclMarkerImpl(Object, ScopeObject)
+DeclMarkerImpl(Object, ArrayBufferObject)
 DeclMarkerImpl(Script, JSScript)
 DeclMarkerImpl(Shape, Shape)
 DeclMarkerImpl(String, JSAtom)
@@ -628,7 +631,7 @@ ShouldMarkCrossCompartment(JSTracer *trc, RawObject src, Cell *cell)
     if (!IS_GC_MARKING_TRACER(trc))
         return true;
 
-    JS::Zone *zone = cell->zone();
+    JS::Zone *zone = cell->tenuredZone();
     uint32_t color = AsGCMarker(trc)->getMarkColor();
 
     JS_ASSERT(color == BLACK || color == GRAY);
@@ -816,6 +819,8 @@ static inline void
 ScanBaseShape(GCMarker *gcmarker, RawBaseShape base)
 {
     base->assertConsistency();
+
+    base->compartment()->mark();
 
     if (base->hasGetterObject())
         PushMarkStack(gcmarker, base->getterObject());
@@ -1571,7 +1576,7 @@ UnmarkGrayChildren(JSTracer *trc, void **thingp, JSGCTraceKind kind)
         return;
     }
 
-    if (!GCThingIsMarkedGray(thing))
+    if (!JS::GCThingIsMarkedGray(thing))
         return;
 
     UnmarkGrayGCThing(thing);
@@ -1599,7 +1604,7 @@ UnmarkGrayChildren(JSTracer *trc, void **thingp, JSGCTraceKind kind)
     }
 
     do {
-        JS_ASSERT(!GCThingIsMarkedGray(thing));
+        JS_ASSERT(!JS::GCThingIsMarkedGray(thing));
         JS_TraceChildren(&childTracer, thing, JSTRACE_SHAPE);
         thing = childTracer.previousShape;
         childTracer.previousShape = NULL;
@@ -1611,12 +1616,12 @@ JS::UnmarkGrayGCThingRecursively(void *thing, JSGCTraceKind kind)
 {
     JS_ASSERT(kind != JSTRACE_SHAPE);
 
-    if (!GCThingIsMarkedGray(thing))
+    if (!JS::GCThingIsMarkedGray(thing))
         return;
 
     UnmarkGrayGCThing(thing);
 
-    JSRuntime *rt = static_cast<Cell *>(thing)->zone()->rt;
+    JSRuntime *rt = static_cast<Cell *>(thing)->runtime();
     UnmarkGrayTracer trc(rt);
     JS_TraceChildren(&trc, thing, kind);
 }

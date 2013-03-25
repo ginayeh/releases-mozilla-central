@@ -9,8 +9,6 @@ VPATH		= @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-MODULE		= content
-GRE_MODULE	= 1
 
 EXPORTS		= \
 mozFlushType.h \
@@ -19,6 +17,7 @@ nsIAttribute.h \
 nsIContentIterator.h \
 nsContentPolicyUtils.h \
 nsContentUtils.h \
+nsDocElementCreatedNotificationRunner.h \
 nsIDocument.h \
 nsIDocumentInlines.h \
 nsDeprecatedOperationList.h \

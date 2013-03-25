@@ -41,9 +41,15 @@ simple_events = [
 #endif
     'ElementReplaceEvent',
     'MozSmsEvent',
+    'MozMmsEvent',
     'DeviceStorageChangeEvent',
     'PopupBlockedEvent',
-    'BlobEvent'
+    'BlobEvent',
+#ifdef MOZ_GAMEPAD
+    'GamepadEvent',
+    'GamepadButtonEvent',
+    'GamepadAxisMoveEvent',
+#endif
   ]
 
 """ include file names """

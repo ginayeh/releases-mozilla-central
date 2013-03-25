@@ -6,7 +6,6 @@
 #include "domstubs.idl"
 
 interface nsIVariant;
-interface nsIDOMMozNamedAttrMap;
 interface nsIDOMUserDataHandler;
 
 /**
@@ -18,7 +17,7 @@ interface nsIDOMUserDataHandler;
  * http://dvcs.w3.org/hg/domcore/raw-file/tip/Overview.html
  */
 
-[scriptable, uuid(d34c0ab9-21e7-42eb-bb58-9db8ccb66268)]
+[scriptable, uuid(e0fda4a1-b4fd-404f-85b0-3167b79ae87f)]
 interface nsIDOMNode : nsISupports
 {
   const unsigned short      ELEMENT_NODE       = 1;
@@ -46,7 +45,6 @@ interface nsIDOMNode : nsISupports
   readonly attribute nsIDOMNode       lastChild;
   readonly attribute nsIDOMNode       previousSibling;
   readonly attribute nsIDOMNode       nextSibling;
-  readonly attribute nsIDOMMozNamedAttrMap attributes;
   // Modified in DOM Level 2:
   readonly attribute nsIDOMDocument   ownerDocument;
   nsIDOMNode                insertBefore(in nsIDOMNode newChild, 
@@ -65,17 +63,12 @@ interface nsIDOMNode : nsISupports
   // Modified in DOM Level 2:
   void                      normalize();
   // Introduced in DOM Level 2:
-  boolean                   isSupported(in DOMString feature, 
-                                        in DOMString version);
-  // Introduced in DOM Level 2:
   readonly attribute DOMString        namespaceURI;
   // Modified in DOM Core
   readonly attribute DOMString        prefix;
 
   // Introduced in DOM Level 2:
   readonly attribute DOMString        localName;
-  // Introduced in DOM Level 2:
-  boolean            hasAttributes();
 
   // Introduced in DOM Level 3:
   // This uses a binaryname to avoid warnings due to name collision with

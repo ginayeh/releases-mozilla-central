@@ -10,7 +10,6 @@ VPATH		= @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-MODULE		= skia
 LIBRARY_NAME	= skia
 LIBXUL_LIBRARY  = 1
 EXPORT_LIBRARY  = 1
@@ -429,9 +428,14 @@ CPPSRCS = \
 	SkUtils.cpp \
 	SkWriter32.cpp \
 	SkXfermode.cpp \
+	$(NULL)
+
+ifdef MOZ_ENABLE_SKIA_GPU
+CPPSRCS += \
 	$(GPU_CPPSRCS) \
 	$(GPU_GL_CPPSRCS) \
 	$(NULL)
+endif
 
 ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
 EXPORTS_skia += \

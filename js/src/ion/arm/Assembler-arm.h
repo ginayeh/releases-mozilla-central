@@ -98,6 +98,8 @@ static const FloatRegister d15 = {FloatRegisters::d15};
 // function boundaries.  I'm trying to make sure this is always true.
 static const uint32_t StackAlignment = 8;
 static const bool StackKeptAligned = true;
+static const uint32_t NativeFrameSize = sizeof(void*);
+static const uint32_t AlignmentAtPrologue = sizeof(void*);
 
 static const Scale ScalePointer = TimesFour;
 
@@ -1299,7 +1301,7 @@ class Assembler
   public:
     void finish();
     void executableCopy(void *buffer);
-    void processCodeLabels(IonCode *code);
+    void processCodeLabels(uint8_t *rawCode);
     void copyJumpRelocationTable(uint8_t *dest);
     void copyDataRelocationTable(uint8_t *dest);
     void copyPreBarrierTable(uint8_t *dest);
@@ -1545,7 +1547,7 @@ class Assembler
     void retarget(Label *label, Label *target);
     // I'm going to pretend this doesn't exist for now.
     void retarget(Label *label, void *target, Relocation::Kind reloc);
-    void Bind(IonCode *code, AbsoluteLabel *label, const void *address);
+    void Bind(uint8_t *rawCode, AbsoluteLabel *label, const void *address);
 
     void call(Label *label);
     void call(void *target);
@@ -1620,14 +1622,19 @@ class Assembler
         dtmCond = c;
         dtmLastReg = -1;
         dtmMode = mode;
+        dtmDelta = 0;
     }
     void transferFloatReg(VFPRegister rn)
     {
         if (dtmLastReg == -1) {
-            vdtmFirstReg = rn;
+            vdtmFirstReg = rn.code();
         } else {
+            if (dtmDelta == 0) {
+                dtmDelta = rn.code() - dtmLastReg;
+                JS_ASSERT(dtmDelta == 1 || dtmDelta == -1);
+            }
             JS_ASSERT(dtmLastReg >= 0);
-            JS_ASSERT(rn.code() == unsigned(dtmLastReg) + 1);
+            JS_ASSERT(rn.code() == unsigned(dtmLastReg) + dtmDelta);
         }
         dtmLastReg = rn.code();
     }
@@ -1635,16 +1642,20 @@ class Assembler
         JS_ASSERT(dtmActive);
         dtmActive = false;
         JS_ASSERT(dtmLastReg != -1);
+        dtmDelta = dtmDelta ? dtmDelta : 1;
         // fencepost problem.
-        int len = dtmLastReg - vdtmFirstReg.code() + 1;
-        as_vdtm(dtmLoadStore, dtmBase, vdtmFirstReg, len, dtmCond);
+        int len = dtmDelta * (dtmLastReg - vdtmFirstReg) + 1;
+        as_vdtm(dtmLoadStore, dtmBase,
+                VFPRegister(FloatRegister::FromCode(Min(vdtmFirstReg, dtmLastReg))),
+                len, dtmCond);
     }
 
   private:
     int dtmRegBitField;
+    int vdtmFirstReg;
     int dtmLastReg;
+    int dtmDelta;
     Register dtmBase;
-    VFPRegister vdtmFirstReg;
     DTMWriteBack dtmUpdate;
     DTMMode dtmMode;
     LoadStore dtmLoadStore;

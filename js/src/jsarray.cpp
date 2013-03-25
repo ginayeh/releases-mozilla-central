@@ -495,8 +495,8 @@ array_length_setter(JSContext *cx, HandleObject obj, HandleId id, JSBool strict,
 
         uint32_t gap = oldlen - newlen;
         for (;;) {
-            jsid nid;
-            if (!JS_CHECK_OPERATION_LIMIT(cx) || !JS_NextProperty(cx, iter, &nid))
+            RootedId nid(cx);
+            if (!JS_CHECK_OPERATION_LIMIT(cx) || !JS_NextProperty(cx, iter, nid.address()))
                 return false;
             if (JSID_IS_VOID(nid))
                 break;
@@ -2679,7 +2679,7 @@ NewArray(JSContext *cx, uint32_t length, RawObject protoArg, NewObjectKind newKi
 
     RootedObject proto(cx, protoArg);
     if (protoArg)
-        PoisonPtr(&protoArg);
+        JS::PoisonPtr(&protoArg);
 
     if (!proto && !FindProto(cx, &ArrayClass, &proto))
         return NULL;

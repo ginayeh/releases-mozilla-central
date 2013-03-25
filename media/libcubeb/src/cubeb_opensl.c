@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <SLES/OpenSLES.h>
 #if defined(__ANDROID__)
+#include "android/sles_definitions.h"
 #include <SLES/OpenSLES_Android.h>
 #endif
 #include "cubeb/cubeb.h"
@@ -122,6 +123,8 @@ opensl_init(cubeb ** context, char const * context_name)
 
   ctx = calloc(1, sizeof(*ctx));
   assert(ctx);
+
+  ctx->ops = &opensl_ops;
 
   ctx->lib = dlopen("libOpenSLES.so", RTLD_LAZY);
   if (!ctx->lib) {
@@ -354,6 +357,10 @@ opensl_stream_destroy(cubeb_stream * stm)
 {
   if (stm->playerObj)
     (*stm->playerObj)->Destroy(stm->playerObj);
+  int i;
+  for (i = 0; i < NBUFS; i++) {
+    free(stm->queuebuf[i]);
+  }
   free(stm);
 }
 
