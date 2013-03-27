@@ -149,7 +149,6 @@ PrintProperty(const nsAString& aName, const BluetoothValue& aValue)
   }
 }
 
-
 void
 BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue)
 {
