@@ -129,34 +129,6 @@ BroadcastSystemMessage(const nsAString& aType,
   return true;
 }
 
-bool
-BroadcastSystemMessage(const nsAString& aType)
-{
-  JSContext* cx = nsContentUtils::GetSafeJSContext();
-  NS_ASSERTION(!::JS_IsExceptionPending(cx),
-      "Shouldn't get here when an exception is pending!");
-
-  JSAutoRequest jsar(cx);
-  JSObject* obj = JS_NewObject(cx, NULL, NULL, NULL);
-  if (!obj) {
-    NS_WARNING("Failed to new JSObject for system message!");
-    return false;
-  }
-  InfallibleTArray<BluetoothNamedValue> parameters;
-  if (!SetJsObject(cx, parameters, obj)) {
-    NS_WARNING("Failed to set properties of system message!");
-    return false;
-  }
-
-  nsCOMPtr<nsISystemMessagesInternal> systemMessenger =
-    do_GetService("@mozilla.org/system-message-internal;1");
-  NS_ENSURE_TRUE(systemMessenger, false);
-
-  systemMessenger->BroadcastMessage(aType, OBJECT_TO_JSVAL(obj));
-
-  return true;
-}
-
 void
 DispatchBluetoothReply(BluetoothReplyRunnable* aRunnable,
                        const BluetoothValue& aValue,

@@ -1403,8 +1403,10 @@ BluetoothHfpManager::OnConnectSuccess()
 
   NotifySettings();
 
-  nsRefPtr<nsRunnable> task = new ConnectA2dpTask(mDevicePath);
-  NS_DispatchToMainThread(task);
+/*  nsRefPtr<nsRunnable> task = new ConnectA2dpTask(mDevicePath);
+  NS_DispatchToMainThread(task);*/
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  a2dp->Connect(mDevicePath);
 }
 
 void

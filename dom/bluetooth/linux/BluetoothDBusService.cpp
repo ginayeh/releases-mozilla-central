@@ -2760,8 +2760,7 @@ BluetoothDBusService::ConfirmReceivingFile(const nsAString& aDeviceAddress,
 }
 
 bool
-BluetoothDBusService::ConnectSink(const nsAString& aDeviceAddress,
-                                  BluetoothReplyRunnable* aRunnable)
+BluetoothDBusService::ConnectSink(const nsAString& aDeviceAddress)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -2786,8 +2785,7 @@ BluetoothDBusService::ConnectSink(const nsAString& aDeviceAddress,
 }
 
 bool
-BluetoothDBusService::DisconnectSink(const nsAString& aDeviceAddress,
-                                     BluetoothReplyRunnable* aRunnable)
+BluetoothDBusService::DisconnectSink(const nsAString& aDeviceAddress)
 {
   MOZ_ASSERT(NS_IsMainThread());
 

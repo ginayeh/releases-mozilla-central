@@ -35,6 +35,7 @@ using namespace mozilla;
 #define HEADPHONES_STATUS_OFF       NS_LITERAL_STRING("off").get()
 #define HEADPHONES_STATUS_UNKNOWN   NS_LITERAL_STRING("unknown").get()
 #define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
+#define BLUETOOTH_A2DP_STATUS_CHANGED "bluetooth-a2dp-status-changed" 
 
 // Refer AudioService.java from Android
 static int sMaxStreamVolumeTbl[AUDIO_STREAM_CNT] = {
@@ -149,11 +150,11 @@ AudioManager::Observe(nsISupports* aSubject,
       String8 cmd;
       cmd.appendFormat("bt_samplerate=%d", kBtSampleRate);
       AudioSystem::setParameters(0, cmd);
-      const char* address = NS_ConvertUTF16toUTF8(nsDependentString(aData)).get();
+      nsCString address = NS_ConvertUTF16toUTF8(nsDependentString(aData));
       AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET,
-                                            AUDIO_POLICY_DEVICE_STATE_AVAILABLE, address);
+                                            AUDIO_POLICY_DEVICE_STATE_AVAILABLE, address.get());
       AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET,
-                                            AUDIO_POLICY_DEVICE_STATE_AVAILABLE, address);
+                                            AUDIO_POLICY_DEVICE_STATE_AVAILABLE, address.get());
     } else {
       AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET,
                                             AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE, "");
@@ -162,7 +163,25 @@ AudioManager::Observe(nsISupports* aSubject,
     }
 
     return NS_OK;
-  }
+  } else if (!strcmp(aTopic, BLUETOOTH_A2DP_STATUS_CHANGED)) {
+    if (aData) {
+      String8 cmd, cmd2;
+      cmd.appendFormat("buetooth_enabled=true");
+      AudioSystem::setParameters(0, cmd);
+      cmd2.appendFormat("A2dpSuspended=false");
+      AudioSystem::setParameters(0, cmd2);
+
+      nsCString address = NS_ConvertUTF16toUTF8(nsDependentString(aData));
+      AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
+                                            AUDIO_POLICY_DEVICE_STATE_AVAILABLE,
+                                            address.get());
+    } else {
+      AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
+                                            AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE, "");
+    }
+
+    return NS_OK;
+  } 
   return NS_ERROR_UNEXPECTED;
 }
 

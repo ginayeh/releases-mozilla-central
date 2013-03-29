@@ -361,16 +361,14 @@ BluetoothServiceChildProcess::IsConnected(uint16_t aProfileId)
 }
 
 bool
-BluetoothServiceChildProcess::ConnectSink(const nsAString& aDeviceAddress,
-                                          BluetoothReplyRunnable* aRunnable)
+BluetoothServiceChildProcess::ConnectSink(const nsAString& aDeviceAddress)
 {
   MOZ_NOT_REACHED("This should never be called!");
   return false;
 }
 
 bool
-BluetoothServiceChildProcess::DisconnectSink(const nsAString& aDeviceAddress,
-                                             BluetoothReplyRunnable* aRunnable)
+BluetoothServiceChildProcess::DisconnectSink(const nsAString& aDeviceAddress)
 {
   MOZ_NOT_REACHED("This should never be called!");
   return false;
