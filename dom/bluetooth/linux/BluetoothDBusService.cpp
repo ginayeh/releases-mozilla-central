@@ -965,43 +965,35 @@ RunDBusCallback(DBusMessage* aMsg, void* aBluetoothReplyRunnable,
 }
 
 void
-ConnectSinkCallback(DBusMessage* aMsg, void* aParam)
+RunSinkCallback(DBusMessage* aMsg, void* aParam)
 {
-  BT_LOG("ConnectSinkCallBack");
+  BT_LOG("%s", __FUNCTION__);
 
   DBusError err;
   dbus_error_init(&err);
 
-  if (dbus_set_error_from_message(&err, aMsg)) {
-    BT_LOG("ConnectSinkCallback error");
+  const char* path = (const char*)aParam;
+  BT_LOG("RunSinkCallback: Device path: %s", path);
+
+  if (dbus_message_get_type(aMsg) == DBUS_MESSAGE_TYPE_ERROR) { 
+    BT_LOG("RunSinkCallback error");
     LOG_AND_FREE_DBUS_ERROR(&err);
+    delete[] path;
+    return;
   }
 
-  const char* path = (const char*)aParam;
-  BT_LOG("ConnectSinkCallback: Device path: %s", path);
-
-  // TEMP
-  // delete path;
-}
-
-void
-DisconnectSinkCallback(DBusMessage* aMsg, void* aParam)
-{
-  BT_LOG("DisconnectSinkCallBack");
-
-  DBusError err;
-  dbus_error_init(&err);
-
-  if (dbus_set_error_from_message(&err, aMsg)) {
-    BT_LOG("DisconnectSinkCallback error");
-    LOG_AND_FREE_DBUS_ERROR(&err);
+  if (dbus_message_get_type(aMsg) == DBUS_MESSAGE_TYPE_METHOD_RETURN &&
+      !dbus_message_get_args(aMsg, &err, DBUS_TYPE_INVALID)) {
+    if (dbus_error_is_set(&err)) {
+      BT_LOG("RunSinkCallback error");
+      LOG_AND_FREE_DBUS_ERROR(&err);
+      delete [] path;
+      return;
+    }
   }
 
-  const char* path = (const char*)aParam;
-  BT_LOG("DisconnectSinkCallback: Device path: %s", path);
-
   // TEMP
-  // delete path;
+  delete [] path;
 }
 
 void
@@ -2762,9 +2754,9 @@ BluetoothDBusService::ConfirmReceivingFile(const nsAString& aDeviceAddress,
 bool
 BluetoothDBusService::ConnectSink(const nsAString& aDeviceAddress)
 {
+  BT_LOG("[B] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
-  BT_LOG("ConnectSink");
   BT_LOG(NS_ConvertUTF16toUTF8(aDeviceAddress).get());
 
   // Created rawPath for further use (in callback funciton)
@@ -2774,19 +2766,25 @@ BluetoothDBusService::ConnectSink(const nsAString& aDeviceAddress)
 
   BT_LOG("RawPath: %s", rawPath);
 
-  return dbus_func_args_async(mConnection,
-                              -1,
-                              ConnectSinkCallback,
-                              (void*)rawPath,
-                              NS_ConvertUTF16toUTF8(path).get(),
-                              DBUS_SINK_IFACE,
-                              "Connect",
-                              DBUS_TYPE_INVALID);
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  RunSinkCallback,
+                                  (void*)rawPath,
+                                  NS_ConvertUTF16toUTF8(path).get(),
+                                  DBUS_SINK_IFACE,
+                                  "Connect",
+                                  DBUS_TYPE_INVALID);
+  if (!ret) {
+    NS_WARNING("Could not start async function");
+  }
+
+  return ret;
 }
 
 bool
 BluetoothDBusService::DisconnectSink(const nsAString& aDeviceAddress)
 {
+  BT_LOG("[B] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!mConnection) {
@@ -2803,35 +2801,37 @@ BluetoothDBusService::DisconnectSink(const nsAString& aDeviceAddress)
 
   BT_LOG("RawPath: %s", rawPath);
 
-  return dbus_func_args_async(mConnection,
-                              -1,
-                              DisconnectSinkCallback,
-                              (void*)rawPath,
-                              NS_ConvertUTF16toUTF8(path).get(),
-                              DBUS_SINK_IFACE,
-                              "Disconnect",
-                              DBUS_TYPE_INVALID);
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  RunSinkCallback,
+                                  (void*)rawPath,
+                                  NS_ConvertUTF16toUTF8(path).get(),
+                                  DBUS_SINK_IFACE,
+                                  "Disconnect",
+                                  DBUS_TYPE_INVALID);
+  if (!ret) {
+    NS_WARNING("Could not start async function");
+  }
+
+  return ret;
 }
 
-bool
+/*bool
 BluetoothDBusService::SuspendSink(const nsAString& aDeviceObjectPath,
                                   BluetoothReplyRunnable* aRunnable)
 {
-#ifdef A2DP_DEBUG
   BT_LOG("Suspend Sink!");
-#endif
-  bool ret = true;
-  ret = dbus_func_args_async(mConnection,
-                            -1,
-                            NULL,
-                            (void*)aRunnable,
-                            NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
-                            DBUS_SINK_IFACE,
-                            "Suspend",
-                            DBUS_TYPE_INVALID);
+
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  RunSinkCallback,
+                                  (void*)aRunnable,
+                                  NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
+                                  DBUS_SINK_IFACE,
+                                  "Suspend",
+                                  DBUS_TYPE_INVALID);
   if (!ret) {
     NS_WARNING("Could not start async function!");
-    return NS_ERROR_FAILURE;
   }
 
   return ret;
@@ -2841,72 +2841,84 @@ bool
 BluetoothDBusService::ResumeSink(const nsAString& aDeviceObjectPath,
                                   BluetoothReplyRunnable* aRunnable)
 {
-#ifdef A2DP_DEBUG
   BT_LOG("Resume Sink!");
-#endif
-  bool ret = true;
-  ret = dbus_func_args_async(mConnection,
-                            -1,
-                            NULL,
-                            (void*)aRunnable,
-                            NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
-                            DBUS_SINK_IFACE,
-                            "Resume",
-                            DBUS_TYPE_INVALID);
+
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  RunSinkCallback,
+                                  (void*)aRunnable,
+                                  NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
+                                  DBUS_SINK_IFACE,
+                                  "Resume",
+                                  DBUS_TYPE_INVALID);
+  if (!ret) {
+    NS_WARNING("Could not start async function!");
+  }
+
+  return ret;
+}*/
+
+//AVRCP 1.3 feature
+nsresult
+BluetoothDBusService::UpdatePlayStatus(uint32_t aDuration,
+                                       uint32_t aPosition,
+                                       uint32_t aPlayStatus,
+                                       BluetoothReplyRunnable* aRunnable)
+{
+  BT_LOG("[B] %s", __FUNCTION__);
+  MOZ_ASSERT(NS_IsMainThread());
+
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  NS_ENSURE_TRUE(a2dp, NS_ERROR_FAILURE);
+
+  BluetoothValue v;
+  nsAutoString errorStr;
+  if (!IsReady()) {
+    errorStr.AssignLiteral("Bluetooth service is not ready yet!");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } else if (!a2dp->GetConnectionStatus()) {
+    BT_LOG("A2DP is not connected");
+
+    errorStr.AssignLiteral("A2DP is not connected");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  }
+
+  BT_LOG("UpdatePlayStatus Duration: %d, Position: %d, PlayStatus: %d",
+         aDuration, aPosition, aPlayStatus);
+
+  nsAutoString deviceAddress;
+  a2dp->GetConnectedSinkAddress(deviceAddress);
+
+  nsString path = GetObjectPathFromAddress(sAdapterPath, deviceAddress);
+  char* rawPath = new char[path.Length() + 1];
+  strcpy(rawPath, NS_ConvertUTF16toUTF8(path).get());
+
+  //TODO:
+  //Still have problem with control.c duration, position is abnormal
+  //TODO:Need to handle callback to check return value if dbus failed
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  NULL,
+                                  NULL,
+                                  rawPath,
+                                  DBUS_CTL_IFACE,
+                                  "UpdatePlayStatus",
+                                  DBUS_TYPE_UINT32, &aDuration,
+                                  DBUS_TYPE_UINT32, &aPosition,
+                                  DBUS_TYPE_UINT32, &aPlayStatus,
+                                  DBUS_TYPE_INVALID);
+
   if (!ret) {
     NS_WARNING("Could not start async function!");
     return NS_ERROR_FAILURE;
   }
 
-  return ret;
+  return NS_OK;
 }
 
-//AVRCP 1.3 feature
-bool
-BluetoothDBusService::UpdatePlayStatus(const uint32_t aDuration,
-                                       const uint32_t aPosition,
-                                       const uint32_t aPlayStatus,
-                                       BluetoothReplyRunnable* aRunnable)
-{
-  MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(mConnection);
-
-  nsString aConnectedSinkAddr;
-  BluetoothA2dpManager* bs = BluetoothA2dpManager::Get();
-  bs->GetConnectedSinkAddress(aConnectedSinkAddr);
-
-  if (aConnectedSinkAddr.IsEmpty())
-    return false;
-  nsString path = GetObjectPathFromAddress(sAdapterPath, aConnectedSinkAddr);
-  char* rawPath = new char[path.Length() + 1];
-  strcpy(rawPath, NS_ConvertUTF16toUTF8(path).get());
-
-  BT_LOG("UpdatePlayStatus Duration: %d, Position: %d, PlayStatus: %d",
-         aDuration, aPosition, aPlayStatus);
-  //TODO:
-  //Still have problem with control.c duration, position is abnormal
-  bool ret = true;
-  //TODO:Need to handle callback to check return value if dbus failed
-  ret = dbus_func_args_async(mConnection,
-                             -1,
-                             NULL,
-                             NULL,
-                             rawPath,
-                             DBUS_CTL_IFACE,
-                             "UpdatePlayStatus",
-                             DBUS_TYPE_UINT32, &aDuration,
-                             DBUS_TYPE_UINT32, &aPosition,
-                             DBUS_TYPE_UINT32, &aPlayStatus,
-                             DBUS_TYPE_INVALID);
-  if (!ret) {
-    BT_LOG("[UpdatePlayStatus] ret = false");
-    return false;
-  }
-
-  return true;
-}
-
-bool
+nsresult
 BluetoothDBusService::UpdateMetaData(const nsAString& aTitle,
                                      const nsAString& aArtist,
                                      const nsAString& aAlbum,
@@ -2915,92 +2927,132 @@ BluetoothDBusService::UpdateMetaData(const nsAString& aTitle,
                                      const nsAString& aPlaytime,
                                      BluetoothReplyRunnable* aRunnable)
 {
-  nsString aConnectedSinkAddr;
-  BluetoothA2dpManager* bs = BluetoothA2dpManager::Get();
-  bs->GetConnectedSinkAddress(aConnectedSinkAddr);
+  BT_LOG("[B] %s", __FUNCTION__);
+  MOZ_ASSERT(NS_IsMainThread());
 
-  if (aConnectedSinkAddr.IsEmpty())
-    return false;
-  nsString path = GetObjectPathFromAddress(sAdapterPath, aConnectedSinkAddr);
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  NS_ENSURE_TRUE(a2dp, NS_ERROR_FAILURE);
+
+  BluetoothValue v;
+  nsAutoString errorStr;
+  if (!IsReady()) {
+    errorStr.AssignLiteral("Bluetooth service is not ready yet!");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } else if (!a2dp->GetConnectionStatus()) {
+    BT_LOG("A2DP is not connected");
+
+    errorStr.AssignLiteral("A2DP is not connected");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  }
+
+  nsAutoString deviceAddress;
+  a2dp->GetConnectedSinkAddress(deviceAddress);
+
+  nsString path = GetObjectPathFromAddress(sAdapterPath, deviceAddress);
   char* rawPath = new char[path.Length() + 1];
   strcpy(rawPath, NS_ConvertUTF16toUTF8(path).get());
 
-  bool ret = true;
-  const char* title = NS_ConvertUTF16toUTF8(aTitle).get();
-  const char* artist = NS_ConvertUTF16toUTF8(aArtist).get();
-  const char* album = NS_ConvertUTF16toUTF8(aAlbum).get();
-  const char* medianumber = NS_ConvertUTF16toUTF8(aMediaNumber).get();
-  const char* totalmediacount = NS_ConvertUTF16toUTF8(aTotalMediaCount).get();
-  const char* playtime = NS_ConvertUTF16toUTF8(aPlaytime).get();
+  nsCString title = NS_ConvertUTF16toUTF8(aTitle);
+  nsCString artist = NS_ConvertUTF16toUTF8(aArtist);
+  nsCString album = NS_ConvertUTF16toUTF8(aAlbum);
+  nsCString medianumber = NS_ConvertUTF16toUTF8(aMediaNumber);
+  nsCString totalmediacount = NS_ConvertUTF16toUTF8(aTotalMediaCount);
+  nsCString playtime = NS_ConvertUTF16toUTF8(aPlaytime);
+
+  const char* tempTitle = title.get();
+  const char* tempArtist = artist.get();
+  const char* tempAlbum = album.get();
+  const char* tempMedianumber = medianumber.get();
+  const char* tempTotalmediacount = totalmediacount.get();
+  const char* tempPlaytime = playtime.get();
 
   BT_LOG("DeviceObjectPath: %s", rawPath);
-  BT_LOG("title: %s", title);
-  BT_LOG("album: %s", album);
-  BT_LOG("medianumber: %s", medianumber);
-  BT_LOG("totalmediacount: %s", totalmediacount);
-  BT_LOG("playtime: %s", playtime);
-  //TODO:Need to handle callback to check return value if dbus failed
-  ret = dbus_func_args_async(mConnection,
-                            -1,
-                            NULL,
-                            NULL,
-                            rawPath,
-                            DBUS_CTL_IFACE,
-                            "UpdateMetaData",
-                            DBUS_TYPE_STRING, &title,
-                            DBUS_TYPE_STRING, &artist,
-                            DBUS_TYPE_STRING, &album,
-                            DBUS_TYPE_STRING, &medianumber,
-                            DBUS_TYPE_STRING, &totalmediacount,
-                            DBUS_TYPE_STRING, &playtime,
-                            DBUS_TYPE_INVALID);
-  //TODO:Need to handle callback to check return value if dbus failed
+  BT_LOG("title: %s", tempTitle);
+  BT_LOG("album: %s", tempAlbum);
+  BT_LOG("medianumber: %s", tempMedianumber);
+  BT_LOG("totalmediacount: %s", tempTotalmediacount);
+  BT_LOG("playtime: %s", tempPlaytime);
+
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  NULL,
+                                  NULL,
+                                  rawPath,
+                                  DBUS_CTL_IFACE,
+                                  "UpdateMetaData",
+                                  DBUS_TYPE_STRING, &tempTitle,
+                                  DBUS_TYPE_STRING, &tempArtist,
+                                  DBUS_TYPE_STRING, &tempAlbum,
+                                  DBUS_TYPE_STRING, &tempMedianumber,
+                                  DBUS_TYPE_STRING, &tempTotalmediacount,
+                                  DBUS_TYPE_STRING, &tempPlaytime,
+                                  DBUS_TYPE_INVALID);
+
   if (!ret) {
     NS_WARNING("Could not start async function!");
     return NS_ERROR_FAILURE;
   }
 
-  return ret;
+  return NS_OK;
 }
 
-bool
-BluetoothDBusService::UpdateNotification(const uint32_t aEventid, const uint32_t aData,
-                                  BluetoothReplyRunnable* aRunnable)
+nsresult
+BluetoothDBusService::UpdateNotification(uint32_t aEventid,
+                                         uint32_t aData,
+                                         BluetoothReplyRunnable* aRunnable)
 {
-  BT_LOG("UpdateNotification : %d, %d", aEventid, aData);
-  nsString aConnectedSinkAddr;
-  BluetoothA2dpManager* bs = BluetoothA2dpManager::Get();
-  bs->GetConnectedSinkAddress(aConnectedSinkAddr);
+  BT_LOG("[B] %s: %d, %d", __FUNCTION__, aEventid, aData);
+  MOZ_ASSERT(NS_IsMainThread());
 
-  if (aConnectedSinkAddr.IsEmpty())
-    return false;
-  nsString path = GetObjectPathFromAddress(sAdapterPath, aConnectedSinkAddr);
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  NS_ENSURE_TRUE(a2dp, NS_ERROR_FAILURE);
+
+  BluetoothValue v;
+  nsAutoString errorStr;
+  if (!IsReady()) {
+    errorStr.AssignLiteral("Bluetooth service is not ready yet!");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  } else if (!a2dp->GetConnectionStatus()) {
+    BT_LOG("A2DP is not connected");
+
+    errorStr.AssignLiteral("A2DP is not connected");
+    DispatchBluetoothReply(aRunnable, v, errorStr);
+    return NS_OK;
+  }
+
+  nsAutoString deviceAddress;
+  a2dp->GetConnectedSinkAddress(deviceAddress);
+
+  nsString path = GetObjectPathFromAddress(sAdapterPath, deviceAddress);
   char* rawPath = new char[path.Length() + 1];
   strcpy(rawPath, NS_ConvertUTF16toUTF8(path).get());
 
-  bool ret = true;
-  ret = dbus_func_args_async(mConnection,
-                            -1,
-                            NULL,
-                            NULL,
-                            rawPath,
-                            DBUS_CTL_IFACE,
-                            "UpdateNotification",
-                            DBUS_TYPE_INT16, &aEventid,
-                            DBUS_TYPE_UINT64, &aData,
-                            DBUS_TYPE_INVALID);
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  NULL,
+                                  NULL,
+                                  rawPath,
+                                  DBUS_CTL_IFACE,
+                                  "UpdateNotification",
+                                  DBUS_TYPE_INT16, &aEventid,
+                                  DBUS_TYPE_UINT64, &aData,
+                                  DBUS_TYPE_INVALID);
   if (!ret) {
     NS_WARNING("Could not start async function!");
     return NS_ERROR_FAILURE;
   }
 
-  return ret;
+  return NS_OK;
 }
 
-void
+/*void
 BluetoothDBusService::GetConnectedSinkAddress(nsAString& aConnectedSinkAddr,
                                               BluetoothReplyRunnable* aRunnable)
 {
+  BT_LOG("[B] %s", __FUNCTION__);
   BluetoothA2dpManager* bs = BluetoothA2dpManager::Get();
   bs->GetConnectedSinkAddress(aConnectedSinkAddr);
-}
+}*/

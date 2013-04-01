@@ -229,6 +229,8 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
       return actor->DoRequest(aRequest.get_UpdateMetaDataRequest());
     case Request::TUpdateNotificationRequest:
       return actor->DoRequest(aRequest.get_UpdateNotificationRequest());
+    case Request::TUpdatePlayStatusRequest:
+      return actor->DoRequest(aRequest.get_UpdatePlayStatusRequest());
 
     default:
       MOZ_NOT_REACHED("Unknown type!");

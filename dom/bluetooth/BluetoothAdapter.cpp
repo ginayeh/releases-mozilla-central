@@ -728,6 +728,7 @@ BluetoothAdapter::SendFile(const nsAString& aDeviceAddress,
 NS_IMETHODIMP
 BluetoothAdapter::SendMetaData(const JS::Value& aValue, nsIDOMDOMRequest** aRequest)
 {
+  BT_LOG("[A] %s", __FUNCTION__);
   JSContext* cx = nsContentUtils::GetSafeJSContext();
   BluetoothAvrcpMetaDataInfo metainfo;
   metainfo.Init(cx, &aValue);
@@ -776,6 +777,7 @@ BluetoothAdapter::SendMetaData(const JS::Value& aValue, nsIDOMDOMRequest** aRequ
 NS_IMETHODIMP
 BluetoothAdapter::SendPlayStatus(const JS::Value& aValue, nsIDOMDOMRequest** aRequest)
 {
+  BT_LOG("[A] %s", __FUNCTION__);
   JSContext* cx = nsContentUtils::GetSafeJSContext();
   BluetoothAvrcpPlayStatusInfo playstatus;
   playstatus.Init(cx, &aValue);
@@ -815,30 +817,26 @@ BluetoothAdapter::SendPlayStatus(const JS::Value& aValue, nsIDOMDOMRequest** aRe
 NS_IMETHODIMP
 BluetoothAdapter::SendNotification(uint16_t aEventId, uint16_t aData, nsIDOMDOMRequest** aRequest)
 {
-  BT_LOG("SendNotification");
-  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
-  if (!rs) {
-    NS_WARNING("No DOMRequest Service!");
-    return NS_ERROR_FAILURE;
-  }
-
-  BluetoothService* bs = BluetoothService::Get();
-  if (!bs) {
-    NS_WARNING("BluetoothService not available!");
-    return NS_ERROR_FAILURE;
-  }
+  BT_LOG("[A] %s", __FUNCTION__);
 
   nsCOMPtr<nsIDOMDOMRequest> req;
-  nsresult rv = rs->CreateRequest(GetOwner(), getter_AddRefs(req));
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Can't create DOMRequest!");
-    return NS_ERROR_FAILURE;
-  }
+  nsresult rv;
+  rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
+  NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
 
-  nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
+  nsRefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(req);
+
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
   nsString connectedSinkAddress;
   BT_LOG("Notification: %d, %d", aEventId, aData);
-  bs->UpdateNotification(aEventId, aData, result);
+  if(NS_FAILED(bs->UpdateNotification(aEventId, aData, results))) {
+    NS_WARNING("SendNotification failed!");
+    return NS_ERROR_FAILURE; 
+  };
+
+  req.forget(aRequest);
   return NS_OK;
 }
 

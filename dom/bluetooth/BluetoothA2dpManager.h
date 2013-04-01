@@ -30,6 +30,7 @@ public:
   void Disconnect(const nsAString& aDeviceAddress);
   bool Listen();
   void GetConnectedSinkAddress(nsAString& aDeviceAddress);
+  bool GetConnectionStatus();
   void ResetAudio();
   void NotifyMusicPlayStatus();
   void UpdateMetaData(const nsAString& aTitle, const nsAString& aArtist,
