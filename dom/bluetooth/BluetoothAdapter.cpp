@@ -28,6 +28,15 @@
 #include "mozilla/LazyIdleThread.h"
 #include "mozilla/Util.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 
 USING_BLUETOOTH_NAMESPACE
@@ -73,6 +82,7 @@ public:
 
   virtual bool ParseSuccessfulReply(jsval* aValue)
   {
+    LOG("[A] GetPairedDevicesTask::ParseSuccessfulReply");
     *aValue = JSVAL_VOID;
     BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
     if (v.type() != BluetoothValue::TArrayOfBluetoothNamedValue) {
@@ -137,6 +147,7 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow* aOwner, const BluetoothValue& 
     , mJsDeviceAddresses(nullptr)
     , mIsRooted(false)
 {
+  LOG("[A] %s", __FUNCTION__);
   BindToOwner(aOwner);
   const InfallibleTArray<BluetoothNamedValue>& values =
     aValue.get_ArrayOfBluetoothNamedValue();
@@ -151,6 +162,7 @@ BluetoothAdapter::BluetoothAdapter(nsPIDOMWindow* aOwner, const BluetoothValue& 
 
 BluetoothAdapter::~BluetoothAdapter()
 {
+  LOG("[A] %s", __FUNCTION__);
   BluetoothService* bs = BluetoothService::Get();
   // We can be null on shutdown, where this might happen
   NS_ENSURE_TRUE_VOID(bs);
@@ -186,6 +198,30 @@ BluetoothAdapter::SetPropertyByValue(const BluetoothNamedValue& aValue)
 {
   const nsString& name = aValue.name();
   const BluetoothValue& value = aValue.value();
+
+  if (value.type() == BluetoothValue::TnsString) {
+    LOG("[A] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(name).get(),
+        NS_ConvertUTF16toUTF8(value.get_nsString()).get());
+  } else if (value.type() == BluetoothValue::Tuint32_t) {
+    LOG("[A] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(name).get(),
+        value.get_uint32_t());
+  } else if (value.type() == BluetoothValue::Tbool) {
+    LOG("[A] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(name).get(),
+        value.get_bool());
+  } else if (value.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
+    LOG("[A] %s, <%s, Array of BluetoothNamedValue>", __FUNCTION__,
+        NS_ConvertUTF16toUTF8(name).get());
+  } else if (value.type() == BluetoothValue::TArrayOfnsString) {
+    nsTArray<nsString> tmp = value.get_ArrayOfnsString();
+    for (int i = 0; i < tmp.Length(); i++) {
+      LOG("[A] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(name).get(),
+          NS_ConvertUTF16toUTF8(tmp[i]).get());
+    }
+  } else {
+    LOG("[A] %s, <%s, Unknown value type>", __FUNCTION__,
+        NS_ConvertUTF16toUTF8(name).get());
+  }
+
   if (name.EqualsLiteral("Name")) {
     mName = value.get_nsString();
   } else if (name.EqualsLiteral("Address")) {
@@ -266,6 +302,8 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
 {
   InfallibleTArray<BluetoothNamedValue> arr;
 
+  LOG("[A] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aData.name()).get());
+
   if (aData.name().EqualsLiteral("DeviceFound")) {
     nsRefPtr<BluetoothDevice> device = BluetoothDevice::Create(GetOwner(), mPath, aData.value());
     nsCOMPtr<nsIDOMEvent> event;
@@ -323,6 +361,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
 nsresult
 BluetoothAdapter::StartStopDiscovery(bool aStart, nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%d)", __FUNCTION__, aStart);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -453,6 +492,7 @@ NS_IMETHODIMP
 BluetoothAdapter::SetName(const nsAString& aName,
                           nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aName).get());
   if (mName.Equals(aName)) {
     return FirePropertyAlreadySet(GetOwner(), aRequest);
   }
@@ -466,6 +506,7 @@ NS_IMETHODIMP
 BluetoothAdapter::SetDiscoverable(const bool aDiscoverable,
                                   nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%d)", __FUNCTION__, aDiscoverable);
   if (aDiscoverable == mDiscoverable) {
     return FirePropertyAlreadySet(GetOwner(), aRequest);
   }
@@ -478,6 +519,7 @@ NS_IMETHODIMP
 BluetoothAdapter::SetDiscoverableTimeout(const uint32_t aDiscoverableTimeout,
                                          nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%d)", __FUNCTION__, aDiscoverableTimeout);
   if (aDiscoverableTimeout == mDiscoverableTimeout) {
     return FirePropertyAlreadySet(GetOwner(), aRequest);
   }
@@ -489,6 +531,7 @@ BluetoothAdapter::SetDiscoverableTimeout(const uint32_t aDiscoverableTimeout,
 NS_IMETHODIMP
 BluetoothAdapter::GetPairedDevices(nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s", __FUNCTION__);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -521,6 +564,7 @@ BluetoothAdapter::PairUnpair(bool aPair,
                              nsIDOMBluetoothDevice* aDevice,
                              nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%d)", __FUNCTION__, aPair);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -581,6 +625,8 @@ BluetoothAdapter::SetPinCode(const nsAString& aDeviceAddress,
                              const nsAString& aPinCode,
                              nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%s, %s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      NS_ConvertUTF16toUTF8(aPinCode).get());
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -616,6 +662,8 @@ nsresult
 BluetoothAdapter::SetPasskey(const nsAString& aDeviceAddress, uint32_t aPasskey,
                              nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      aPasskey);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -652,6 +700,8 @@ BluetoothAdapter::SetPairingConfirmation(const nsAString& aDeviceAddress,
                                          bool aConfirmation,
                                          nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      aConfirmation);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -687,6 +737,8 @@ nsresult
 BluetoothAdapter::SetAuthorization(const nsAString& aDeviceAddress, bool aAllow,
                                    nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      aAllow);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -723,6 +775,8 @@ BluetoothAdapter::Connect(const nsAString& aDeviceAddress,
                           uint16_t aProfileId,
                           nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      aProfileId);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -754,6 +808,7 @@ NS_IMETHODIMP
 BluetoothAdapter::Disconnect(uint16_t aProfileId,
                              nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%d)", __FUNCTION__, aProfileId);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -786,6 +841,7 @@ BluetoothAdapter::SendFile(const nsAString& aDeviceAddress,
                            nsIDOMBlob* aBlob,
                            nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get());
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -824,6 +880,7 @@ NS_IMETHODIMP
 BluetoothAdapter::StopSendingFile(const nsAString& aDeviceAddress,
                                   nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get());
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -855,6 +912,8 @@ BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
                                        bool aConfirmation,
                                        nsIDOMDOMRequest** aRequest)
 {
+  LOG("[A] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      aConfirmation);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");

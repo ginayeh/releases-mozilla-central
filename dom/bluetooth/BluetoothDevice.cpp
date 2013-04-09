@@ -17,6 +17,15 @@
 #include "nsTArrayHelpers.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 USING_BLUETOOTH_NAMESPACE
 
 DOMCI_DATA(BluetoothDevice, BluetoothDevice)
@@ -56,6 +65,7 @@ BluetoothDevice::BluetoothDevice(nsPIDOMWindow* aOwner,
   mAdapterPath(aAdapterPath),
   mIsRooted(false)
 {
+  LOG("[D] %s", __FUNCTION__);
   BindToOwner(aOwner);
   const InfallibleTArray<BluetoothNamedValue>& values =
     aValue.get_ArrayOfBluetoothNamedValue();
@@ -70,6 +80,7 @@ BluetoothDevice::BluetoothDevice(nsPIDOMWindow* aOwner,
 
 BluetoothDevice::~BluetoothDevice()
 {
+  LOG("[D] %s", __FUNCTION__);
   BluetoothService* bs = BluetoothService::Get();
   // bs can be null on shutdown, where destruction might happen.
   NS_ENSURE_TRUE_VOID(bs);
@@ -102,6 +113,30 @@ BluetoothDevice::SetPropertyByValue(const BluetoothNamedValue& aValue)
 {
   const nsString& name = aValue.name();
   const BluetoothValue& value = aValue.value();
+
+  if (value.type() == BluetoothValue::TnsString) {
+    LOG("[D] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(name).get(),
+        NS_ConvertUTF16toUTF8(value.get_nsString()).get());
+  } else if (value.type() == BluetoothValue::Tuint32_t) {
+    LOG("[D] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(name).get(),
+        value.get_uint32_t());
+  } else if (value.type() == BluetoothValue::Tbool) {
+    LOG("[D] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(name).get(),
+        value.get_bool());
+  } else if (value.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
+    LOG("[D] %s, <%s, Array of BluetoothNamedValue>", __FUNCTION__,
+        NS_ConvertUTF16toUTF8(name).get());
+  } else if (value.type() == BluetoothValue::TArrayOfnsString) {
+    nsTArray<nsString> tmp = value.get_ArrayOfnsString();
+    for (int i = 0; i < tmp.Length(); i++) {
+      LOG("[D] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(name).get(),
+          NS_ConvertUTF16toUTF8(tmp[i]).get());
+    }
+  } else {
+    LOG("[D] %s, <%s, Unknown value type>", __FUNCTION__,
+        NS_ConvertUTF16toUTF8(name).get());
+  }
+
   if (name.EqualsLiteral("Name")) {
     mName = value.get_nsString();
   } else if (name.EqualsLiteral("Path")) {
@@ -175,6 +210,7 @@ BluetoothDevice::Create(nsPIDOMWindow* aOwner,
 void
 BluetoothDevice::Notify(const BluetoothSignal& aData)
 {
+  LOG("[D] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aData.name()).get());
   if (aData.name().EqualsLiteral("PropertyChanged")) {
     NS_ASSERTION(aData.value().type() == BluetoothValue::TArrayOfBluetoothNamedValue,
                  "PropertyChanged: Invalid value type");

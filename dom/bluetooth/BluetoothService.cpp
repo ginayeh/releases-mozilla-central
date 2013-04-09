@@ -44,6 +44,15 @@
 # endif
 #endif
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 #define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
 #define BLUETOOTH_ENABLED_SETTING "bluetooth.enabled"
 
@@ -117,6 +126,7 @@ public:
 
   NS_IMETHOD Run()
   {
+    LOG("[S] ToggleBtAck::Run");
     MOZ_ASSERT(NS_IsMainThread());
 
     if (!gBluetoothService) {
@@ -171,6 +181,7 @@ public:
 
   NS_IMETHOD Run()
   {
+    LOG("[S] ToggleBtTask::Run");
     MOZ_ASSERT(!NS_IsMainThread());
 
     /*
@@ -229,6 +240,7 @@ public:
 
   NS_IMETHOD Handle(const nsAString& aName, const jsval& aResult)
   {
+    LOG("[S] StartupTask::Handle");
     MOZ_ASSERT(NS_IsMainThread());
 
     if (!aResult.isBoolean()) {
@@ -247,6 +259,7 @@ public:
 
   NS_IMETHOD HandleError(const nsAString& aName)
   {
+    LOG("[S] StartupTask::HandleError");
     NS_WARNING("Unable to get value for '" BLUETOOTH_ENABLED_SETTING "'");
     return NS_OK;
   }
@@ -264,6 +277,7 @@ BluetoothService::IsToggling() const
 
 BluetoothService::~BluetoothService()
 {
+  LOG("[S] %s", __FUNCTION__);
   Cleanup();
 }
 
@@ -273,6 +287,7 @@ RemoveObserversExceptBluetoothManager
    nsAutoPtr<BluetoothSignalObserverList>& value,
    void* arg)
 {
+  LOG("[S] %s", __FUNCTION__);
   if (!key.EqualsLiteral("/")) {
     return PL_DHASH_REMOVE;
   }
@@ -283,6 +298,7 @@ RemoveObserversExceptBluetoothManager
 void
 BluetoothService::RemoveObserverFromTable(const nsAString& key)
 {
+  LOG("[S] %s", __FUNCTION__);
   mBluetoothSignalObserverTable.Remove(key);
 }
 
@@ -308,6 +324,7 @@ BluetoothService::Create()
 bool
 BluetoothService::Init()
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -332,6 +349,7 @@ BluetoothService::Init()
 void
 BluetoothService::Cleanup()
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
@@ -346,6 +364,7 @@ void
 BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                  BluetoothSignalObserver* aHandler)
 {
+  LOG("[S] %s(%s, %p)", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get(), aHandler);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
@@ -356,18 +375,21 @@ BluetoothService::RegisterBluetoothSignalHandler(const nsAString& aNodeName,
   }
 
   ol->AddObserver(aHandler);
+  LOG("[S] observer length: %d", ol->Length());
 }
 
 void
 BluetoothService::UnregisterBluetoothSignalHandler(const nsAString& aNodeName,
                                                    BluetoothSignalObserver* aHandler)
 {
+  LOG("[S] %s(%s, %p)", __FUNCTION__, NS_ConvertUTF16toUTF8(aNodeName).get(), aHandler);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
   BluetoothSignalObserverList* ol;
   if (mBluetoothSignalObserverTable.Get(aNodeName, &ol)) {
     ol->RemoveObserver(aHandler);
+    LOG("[S] observer length: %d", ol->Length());
     if (ol->Length() == 0) {
       mBluetoothSignalObserverTable.Remove(aNodeName);
     }
@@ -382,6 +404,7 @@ RemoveAllSignalHandlers(const nsAString& aKey,
                         nsAutoPtr<BluetoothSignalObserverList>& aData,
                         void* aUserArg)
 {
+  LOG("[S] %s", __FUNCTION__);
   aData->RemoveObserver(static_cast<BluetoothSignalObserver*>(aUserArg));
   return aData->Length() ? PL_DHASH_NEXT : PL_DHASH_REMOVE;
 }
@@ -389,6 +412,7 @@ RemoveAllSignalHandlers(const nsAString& aKey,
 void
 BluetoothService::UnregisterAllSignalHandlers(BluetoothSignalObserver* aHandler)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aHandler);
 
@@ -398,6 +422,7 @@ BluetoothService::UnregisterAllSignalHandlers(BluetoothSignalObserver* aHandler)
 void
 BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
 {
+  LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aSignal.path()).get());
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aSignal.path().EqualsLiteral(LOCAL_AGENT_PATH)) {
@@ -424,6 +449,7 @@ BluetoothService::DistributeSignal(const BluetoothSignal& aSignal)
 nsresult
 BluetoothService::StartStopBluetooth(bool aStart)
 {
+  LOG("[S] %s(%d)", __FUNCTION__, aStart);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (gInShutdown) {
@@ -459,6 +485,7 @@ BluetoothService::StartStopBluetooth(bool aStart)
 void
 BluetoothService::SetEnabled(bool aEnabled)
 {
+  LOG("[S] %s(%d)", __FUNCTION__, aEnabled);
   MOZ_ASSERT(NS_IsMainThread());
 
   AutoInfallibleTArray<BluetoothParent*, 10> childActors;
@@ -503,6 +530,7 @@ BluetoothService::SetEnabled(bool aEnabled)
 nsresult
 BluetoothService::HandleStartup()
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!gToggleInProgress);
 
@@ -525,6 +553,7 @@ BluetoothService::HandleStartup()
 nsresult
 BluetoothService::HandleStartupSettingsCheck(bool aEnable)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   if (aEnable) {
@@ -543,6 +572,7 @@ BluetoothService::HandleStartupSettingsCheck(bool aEnable)
 nsresult
 BluetoothService::HandleSettingsChanged(const nsAString& aData)
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   // The string that we're interested in will be a JSON string that looks like:
@@ -612,6 +642,7 @@ BluetoothService::HandleSettingsChanged(const nsAString& aData)
 nsresult
 BluetoothService::HandleShutdown()
 {
+  LOG("[S] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
 
   // This is a two phase shutdown. First we notify all child processes that
@@ -748,6 +779,8 @@ BluetoothService::Notify(const BluetoothSignal& aData)
     NS_WARNING("Failed to set properties of system message!");
     return;
   }
+
+  LOG("[S] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aData.name()).get());
 
   if (aData.name().EqualsLiteral("RequestConfirmation")) {
     NS_ASSERTION(arr.Length() == 3, "RequestConfirmation: Wrong length of parameters");

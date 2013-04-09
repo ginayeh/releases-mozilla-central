@@ -19,6 +19,15 @@
 #include "mozilla/Util.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
 
+#undef LOG
+#if defined(MOZ_WIDGET_GONK)
+#include <android/log.h>
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "GonkDBus", args);
+#else
+#define BTDEBUG true
+#define LOG(args...) if (BTDEBUG) printf(args);
+#endif
+
 using namespace mozilla;
 
 USING_BLUETOOTH_NAMESPACE
@@ -56,6 +65,7 @@ public:
   bool
   ParseSuccessfulReply(jsval* aValue)
   {
+    LOG("[M] GetAdapterTask::ParseSuccessfulReply");
     *aValue = JSVAL_VOID;
 
     const BluetoothValue& v = mReply->get_BluetoothReplySuccess().value();
@@ -101,6 +111,7 @@ private:
 BluetoothManager::BluetoothManager(nsPIDOMWindow *aWindow)
   : BluetoothPropertyContainer(BluetoothObjectType::TYPE_MANAGER)
 {
+  LOG("[M] %s", __FUNCTION__);
   MOZ_ASSERT(aWindow);
 
   BindToOwner(aWindow);
@@ -112,7 +123,8 @@ BluetoothManager::BluetoothManager(nsPIDOMWindow *aWindow)
 }
 
 BluetoothManager::~BluetoothManager()
-{
+{ 
+  LOG("[M] %s", __FUNCTION__);
   BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE_VOID(bs);
   bs->UnregisterBluetoothSignalHandler(mPath, this);
@@ -121,6 +133,33 @@ BluetoothManager::~BluetoothManager()
 void
 BluetoothManager::SetPropertyByValue(const BluetoothNamedValue& aValue)
 {
+  LOG("[M] %s", __FUNCTION__);
+
+  const nsString& name2 = aValue.name();
+  const BluetoothValue& value = aValue.value();
+  if (value.type() == BluetoothValue::TnsString) {
+    LOG("[M] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(name2).get(),
+        NS_ConvertUTF16toUTF8(value.get_nsString()).get());
+  } else if (value.type() == BluetoothValue::Tuint32_t) {
+    LOG("[M] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(name2).get(),
+        value.get_uint32_t());
+  } else if (value.type() == BluetoothValue::Tbool) {
+    LOG("[M] %s, <%s, %d>", __FUNCTION__, NS_ConvertUTF16toUTF8(name2).get(),
+        value.get_bool());
+  } else if (value.type() == BluetoothValue::TArrayOfBluetoothNamedValue) {
+    LOG("[M] %s, <%s, Array of BluetoothNamedValue>", __FUNCTION__,
+        NS_ConvertUTF16toUTF8(name2).get());
+  } else if (value.type() == BluetoothValue::TArrayOfnsString) {
+    nsTArray<nsString> tmp = value.get_ArrayOfnsString();
+    for (int i = 0; i < tmp.Length(); i++) {
+      LOG("[M] %s, <%s, %s>", __FUNCTION__, NS_ConvertUTF16toUTF8(name2).get(),
+          NS_ConvertUTF16toUTF8(tmp[i]).get());
+    }
+  } else {
+    LOG("[M] %s, <%s, Unknown value type>", __FUNCTION__,
+        NS_ConvertUTF16toUTF8(name2).get());
+  }
+
 #ifdef DEBUG
     const nsString& name = aValue.name();
     nsCString warningMsg;
@@ -143,6 +182,7 @@ BluetoothManager::GetEnabled(bool* aEnabled)
 NS_IMETHODIMP
 BluetoothManager::GetDefaultAdapter(nsIDOMDOMRequest** aAdapter)
 {
+  LOG("[M] %s", __FUNCTION__);
   nsCOMPtr<nsIDOMRequestService> rs =
     do_GetService(DOMREQUEST_SERVICE_CONTRACTID);
   NS_ENSURE_TRUE(rs, NS_ERROR_FAILURE);
@@ -203,6 +243,8 @@ NS_NewBluetoothManager(nsPIDOMWindow* aWindow,
 void
 BluetoothManager::Notify(const BluetoothSignal& aData)
 {
+  LOG("[M] %s - '%s'", __FUNCTION__, NS_ConvertUTF16toUTF8(aData.name()).get());
+
   if (aData.name().EqualsLiteral("AdapterAdded")) {
     DispatchTrustedEvent(NS_LITERAL_STRING("adapteradded"));
   } else if (aData.name().EqualsLiteral("Enabled")) {
@@ -222,6 +264,7 @@ BluetoothManager::Notify(const BluetoothSignal& aData)
 NS_IMETHODIMP
 BluetoothManager::IsConnected(uint16_t aProfileId, bool* aConnected)
 {
+  LOG("[M] %s(%d)", __FUNCTION__, aProfileId);
   BluetoothService* bs = BluetoothService::Get();
   if (!bs) {
     NS_WARNING("BluetoothService not available!");
@@ -231,6 +274,7 @@ BluetoothManager::IsConnected(uint16_t aProfileId, bool* aConnected)
   *aConnected = bs->IsConnected(aProfileId);
   return NS_OK;
 }
+
 NS_IMPL_EVENT_HANDLER(BluetoothManager, enabled)
 NS_IMPL_EVENT_HANDLER(BluetoothManager, disabled)
 NS_IMPL_EVENT_HANDLER(BluetoothManager, adapteradded)

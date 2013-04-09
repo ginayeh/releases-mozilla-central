@@ -39,7 +39,7 @@ const kMessages =["SystemMessageManager:GetPendingMessages",
                   "child-process-shutdown"]
 
 function debug(aMsg) {
-  // dump("-- SystemMessageInternal " + Date.now() + " : " + aMsg + "\n");
+  dump("-- SystemMessageInternal " + Date.now() + " : " + aMsg + "\n");
 }
 
 // Implementation of the component used by internal users.

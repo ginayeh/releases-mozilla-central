@@ -173,6 +173,7 @@ public:
 
   nsresult Run()
   {
+    LOG("[B] RemoveDeviceTask::Run");
     MOZ_ASSERT(!NS_IsMainThread());
 
     BluetoothValue v = true;
@@ -219,6 +220,7 @@ public:
 
   nsresult Run()
   {
+    LOG("[B] SendDiscoveryTask::Run");
     MOZ_ASSERT(!NS_IsMainThread());
 
     DBusMessage *reply =
@@ -255,6 +257,7 @@ public:
   NS_IMETHOD
   Run()
   {
+    LOG("[B] DistributeBluetoothSignalTask::Run");
     MOZ_ASSERT(NS_IsMainThread());
     BluetoothService* bs = BluetoothService::Get();
     if (!bs) {
@@ -276,6 +279,7 @@ public:
   NS_IMETHOD
   Run()
   {
+    LOG("[B] PrepareAdapterTask::Run");
     MOZ_ASSERT(NS_IsMainThread());
 
     BluetoothService* bs = BluetoothService::Get();
@@ -310,6 +314,7 @@ public:
   NS_IMETHODIMP
   Run()
   {
+    LOG("[B] DevicePropertiesSignalHandler::Run");
     MOZ_ASSERT(NS_IsMainThread());
 
     // Get device properties and then send to BluetoothAdapter
@@ -434,6 +439,10 @@ AgentEventFilter(DBusConnection *conn, DBusMessage *msg, void *data)
 
   nsString signalPath = NS_ConvertUTF8toUTF16(dbus_message_get_path(msg));
   nsString signalName = NS_ConvertUTF8toUTF16(dbus_message_get_member(msg));
+
+  LOG("[B] %s, signalPath: %s, signalName: %s", __FUNCTION__,
+      NS_ConvertUTF16toUTF8(signalPath).get(), NS_ConvertUTF16toUTF8(signalName).get());
+
   nsString errorStr;
   BluetoothValue v;
   InfallibleTArray<BluetoothNamedValue> parameters;
@@ -630,6 +639,7 @@ RegisterLocalAgent(const char* adapterPath,
                    const char* agentPath,
                    const char* capabilities)
 {
+  LOG("[B] %s(%s, %s, %s)", __FUNCTION__, adapterPath, agentPath, capabilities);
   MOZ_ASSERT(!NS_IsMainThread());
 
   if (!dbus_connection_register_object_path(gThreadConnection->GetConnection(),
@@ -689,6 +699,7 @@ RegisterLocalAgent(const char* adapterPath,
 static bool
 RegisterAgent(const nsAString& aAdapterPath)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aAdapterPath).get());
   MOZ_ASSERT(!NS_IsMainThread());
 
   if (!RegisterLocalAgent(NS_ConvertUTF16toUTF8(aAdapterPath).get(),
@@ -745,6 +756,8 @@ BluetoothDBusService::AddServiceRecords(const nsAString& aAdapterPath,
                                         unsigned long long uuidLsb,
                                         int channel)
 {
+  LOG("[B] %s(%s, %s, %d, %d, %d)", __FUNCTION__,
+      NS_ConvertUTF16toUTF8(aAdapterPath).get(), serviceName, uuidMsb, uuidLsb, channel);
   MOZ_ASSERT(!NS_IsMainThread());
 
   DBusMessage *reply;
@@ -766,6 +779,7 @@ BluetoothDBusService::AddReservedServicesInternal(const nsAString& aAdapterPath,
                                                   const nsTArray<uint32_t>& aServices,
                                                   nsTArray<uint32_t>& aServiceHandlesContainer)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aAdapterPath).get());
   MOZ_ASSERT(!NS_IsMainThread());
 
   int length = aServices.Length();
@@ -791,6 +805,7 @@ BluetoothDBusService::AddReservedServicesInternal(const nsAString& aAdapterPath,
 void
 BluetoothDBusService::DisconnectAllAcls(const nsAString& aAdapterPath)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aAdapterPath).get());
   MOZ_ASSERT(!NS_IsMainThread());
 
   DBusMessage* reply =
@@ -810,6 +825,7 @@ public:
   NS_IMETHOD
   Run()
   {
+    LOG("[B] PrepareProfileManagersRunnable::Run");
     BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
     if (!hfp || !hfp->Listen()) {
       NS_WARNING("Failed to start listening for BluetoothHfpManager!");
@@ -838,6 +854,7 @@ public:
   NS_IMETHOD
   Run()
   {
+    LOG("[B] ShutdownProfileManagersRunnable::Run");
     BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
     if (hfp) {
       hfp->CloseSocket();
@@ -869,6 +886,7 @@ public:
   NS_IMETHOD
   Run()
   {
+    LOG("[B] PrepareAdapterRunnable::Run");
     MOZ_ASSERT(!NS_IsMainThread());
 
     nsTArray<uint32_t> uuids;
@@ -1037,6 +1055,7 @@ GetProperty(DBusMessageIter aIter, Properties* aPropertyTypes,
             int aPropertyTypeLen, int* aPropIndex,
             InfallibleTArray<BluetoothNamedValue>& aProperties)
 {
+  LOG("[B] %s", __FUNCTION__);
   DBusMessageIter prop_val, array_val_iter;
   char* property = NULL;
   uint32_t array_type;
@@ -1307,6 +1326,7 @@ ParsePropertyChange(DBusMessage* aMsg, BluetoothValue& aValue,
 bool
 GetPropertiesInternal(const nsAString& aPath, const char* aIface, BluetoothValue& aValue)
 {
+  LOG("[B] %s(%s, %s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aPath).get(), aIface);
   MOZ_ASSERT(!NS_IsMainThread());
 
   nsString replyError;
@@ -1368,6 +1388,10 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
   dbus_error_init(&err);
   signalPath = NS_ConvertUTF8toUTF16(dbus_message_get_path(aMsg));
   signalName = NS_ConvertUTF8toUTF16(dbus_message_get_member(aMsg));
+
+  LOG("[B] %s, signalPath: %s, signalName: %s", __FUNCTION__,
+      NS_ConvertUTF16toUTF8(signalPath).get(), NS_ConvertUTF16toUTF8(signalName).get());
+
   nsString errorStr;
   BluetoothValue v;
 
@@ -1557,6 +1581,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
 nsresult
 GetDefaultAdapterPath(BluetoothValue& aValue, nsString& aError)
 {
+  LOG("[B] %s", __FUNCTION__);
   // This could block. It should never be run on the main thread.
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -1594,6 +1619,7 @@ BluetoothDBusService::IsReady()
 nsresult
 BluetoothDBusService::StartInternal()
 {
+  LOG("[B] %s", __FUNCTION__);
   // This could block. It should never be run on the main thread.
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -1679,6 +1705,7 @@ UnrefDBusMessages(const nsAString& key, DBusMessage* value, void* arg)
 nsresult
 BluetoothDBusService::StopInternal()
 {
+  LOG("[B] %s", __FUNCTION__);
   // This could block. It should never be run on the main thread.
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -1744,6 +1771,7 @@ public:
   nsresult
   Run()
   {
+    LOG("[B] DefaultAdapterPropertiesRunnable::Run");
     MOZ_ASSERT(!NS_IsMainThread());
 
     BluetoothValue v;
@@ -1780,6 +1808,7 @@ private:
 nsresult
 BluetoothDBusService::GetDefaultAdapterPathInternal(BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s", __FUNCTION__);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   if (!IsReady()) {
@@ -1806,6 +1835,7 @@ BluetoothDBusService::SendDiscoveryMessage(const nsAString& aAdapterPath,
                                            const char* aMessageName,
                                            BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aAdapterPath).get(), aMessageName);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
   NS_ASSERTION(mConnection, "Must have a connection here!");
 
@@ -1857,6 +1887,7 @@ public:
 
   NS_IMETHOD Run()
   {
+    LOG("[B] BluetoothDevicePropertiesRunnable::Run");
     MOZ_ASSERT(!NS_IsMainThread());
 
     nsString devicePath;
@@ -1941,6 +1972,7 @@ public:
   nsresult
   Run()
   {
+    LOG("[B] BluetoothPairedDevicePropertiesRunnable::Run");
     MOZ_ASSERT(!NS_IsMainThread());
     DBusError err;
     dbus_error_init(&err);
@@ -1998,6 +2030,7 @@ BluetoothDBusService::GetProperties(BluetoothObjectType aType,
                                     const nsAString& aPath,
                                     BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aPath).get());
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   MOZ_ASSERT(aType < ArrayLength(sBluetoothDBusIfaces));
@@ -2026,6 +2059,7 @@ BluetoothDBusService::GetProperties(BluetoothObjectType aType,
 nsresult
 BluetoothDBusService::GetDevicePropertiesInternal(const BluetoothSignal& aSignal)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aSignal.path()).get());
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   if (!mConnection || !gThreadConnection) {
@@ -2046,6 +2080,7 @@ nsresult
 BluetoothDBusService::GetPairedDevicePropertiesInternal(const nsTArray<nsString>& aDeviceAddresses,
                                                         BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s", __FUNCTION__);
   if (!IsReady()) {
     BluetoothValue v;
     nsString errorStr;
@@ -2071,6 +2106,8 @@ BluetoothDBusService::SetProperty(BluetoothObjectType aType,
                                   const BluetoothNamedValue& aValue,
                                   BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aPath).get(),
+      NS_ConvertUTF16toUTF8(aValue.name()).get());
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   if (!IsReady()) {
@@ -2165,6 +2202,8 @@ GetDeviceServiceChannel(const nsAString& aObjectPath,
                         const nsAString& aPattern,
                         int aAttributeId)
 {
+  LOG("[B] %s(%s, %s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aObjectPath).get(),
+      NS_ConvertUTF16toUTF8(aPattern).get(), aAttributeId);
   // This is a blocking call, should not be run on main thread.
   MOZ_ASSERT(!NS_IsMainThread());
 
@@ -2195,6 +2234,7 @@ bool
 BluetoothDBusService::RemoveReservedServicesInternal(const nsAString& aAdapterPath,
                                                      const nsTArray<uint32_t>& aServiceHandles)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aAdapterPath).get());
   MOZ_ASSERT(!NS_IsMainThread());
 
   int length = aServiceHandles.Length();
@@ -2221,6 +2261,8 @@ BluetoothDBusService::CreatePairedDeviceInternal(const nsAString& aAdapterPath,
                                                  int aTimeout,
                                                  BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aAdapterPath).get(),
+      NS_ConvertUTF16toUTF8(aDeviceAddress).get());
   const char *capabilities = B2G_AGENT_CAPABILITIES;
   const char *deviceAgentPath = REMOTE_AGENT_PATH;
 
@@ -2269,6 +2311,8 @@ BluetoothDBusService::RemoveDeviceInternal(const nsAString& aAdapterPath,
                                            const nsAString& aDeviceAddress,
                                            BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aAdapterPath).get(),
+      NS_ConvertUTF16toUTF8(aDeviceAddress).get());
   if (!IsReady()) {
     BluetoothValue v;
     nsString errorStr;
@@ -2298,6 +2342,8 @@ BluetoothDBusService::SetPinCodeInternal(const nsAString& aDeviceAddress,
                                          const nsAString& aPinCode,
                                          BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      aPinCode);
   nsString errorStr;
   BluetoothValue v = true;
   DBusMessage *msg;
@@ -2346,6 +2392,8 @@ BluetoothDBusService::SetPasskeyInternal(const nsAString& aDeviceAddress,
                                          uint32_t aPasskey,
                                          BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      aPasskey);
   nsString errorStr;
   BluetoothValue v = true;
   DBusMessage *msg;
@@ -2392,6 +2440,8 @@ BluetoothDBusService::SetPairingConfirmationInternal(const nsAString& aDeviceAdd
                                                      bool aConfirm,
                                                      BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      aConfirm);
   nsString errorStr;
   BluetoothValue v = true;
   DBusMessage *msg;
@@ -2436,6 +2486,8 @@ BluetoothDBusService::SetAuthorizationInternal(const nsAString& aDeviceAddress,
                                                bool aAllow,
                                                BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      aAllow);
   nsString errorStr;
   BluetoothValue v = true;
   DBusMessage *msg;
@@ -2479,6 +2531,7 @@ BluetoothDBusService::SetAuthorizationInternal(const nsAString& aDeviceAddress,
 nsresult
 BluetoothDBusService::PrepareAdapterInternal(const nsAString& aPath)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aPath).get());
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   if (!mConnection || !gThreadConnection) {
@@ -2504,6 +2557,8 @@ BluetoothDBusService::Connect(const nsAString& aDeviceAddress,
                               const uint16_t aProfileId,
                               BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(),
+      NS_ConvertUTF16toUTF8(aAdapterPath).get(), aProfileId);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   BluetoothValue v;
@@ -2540,6 +2595,7 @@ void
 BluetoothDBusService::Disconnect(const uint16_t aProfileId,
                                  BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%d)", __FUNCTION__, aProfileId);
   if (aProfileId == BluetoothServiceClass::HANDSFREE ||
       aProfileId == BluetoothServiceClass::HEADSET) {
     BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
@@ -2563,6 +2619,7 @@ BluetoothDBusService::Disconnect(const uint16_t aProfileId,
 bool
 BluetoothDBusService::IsConnected(const uint16_t aProfileId)
 {
+  LOG("[B] %s(%d)", __FUNCTION__, aProfileId);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   if (aProfileId == BluetoothServiceClass::HANDSFREE ||
@@ -2602,6 +2659,9 @@ public:
   nsresult
   Run()
   {
+    LOG("[B] ConnectBluetoothSocketRunnable::Run(%s, %s, %d, %d)",
+        NS_ConvertUTF16toUTF8(mObjectPath).get(), NS_ConvertUTF16toUTF8(mServiceUUID).get(),
+        mAuth, mEncrypt);
     MOZ_ASSERT(NS_IsMainThread());
 
     nsString address = GetAddressFromObjectPath(mObjectPath);
@@ -2651,6 +2711,9 @@ public:
   nsresult
   Run()
   {
+    LOG("[B] GetDeviceChannelForConnectRunnable::Run(%s, %s, %d, %d)",
+        NS_ConvertUTF16toUTF8(mObjectPath).get(), NS_ConvertUTF16toUTF8(mServiceUUID).get(),
+        mAuth, mEncrypt);
     MOZ_ASSERT(!NS_IsMainThread());
 
     int channel = GetDeviceServiceChannel(mObjectPath, mServiceUUID, 0x0004);
@@ -2695,6 +2758,9 @@ BluetoothDBusService::GetSocketViaService(const nsAString& aObjectPath,
                                           mozilla::ipc::UnixSocketConsumer* aConsumer,
                                           BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %s, %d, %d)", __FUNCTION__,
+    NS_ConvertUTF16toUTF8(aObjectPath).get(), NS_ConvertUTF16toUTF8(aService).get(),
+    aAuth, aEncrypt);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
   if (!IsReady()) {
     BluetoothValue v;
@@ -2727,6 +2793,7 @@ BluetoothDBusService::GetScoSocket(const nsAString& aAddress,
                                    bool aEncrypt,
                                    mozilla::ipc::UnixSocketConsumer* aConsumer)
 {
+  LOG("[B] %s(%s, %d, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aAddress).get(), aAuth, aEncrypt);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   if (!mConnection || !gThreadConnection) {
@@ -2753,6 +2820,7 @@ BluetoothDBusService::SendFile(const nsAString& aDeviceAddress,
                                BlobChild* aBlobChild,
                                BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get());
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   // Currently we only support one device sending one file at a time,
@@ -2774,6 +2842,7 @@ void
 BluetoothDBusService::StopSendingFile(const nsAString& aDeviceAddress,
                                       BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get());
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   // Currently we only support one device sending one file at a time,
@@ -2796,6 +2865,7 @@ BluetoothDBusService::ConfirmReceivingFile(const nsAString& aDeviceAddress,
                                            bool aConfirm,
                                            BluetoothReplyRunnable* aRunnable)
 {
+  LOG("[B] %s(%s, %d)", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get(), aConfirm);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   // Currently we only support one device sending one file at a time,
@@ -2820,6 +2890,7 @@ BluetoothDBusService::ListenSocketViaService(int aChannel,
                                              bool aEncrypt,
                                              mozilla::ipc::UnixSocketConsumer* aConsumer)
 {
+  LOG("[B] %s(%d, %d, %d)", __FUNCTION__, aChannel, aAuth, aEncrypt);
   NS_ASSERTION(NS_IsMainThread(), "Must be called from main thread!");
 
   BluetoothUnixSocketConnector* c =
