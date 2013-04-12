@@ -92,12 +92,18 @@ BluetoothScoManager::NotifyAudioManager(const nsAString& aAddress)
   nsCOMPtr<nsIObserverService> obs =
     do_GetService("@mozilla.org/observer-service;1");
   NS_ENSURE_TRUE_VOID(obs);
+  
+  nsCOMPtr<nsIAudioManager> am =
+    do_GetService("@mozilla.org/telephony/audiomanager;1");
+  NS_ENSURE_TRUE_VOID(am);
+  long force = am->FORCE_NONE;
 
   if (aAddress.IsEmpty()) {
     if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, nullptr))) {
       NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
       return;
     }
+    force = am->FORCE_BT_SCO;
   } else {
     if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, aAddress.BeginReading()))) {
       NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
@@ -105,10 +111,7 @@ BluetoothScoManager::NotifyAudioManager(const nsAString& aAddress)
     }
   }
 
-  nsCOMPtr<nsIAudioManager> am =
-    do_GetService("@mozilla.org/telephony/audiomanager;1");
-  NS_ENSURE_TRUE_VOID(am);
-  am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_BT_SCO);
+  am->SetForceForUse(am->USE_COMMUNICATION, force);
 }
 
 NS_IMPL_ISUPPORTS1(BluetoothScoManagerObserver, nsIObserver)

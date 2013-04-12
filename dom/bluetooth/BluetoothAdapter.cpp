@@ -345,34 +345,6 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     e->InitBluetoothDeviceEvent(NS_LITERAL_STRING("devicefound"),
                                 false, false, device);
     DispatchTrustedEvent(event);
-<<<<<<< HEAD
-  } else if (aData.name().EqualsLiteral("DeviceDisappeared")) {
-    LOG("[A] Receive event - DeviceDisappeared");
-    const nsAString& deviceAddress = aData.value().get_nsString();
-
-    nsCOMPtr<nsIDOMEvent> event;
-    NS_NewDOMBluetoothDeviceAddressEvent(getter_AddRefs(event), this, nullptr, nullptr);
-
-    nsCOMPtr<nsIDOMBluetoothDeviceAddressEvent> e = do_QueryInterface(event);
-    e->InitBluetoothDeviceAddressEvent(NS_LITERAL_STRING("devicedisappeared"),
-                                       false, false, deviceAddress);
-    DispatchTrustedEvent(e);
-  } else if (aData.name().EqualsLiteral("DeviceCreated")) {
-    LOG("[A] Receive event - DeviceCreated");
-    NS_ASSERTION(aData.value().type() == BluetoothValue::TArrayOfBluetoothNamedValue,
-                 "DeviceCreated: Invalid value type");
-
-    nsRefPtr<BluetoothDevice> device =
-      BluetoothDevice::Create(GetOwner(), GetPath(), aData.value());
-    nsCOMPtr<nsIDOMEvent> event;
-    NS_NewDOMBluetoothDeviceEvent(getter_AddRefs(event), this, nullptr, nullptr);
-
-    nsCOMPtr<nsIDOMBluetoothDeviceEvent> e = do_QueryInterface(event);
-    e->InitBluetoothDeviceEvent(NS_LITERAL_STRING("devicecreated"),
-                                false, false, device);
-    DispatchTrustedEvent(e);
-=======
->>>>>>> 05088603b4671fed989e4494323113393a124c64
   } else if (aData.name().EqualsLiteral("PropertyChanged")) {
     NS_ASSERTION(v.type() == BluetoothValue::TArrayOfBluetoothNamedValue,
                  "PropertyChanged: Invalid value type");
@@ -438,17 +410,6 @@ BluetoothAdapter::StopDiscovery(nsIDOMDOMRequest** aRequest)
 }
 
 NS_IMETHODIMP
-<<<<<<< HEAD
-BluetoothAdapter::GetEnabled(bool* aEnabled)
-{
-  LOGV("[A] %s", __FUNCTION__);
-  *aEnabled = mEnabled;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-=======
->>>>>>> 05088603b4671fed989e4494323113393a124c64
 BluetoothAdapter::GetAddress(nsAString& aAddress)
 {
   LOGV("[A] %s", __FUNCTION__);
