@@ -20,7 +20,6 @@ EXTRA_JS_MODULES = \
 	SignInToWebsite.jsm \
 	webappsUI.jsm \
 	webrtcUI.jsm \
-	KeywordURLResetPrompter.jsm \
 	Social.jsm \
 	SharedFrame.jsm \
 	$(NULL)
@@ -32,10 +31,8 @@ EXTRA_PP_JS_MODULES = \
 
 ifeq ($(MOZ_WIDGET_TOOLKIT),windows)
 EXTRA_JS_MODULES += \
-	WindowsPreviewPerTab.jsm \
-	$(NULL)
-EXTRA_PP_JS_MODULES += \
 	WindowsJumpLists.jsm \
+	WindowsPreviewPerTab.jsm \
 	$(NULL)
 endif
 

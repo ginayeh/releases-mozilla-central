@@ -467,8 +467,6 @@ public:
 
   void SetMozSrcObject(DOMMediaStream& aValue);
 
-  double InitialTime();
-
   bool MozPreservesPitch() const
   {
     return mPreservesPitch;
@@ -520,7 +518,7 @@ protected:
 
   class WakeLockBoolWrapper {
   public:
-    WakeLockBoolWrapper(bool val = false) : mValue(val), mOuter(NULL), mWakeLock(NULL) {}
+    WakeLockBoolWrapper(bool val = false) : mValue(val), mOuter(nullptr), mWakeLock(nullptr) {}
     void SetOuter(HTMLMediaElement* outer) { mOuter = outer; }
     operator bool() const { return mValue; }
     WakeLockBoolWrapper& operator=(bool val);

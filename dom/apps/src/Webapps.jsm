@@ -2231,6 +2231,10 @@ this.DOMApplicationRegistry = {
               app.installState = "installed";
               app.readyToApplyDownload = false;
               self.broadcastMessage("Webapps:PackageEvent", {
+                                      type: "downloaded",
+                                      manifestURL: aApp.manifestURL,
+                                      app: app })
+              self.broadcastMessage("Webapps:PackageEvent", {
                                       type: "applied",
                                       manifestURL: aApp.manifestURL,
                                       app: app });
@@ -2381,7 +2385,7 @@ this.DOMApplicationRegistry = {
                 // Apps with installState 'pending' does not produce any
                 // notification, so we are safe with its current
                 // downladAvailable state.
-                if (app.installState === "installed") {
+                if (app.installState !== "pending") {
                   app.downloadAvailable = false;
                 }
                 if (typeof e == 'object') {

@@ -17,6 +17,7 @@ import android.os.SystemClock;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.Selection;
+import android.text.SpannableString;
 import android.text.method.KeyListener;
 import android.text.method.TextKeyListener;
 import android.util.DisplayMetrics;
@@ -313,8 +314,11 @@ class GeckoInputConnection
         extract.selectionStart = selStart;
         extract.selectionEnd = selEnd;
         extract.startOffset = 0;
-        extract.text = editable;
-
+        if ((req.flags & GET_TEXT_WITH_STYLES) != 0) {
+            extract.text = new SpannableString(editable);
+        } else {
+            extract.text = editable.toString();
+        }
         return extract;
     }
 
@@ -428,8 +432,11 @@ class GeckoInputConnection
         mUpdateExtract.selectionEnd =
                 Selection.getSelectionEnd(editable);
         mUpdateExtract.startOffset = 0;
-        mUpdateExtract.text = editable;
-
+        if ((mUpdateRequest.flags & GET_TEXT_WITH_STYLES) != 0) {
+            mUpdateExtract.text = new SpannableString(editable);
+        } else {
+            mUpdateExtract.text = editable.toString();
+        }
         imm.updateExtractedText(v, mUpdateRequest.token,
                                 mUpdateExtract);
     }
@@ -565,7 +572,14 @@ class GeckoInputConnection
         else if (mIMEModeHint.equalsIgnoreCase("digit"))
             outAttrs.inputType = InputType.TYPE_CLASS_NUMBER;
         else {
-            outAttrs.inputType |= InputType.TYPE_TEXT_FLAG_AUTO_CORRECT;
+            // TYPE_TEXT_FLAG_IME_MULTI_LINE flag makes the fullscreen IME line wrap
+            outAttrs.inputType |= InputType.TYPE_TEXT_FLAG_AUTO_CORRECT |
+                                  InputType.TYPE_TEXT_FLAG_IME_MULTI_LINE;
+            if (mIMETypeHint.equalsIgnoreCase("textarea") ||
+                    mIMETypeHint.length() == 0) {
+                // empty mIMETypeHint indicates contentEditable/designMode documents
+                outAttrs.inputType |= InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+            }
             if (mIMEModeHint.equalsIgnoreCase("uppercase"))
                 outAttrs.inputType |= InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS;
             else if (mIMEModeHint.equalsIgnoreCase("titlecase"))
@@ -727,7 +741,9 @@ class GeckoInputConnection
         Handler icHandler = mEditableClient.getInputConnectionHandler();
         Editable uiEditable = mThreadUtils.getEditableForUiThread(uiHandler, icHandler);
         boolean skip = shouldSkipKeyListener(keyCode, event);
-
+        if (down) {
+            mEditableClient.setSuppressKeyUp(true);
+        }
         if (skip ||
             (down && !keyListener.onKeyDown(view, uiEditable, keyCode, event)) ||
             (!down && !keyListener.onKeyUp(view, uiEditable, keyCode, event))) {
@@ -739,6 +755,9 @@ class GeckoInputConnection
                 // states so the meta states remain consistent
                 TextKeyListener.adjustMetaAfterKeypress(uiEditable);
             }
+        }
+        if (down) {
+            mEditableClient.setSuppressKeyUp(false);
         }
         return true;
     }

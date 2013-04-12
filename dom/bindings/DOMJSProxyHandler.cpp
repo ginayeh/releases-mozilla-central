@@ -76,6 +76,20 @@ DOMProxyHandler::EnsureExpandoObject(JSContext* cx, JSObject* obj)
 }
 
 bool
+DOMProxyHandler::isExtensible(JSObject *proxy)
+{
+  return true; // always extensible per WebIDL
+}
+
+bool
+DOMProxyHandler::preventExtensions(JSContext *cx, JS::Handle<JSObject*> proxy)
+{
+  // Throw a TypeError, per WebIDL.
+  JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL, JSMSG_CANT_CHANGE_EXTENSIBILITY);
+  return false;
+}
+
+bool
 DOMProxyHandler::getPropertyDescriptor(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
                                        JSPropertyDescriptor* desc, unsigned flags)
 {
@@ -240,7 +254,7 @@ IdToInt32(JSContext* cx, jsid id)
 {
   JSAutoRequest ar(cx);
 
-  jsval idval;
+  JS::Value idval;
   double array_index;
   int32_t i;
   if (!::JS_IdToValue(cx, id, &idval) ||

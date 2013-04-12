@@ -548,8 +548,6 @@ class JSObject : public js::ObjectImpl
     static inline unsigned getSealedOrFrozenAttributes(unsigned attrs, ImmutabilityType it);
 
   public:
-    bool preventExtensions(JSContext *cx);
-
     /* ES5 15.2.3.8: non-extensible, all props non-configurable */
     static inline bool seal(JSContext *cx, js::HandleObject obj) { return sealOrFreeze(cx, obj, SEAL); }
     /* ES5 15.2.3.9: non-extensible, all properties non-configurable, all data props read-only */
@@ -960,7 +958,7 @@ class JSObject : public js::ObjectImpl
     inline bool isObject() const;
     inline bool isPrimitive() const;
     inline bool isPropertyIterator() const;
-    inline bool isProxy() const;
+    using js::ObjectImpl::isProxy;
     inline bool isRegExp() const;
     inline bool isRegExpStatics() const;
     inline bool isScope() const;
@@ -1156,6 +1154,10 @@ extern JSBool
 js_DefineOwnProperty(JSContext *cx, JS::HandleObject obj, JS::HandleId id,
                      const JS::Value &descriptor, JSBool *bp);
 
+extern JSBool
+js_DefineOwnProperty(JSContext *cx, JS::HandleObject obj, JS::HandleId id,
+                     const js::PropertyDescriptor &descriptor, JSBool *bp);
+
 namespace js {
 
 /*
@@ -1178,7 +1180,14 @@ enum NewObjectKind {
      * be allocated on the correct heap, but are not automatically setup as a
      * singleton after allocation.
      */
-    MaybeSingletonObject
+    MaybeSingletonObject,
+
+    /*
+     * Objects which will not benefit from being allocated in the nursery
+     * (e.g. because they are known to have a long lifetime) may be allocated
+     * with this kind to place them immediately into the tenured generation.
+     */
+    TenuredObject
 };
 
 inline gc::InitialHeap
@@ -1455,7 +1464,7 @@ inline void
 DestroyIdArray(FreeOp *fop, JSIdArray *ida);
 
 extern bool
-GetFirstArgumentAsObject(JSContext *cx, unsigned argc, Value *vp, const char *method,
+GetFirstArgumentAsObject(JSContext *cx, const CallArgs &args, const char *method,
                          MutableHandleObject objp);
 
 /* Helpers for throwing. These always return false. */

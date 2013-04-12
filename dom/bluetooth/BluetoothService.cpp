@@ -253,7 +253,7 @@ class BluetoothService::StartupTask : public nsISettingsServiceCallback
 public:
   NS_DECL_ISUPPORTS
 
-  NS_IMETHOD Handle(const nsAString& aName, const jsval& aResult)
+  NS_IMETHOD Handle(const nsAString& aName, const JS::Value& aResult)
   {
     LOG("[S] StartupTask::Handle");
     MOZ_ASSERT(NS_IsMainThread());

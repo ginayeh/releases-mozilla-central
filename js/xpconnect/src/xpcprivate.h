@@ -178,6 +178,9 @@
 #include "xpcObjectHelper.h"
 #include "nsIThreadInternal.h"
 
+#include "SandboxPrivate.h"
+#include "BackstagePass.h"
+
 #ifdef XP_WIN
 // Nasty MS defines
 #ifdef GetClassInfo
@@ -577,8 +580,6 @@ private:
     // watch out for this, we'll do an unmatched |pop| on the context stack.
     uint16_t                   mEventDepth;
 
-    nsCOMPtr<nsIXPCScriptable> mBackstagePass;
-
     static uint32_t gReportAllJSExceptions;
     static JSBool gDebugMode;
     static JSBool gDesiredDebugMode;
@@ -908,6 +909,8 @@ public:
 
     AutoMarkingPtr**  GetAutoRootsAdr() {return &mAutoRoots;}
 
+    JSObject* GetJunkScope();
+    void DeleteJunkScope();
 private:
     XPCJSRuntime(); // no implementation
     XPCJSRuntime(nsXPConnect* aXPConnect);
@@ -958,6 +961,7 @@ private:
     PRTime mLastActiveTime; // -1 if active NOW
     nsRefPtr<XPCIncrementalReleaseRunnable> mReleaseRunnable;
     JS::GCSliceCallback mPrevGCSliceCallback;
+    JSObject* mJunkScope;
 
     nsCOMPtr<nsIException>   mPendingException;
     nsCOMPtr<nsIExceptionManager> mExceptionManager;
@@ -1305,7 +1309,7 @@ private:
     jsid                            mName;
     JSBool                          mStaticMemberIsLocal;
 
-    unsigned                           mArgc;
+    unsigned                        mArgc;
     jsval*                          mArgv;
     jsval*                          mRetVal;
 
@@ -1318,15 +1322,13 @@ public:
     XPCLazyCallContext(XPCCallContext& ccx)
         : mCallBeginRequest(DONT_CALL_BEGINREQUEST),
           mCcx(&ccx),
-          mCcxToDestroy(nullptr)
-#ifdef DEBUG
-          , mCx(nullptr)
-          , mCallerLanguage(JS_CALLER)
-          , mObj(nullptr)
-          , mFlattenedJSObject(nullptr)
-          , mWrapper(nullptr)
-          , mTearOff(nullptr)
-#endif
+          mCcxToDestroy(nullptr),
+          mCx(nullptr),
+          mCallerLanguage(JS_CALLER),
+          mObj(ccx.GetJSContext(), nullptr),
+          mFlattenedJSObject(ccx.GetJSContext(), nullptr),
+          mWrapper(nullptr),
+          mTearOff(nullptr)
     {
     }
     XPCLazyCallContext(XPCContext::LangType callerLanguage, JSContext* cx,
@@ -1340,8 +1342,8 @@ public:
           mCcxToDestroy(nullptr),
           mCx(cx),
           mCallerLanguage(callerLanguage),
-          mObj(obj),
-          mFlattenedJSObject(flattenedJSObject),
+          mObj(cx, obj),
+          mFlattenedJSObject(cx, flattenedJSObject),
           mWrapper(wrapper),
           mTearOff(tearoff)
     {
@@ -1433,8 +1435,8 @@ private:
     XPCCallContext *mCcxToDestroy;
     JSContext *mCx;
     XPCContext::LangType mCallerLanguage;
-    JSObject *mObj;
-    JSObject *mFlattenedJSObject;
+    JS::RootedObject mObj;
+    JS::RootedObject mFlattenedJSObject;
     XPCWrappedNative *mWrapper;
     XPCWrappedNativeTearOff *mTearOff;
     mozilla::AlignedStorage2<XPCCallContext> mData;
@@ -1631,9 +1633,9 @@ public:
     void TraceSelf(JSTracer *trc) {
         JSObject *obj = GetGlobalJSObjectPreserveColor();
         MOZ_ASSERT(obj);
-        JS_CALL_OBJECT_TRACER(trc, obj, "XPCWrappedNativeScope::mGlobalJSObject");
+        JS_CallObjectTracer(trc, obj, "XPCWrappedNativeScope::mGlobalJSObject");
         if (mXBLScope)
-            JS_CALL_OBJECT_TRACER(trc, mXBLScope, "XPCWrappedNativeScope::mXBLScope");
+            JS_CallObjectTracer(trc, mXBLScope, "XPCWrappedNativeScope::mXBLScope");
     }
 
     static void
@@ -2438,7 +2440,7 @@ public:
 
     void TraceSelf(JSTracer *trc) {
         if (mJSProtoObject)
-            JS_CALL_OBJECT_TRACER(trc, mJSProtoObject, "XPCWrappedNativeProto::mJSProtoObject");
+            JS_CallObjectTracer(trc, mJSProtoObject, "XPCWrappedNativeProto::mJSProtoObject");
     }
 
     void TraceInside(JSTracer *trc) {
@@ -2837,7 +2839,7 @@ public:
             GetScope()->TraceSelf(trc);
         JSObject* wrapper = GetWrapperPreserveColor();
         if (wrapper)
-            JS_CALL_OBJECT_TRACER(trc, wrapper, "XPCWrappedNative::mWrapper");
+            JS_CallObjectTracer(trc, wrapper, "XPCWrappedNative::mWrapper");
         if (mFlatJSObject && mFlatJSObject != INVALID_OBJECT &&
             JS_IsGlobalObject(mFlatJSObject))
         {
@@ -2856,8 +2858,8 @@ public:
         // normally somebody else is doing that. Be careful not to trace the
         // bogus INVALID_OBJECT value we can have during init, though.
         if (mFlatJSObject && mFlatJSObject != INVALID_OBJECT) {
-            JS_CALL_OBJECT_TRACER(trc, mFlatJSObject,
-                                  "XPCWrappedNative::mFlatJSObject");
+            JS_CallObjectTracer(trc, mFlatJSObject,
+                                "XPCWrappedNative::mFlatJSObject");
         }
     }
 
@@ -3186,6 +3188,7 @@ public:
     // category are only deleted when we see that their corresponding JSObject
     // is to be finalized.
     JSBool IsSubjectToFinalization() const {return IsValid() && mRefCnt == 1;}
+    JSBool IsObjectAboutToBeFinalized() {return JS_IsAboutToBeFinalized(&mJSObj);}
 
     JSBool IsAggregatedToNative() const {return mRoot->mOuter != nullptr;}
     nsISupports* GetAggregatedNativeObject() const {return mRoot->mOuter;}
@@ -3682,31 +3685,6 @@ private:
 };
 
 /***************************************************************************/
-#include "nsIScriptSecurityManager.h"
-
-class BackstagePass : public nsIScriptObjectPrincipal,
-                      public nsIXPCScriptable,
-                      public nsIClassInfo
-{
-public:
-  NS_DECL_ISUPPORTS
-  NS_DECL_NSIXPCSCRIPTABLE
-  NS_DECL_NSICLASSINFO
-
-  virtual nsIPrincipal* GetPrincipal() {
-    return mPrincipal;
-  }
-
-  BackstagePass(nsIPrincipal *prin) :
-    mPrincipal(prin)
-  {
-  }
-
-  virtual ~BackstagePass() { }
-
-private:
-  nsCOMPtr<nsIPrincipal> mPrincipal;
-};
 // 'Components' object
 
 class nsXPCComponents : public nsIXPCComponents,
@@ -3722,13 +3700,9 @@ public:
     NS_DECL_NSISECURITYCHECKEDCOMPONENT
 
 public:
-    // The target is the object upon which |Components| will be defined. If
-    // aTarget is left null, a default object will be computed. This is usually
-    // the right thing to do.
     static JSBool
     AttachComponentsObject(XPCCallContext& ccx,
-                           XPCWrappedNativeScope* aScope,
-                           JSObject* aTarget = NULL);
+                           XPCWrappedNativeScope* aScope);
 
     void SystemIsBeingShutDown() {ClearMembers();}
 
@@ -3897,7 +3871,7 @@ public:
     void Mark() {}
     void TraceJS(JSTracer* trc)
     {
-        JS_CALL_VALUE_TRACER(trc, *mValPtr, "XPCMarkableJSVal");
+        JS_CallValueTracer(trc, *mValPtr, "XPCMarkableJSVal");
     }
     void AutoTrace(JSTracer* trc) {}
 private:
@@ -4166,32 +4140,6 @@ public:
     void TraceJS(JSTracer* trc);
     static void GetTraceName(JSTracer* trc, char *buf, size_t bufsize);
 };
-
-/***************************************************************************/
-
-#define PRINCIPALHOLDER_IID \
-{0xbf109f49, 0xf94a, 0x43d8, {0x93, 0xdb, 0xe4, 0x66, 0x49, 0xc5, 0xd9, 0x7d}}
-
-class PrincipalHolder : public nsIScriptObjectPrincipal
-{
-public:
-    NS_DECLARE_STATIC_IID_ACCESSOR(PRINCIPALHOLDER_IID)
-
-    PrincipalHolder(nsIPrincipal *holdee)
-        : mHoldee(holdee)
-    {
-    }
-    virtual ~PrincipalHolder() { }
-
-    NS_DECL_ISUPPORTS
-
-    nsIPrincipal *GetPrincipal();
-
-private:
-    nsCOMPtr<nsIPrincipal> mHoldee;
-};
-
-NS_DEFINE_STATIC_IID_ACCESSOR(PrincipalHolder, PRINCIPALHOLDER_IID)
 
 /***************************************************************************/
 // Utilities

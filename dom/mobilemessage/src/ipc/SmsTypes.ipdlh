@@ -25,6 +25,7 @@ struct SmsSegmentInfoData
 struct SmsMessageData
 {
   int32_t        id;
+  uint64_t       threadId;
   DeliveryState  delivery;
   DeliveryStatus deliveryStatus;
   nsString       sender;
@@ -33,6 +34,30 @@ struct SmsMessageData
   MessageClass   messageClass;
   uint64_t       timestamp; // ms since epoch.
   bool           read;
+};
+
+struct SmsFilterData
+{
+  uint64_t      startDate;
+  uint64_t      endDate;
+  nsString[]    numbers;
+  DeliveryState delivery;
+  ReadState     read;
+};
+
+struct ThreadData
+{
+  uint64_t id;
+  nsString[] participants;
+  uint64_t timestamp;
+  nsString body;
+  uint64_t unreadCount;
+};
+
+union MobileMessageCursorData
+{
+  SmsMessageData;
+  ThreadData;
 };
 
 }

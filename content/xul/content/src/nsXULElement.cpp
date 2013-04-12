@@ -59,13 +59,14 @@
 #include "nsIXULTemplateBuilder.h"
 #include "nsLayoutCID.h"
 #include "nsContentCID.h"
+#include "nsDOMEvent.h"
 #include "nsRDFCID.h"
 #include "nsStyleConsts.h"
 #include "nsXPIDLString.h"
 #include "nsXULControllers.h"
 #include "nsIBoxObject.h"
 #include "nsPIBoxObject.h"
-#include "nsXULDocument.h"
+#include "XULDocument.h"
 #include "nsXULPopupListener.h"
 #include "nsRuleWalker.h"
 #include "nsIDOMCSSStyleDeclaration.h"
@@ -106,6 +107,7 @@
 #include "mozilla/dom/XULElementBinding.h"
 
 using namespace mozilla;
+using namespace mozilla::dom;
 
 //----------------------------------------------------------------------
 
@@ -436,7 +438,7 @@ nsXULElement::GetElementsByAttribute(const nsAString& aAttribute,
     void* attrValue = new nsString(aValue);
     nsRefPtr<nsContentList> list =
         new nsContentList(this,
-                          nsXULDocument::MatchAttribute,
+                          XULDocument::MatchAttribute,
                           nsContentUtils::DestroyMatchString,
                           attrValue,
                           true,
@@ -478,7 +480,7 @@ nsXULElement::GetElementsByAttributeNS(const nsAString& aNamespaceURI,
     void* attrValue = new nsString(aValue);
     nsRefPtr<nsContentList> list =
         new nsContentList(this,
-                          nsXULDocument::MatchAttribute,
+                          XULDocument::MatchAttribute,
                           nsContentUtils::DestroyMatchString,
                           attrValue,
                           true,
@@ -501,7 +503,7 @@ nsXULElement::GetEventListenerManagerForAttr(nsIAtom* aAttrName, bool* aDefer)
     if ((!root || root == this) && !mNodeInfo->Equals(nsGkAtoms::overlay) &&
         (window = doc->GetInnerWindow()) && window->IsInnerWindow()) {
 
-        nsCOMPtr<nsIDOMEventTarget> piTarget = do_QueryInterface(window);
+        nsCOMPtr<EventTarget> piTarget = do_QueryInterface(window);
 
         *aDefer = false;
         return piTarget->GetListenerManager(true);
@@ -1180,15 +1182,15 @@ nsXULElement::PreHandleEvent(nsEventChainPreVisitor& aVisitor)
                 // handling.
                 nsCOMPtr<nsIDOMEvent> domEvent = aVisitor.mDOMEvent;
                 while (domEvent) {
-                    nsCOMPtr<nsIDOMEventTarget> oTarget;
-                    domEvent->GetOriginalTarget(getter_AddRefs(oTarget));
-                    NS_ENSURE_STATE(!SameCOMIdentity(oTarget, commandContent));
+                    nsDOMEvent* event = domEvent->InternalDOMEvent();
+                    NS_ENSURE_STATE(!SameCOMIdentity(event->GetOriginalTarget(),
+                                                     commandContent));
                     nsCOMPtr<nsIDOMXULCommandEvent> commandEvent =
                         do_QueryInterface(domEvent);
                     if (commandEvent) {
                         commandEvent->GetSourceEvent(getter_AddRefs(domEvent));
                     } else {
-                        domEvent = NULL;
+                        domEvent = nullptr;
                     }
                 }
 
@@ -1366,10 +1368,8 @@ nsXULElement::GetBoxObject(nsIBoxObject** aResult)
 already_AddRefed<nsIBoxObject>
 nsXULElement::GetBoxObject(ErrorResult& rv)
 {
-    nsCOMPtr<nsIBoxObject> boxObject;
     // XXX sXBL/XBL2 issue! Owner or current document?
-    rv = OwnerDoc()->GetBoxObjectFor(this, getter_AddRefs(boxObject));
-    return boxObject.forget();
+    return OwnerDoc()->GetBoxObjectFor(this, rv);
 }
 
 // Methods for setting/getting attributes from nsIDOMXULElement
@@ -2346,7 +2346,7 @@ nsXULPrototypeElement::TraceAllScripts(JSTracer* aTrc)
         } else if (child->mType == nsXULPrototypeNode::eType_Script) {
             JSScript* script = static_cast<nsXULPrototypeScript*>(child)->GetScriptObject();
             if (script) {
-                JS_CALL_SCRIPT_TRACER(aTrc, script, "active window XUL prototype script");
+                JS_CallScriptTracer(aTrc, script, "active window XUL prototype script");
             }
         }
     }
@@ -2492,7 +2492,7 @@ nsXULPrototypeScript::DeserializeOutOfLine(nsIObjectInputStream* aInput,
         if (mSrcURI) {
             // NB: we must check the XUL script cache early, to avoid
             // multiple deserialization attempts for a given script.            
-            // Note that nsXULDocument::LoadScript
+            // Note that XULDocument::LoadScript
             // checks the XUL script cache too, in order to handle the
             // serialization case.
             //
@@ -2600,7 +2600,7 @@ nsXULPrototypeScript::Compile(const PRUnichar* aText,
                                 // protodoc's?
                                 // If we start using the protodoc's, make sure
                                 // the DowngradePrincipalIfNeeded stuff in
-                                // nsXULDocument::OnStreamComplete still works!
+                                // XULDocument::OnStreamComplete still works!
                                 aDocument->NodePrincipal(),
                                 urlspec.get(),
                                 aLineNo,

@@ -284,15 +284,17 @@ CodeGeneratorX86Shared::bailout(const T &binder, LSnapshot *snapshot)
     CompileInfo &info = snapshot->mir()->block()->info();
     switch (info.executionMode()) {
       case ParallelExecution: {
-        // in parallel mode, make no attempt to recover, just signal an error.
+        // In parallel mode, make no attempt to recover, just signal an error.
         Label *ool;
         if (!ensureOutOfLineParallelAbort(&ool))
             return false;
         binder(masm, ool);
         return true;
       }
-
-      case SequentialExecution: break;
+      case SequentialExecution:
+        break;
+      default:
+        JS_NOT_REACHED("No such execution mode");
     }
 
     if (!encode(snapshot))
@@ -1452,6 +1454,27 @@ CodeGeneratorX86Shared::generateInvalidateEpilogue()
     masm.breakpoint();
     return true;
 }
+
+bool
+CodeGeneratorX86Shared::visitNegI(LNegI *ins)
+{
+    Register input = ToRegister(ins->input());
+    JS_ASSERT(input == ToRegister(ins->output()));
+
+    masm.neg32(input);
+    return true;
+}
+
+bool
+CodeGeneratorX86Shared::visitNegD(LNegD *ins)
+{
+    FloatRegister input = ToFloatRegister(ins->input());
+    JS_ASSERT(input == ToFloatRegister(ins->output()));
+
+    masm.negateDouble(input);
+    return true;
+}
+
 
 } // namespace ion
 } // namespace js

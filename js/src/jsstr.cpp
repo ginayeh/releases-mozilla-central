@@ -19,6 +19,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/FloatingPoint.h"
+#include "mozilla/PodOperations.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -65,6 +66,8 @@ using namespace js::types;
 using namespace js::unicode;
 
 using mozilla::CheckedInt;
+using mozilla::PodCopy;
+using mozilla::PodEqual;
 
 typedef Handle<JSLinearString*> HandleLinearString;
 
@@ -684,7 +687,7 @@ str_toLocaleLowerCase(JSContext *cx, unsigned argc, Value *vp)
         if (!str)
             return false;
 
-        Value result;
+        RootedValue result(cx);
         if (!cx->runtime->localeCallbacks->localeToLowerCase(cx, str, &result))
             return false;
 
@@ -751,7 +754,7 @@ str_toLocaleUpperCase(JSContext *cx, unsigned argc, Value *vp)
         if (!str)
             return false;
 
-        Value result;
+        RootedValue result(cx);
         if (!cx->runtime->localeCallbacks->localeToUpperCase(cx, str, &result))
             return false;
 
@@ -777,7 +780,7 @@ str_localeCompare(JSContext *cx, unsigned argc, Value *vp)
         return false;
 
     if (cx->runtime->localeCallbacks && cx->runtime->localeCallbacks->localeCompare) {
-        Value result;
+        RootedValue result(cx);
         if (!cx->runtime->localeCallbacks->localeCompare(cx, str, thatStr, &result))
             return false;
 
@@ -2465,16 +2468,18 @@ str_replace_regexp_remove(JSContext *cx, CallArgs args, HandleString str, RegExp
         lazyIndex = lastIndex;
         lastIndex = startIndex;
 
+        if (match.isEmpty())
+            startIndex++;
+
         /* Non-global removal executes at most once. */
         if (!re.global())
             break;
-
-        if (match.isEmpty())
-            startIndex++;
     }
 
     /* If unmatched, return the input string. */
     if (!lastIndex) {
+        if (startIndex > 0)
+            cx->regExpStatics()->updateLazily(cx, stableStr, &re, lazyIndex);
         args.rval().setString(str);
         return true;
     }
@@ -3376,6 +3381,11 @@ static JSFunctionSpec string_methods[] = {
     JS_FN("trimRight",         str_trimRight,         0,JSFUN_GENERIC_NATIVE),
     JS_FN("toLocaleLowerCase", str_toLocaleLowerCase, 0,JSFUN_GENERIC_NATIVE),
     JS_FN("toLocaleUpperCase", str_toLocaleUpperCase, 0,JSFUN_GENERIC_NATIVE),
+#if ENABLE_INTL_API
+         {"localeCompare",     {NULL, NULL},          1,0, "String_localeCompare"},
+#else
+    JS_FN("localeCompare",     str_localeCompare,     1,JSFUN_GENERIC_NATIVE),
+#endif
 
     /* Perl-ish methods (search is actually Python-esque). */
     JS_FN("match",             str_match,             1,JSFUN_GENERIC_NATIVE),
@@ -3406,15 +3416,6 @@ static JSFunctionSpec string_methods[] = {
 #endif
 
     JS_FN("iterator",          JS_ArrayIterator,      0,0),
-
-    // This must be at the end because of bug 853075: functions listed after
-    // self-hosted methods aren't available in self-hosted code.
-#if ENABLE_INTL_API
-         {"localeCompare",     {NULL, NULL},          1,0, "String_localeCompare"},
-#else
-    JS_FN("localeCompare",     str_localeCompare,     1,JSFUN_GENERIC_NATIVE),
-#endif
-
     JS_FS_END
 };
 

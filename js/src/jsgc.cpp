@@ -83,6 +83,7 @@
 #include "vm/ForkJoin.h"
 #include "ion/IonCode.h"
 #ifdef JS_ION
+# include "ion/BaselineJIT.h"
 # include "ion/IonMacroAssembler.h"
 #include "ion/IonFrameIterator.h"
 #endif
@@ -3199,6 +3200,17 @@ FinishMarkingValidation(JSRuntime *rt)
 }
 
 static void
+AssertNeedsBarrierFlagsConsistent(JSRuntime *rt)
+{
+#ifdef DEBUG
+    bool anyNeedsBarrier = false;
+    for (ZonesIter zone(rt); !zone.done(); zone.next())
+        anyNeedsBarrier |= zone->needsBarrier();
+    JS_ASSERT(rt->needsBarrier() == anyNeedsBarrier);
+#endif
+}
+
+static void
 DropStringWrappers(JSRuntime *rt)
 {
     /*
@@ -3260,11 +3272,6 @@ JSCompartment::findOutgoingEdges(ComponentFinder<JS::Zone> &finder)
             if (w->isGCMarking())
                 finder.addEdgeTo(w);
         }
-
-#ifdef DEBUG
-        JSObject *wrapper = &e.front().value.toObject();
-        JS_ASSERT_IF(IsFunctionProxy(wrapper), &GetProxyCall(wrapper).toObject() == other);
-#endif
     }
 
     Debugger::findCompartmentEdges(zone(), finder);
@@ -3325,6 +3332,8 @@ GetNextZoneGroup(JSRuntime *rt)
             zone->setGCState(Zone::NoGC);
             zone->gcGrayRoots.clearAndFree();
         }
+        rt->setNeedsBarrier(false);
+        AssertNeedsBarrierFlagsConsistent(rt);
 
         for (GCCompartmentGroupIter comp(rt); !comp.done(); comp.next()) {
             ArrayBufferObject::resetArrayBufferList(comp);
@@ -4090,6 +4099,8 @@ ResetIncrementalGC(JSRuntime *rt, const char *reason)
             zone->setNeedsBarrier(false, Zone::UpdateIon);
             zone->setGCState(Zone::NoGC);
         }
+        rt->setNeedsBarrier(false);
+        AssertNeedsBarrierFlagsConsistent(rt);
 
         rt->gcIncrementalState = NO_INCREMENTAL;
 
@@ -4166,19 +4177,25 @@ AutoGCSlice::AutoGCSlice(JSRuntime *rt)
             JS_ASSERT(!zone->needsBarrier());
         }
     }
+    rt->setNeedsBarrier(false);
+    AssertNeedsBarrierFlagsConsistent(rt);
 }
 
 AutoGCSlice::~AutoGCSlice()
 {
     /* We can't use GCZonesIter if this is the end of the last slice. */
+    bool haveBarriers = false;
     for (ZonesIter zone(runtime); !zone.done(); zone.next()) {
         if (zone->isGCMarking()) {
             zone->setNeedsBarrier(true, Zone::UpdateIon);
             zone->allocator.arenas.prepareForIncrementalGC(runtime);
+            haveBarriers = true;
         } else {
             zone->setNeedsBarrier(false, Zone::UpdateIon);
         }
     }
+    runtime->setNeedsBarrier(haveBarriers);
+    AssertNeedsBarrierFlagsConsistent(runtime);
 }
 
 static void
@@ -4799,6 +4816,18 @@ js::ReleaseAllJITCode(FreeOp *fop)
     for (ZonesIter zone(fop->runtime()); !zone.done(); zone.next()) {
         mjit::ClearAllFrames(zone);
 # ifdef JS_ION
+
+#  ifdef DEBUG
+        /* Assert no baseline scripts are marked as active. */
+        for (CellIter i(zone, FINALIZE_SCRIPT); !i.done(); i.next()) {
+            JSScript *script = i.get<JSScript>();
+            JS_ASSERT_IF(script->hasBaselineScript(), !script->baselineScript()->active());
+        }
+#  endif
+
+        /* Mark baseline scripts on the stack as active. */
+        ion::MarkActiveBaselineScripts(zone);
+
         ion::InvalidateAll(fop, zone);
 # endif
 
@@ -4807,6 +4836,12 @@ js::ReleaseAllJITCode(FreeOp *fop)
             mjit::ReleaseScriptCode(fop, script);
 # ifdef JS_ION
             ion::FinishInvalidation(fop, script);
+
+            /*
+             * Discard baseline script if it's not marked as active. Note that
+             * this also resets the active flag.
+             */
+            ion::FinishDiscardBaselineScript(fop, script);
 # endif
         }
     }

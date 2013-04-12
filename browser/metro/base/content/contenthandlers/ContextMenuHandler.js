@@ -69,21 +69,6 @@ var ContextMenuHandler = {
         this._onPaste();
         break;
 
-      case "play":
-      case "pause":
-        if (node instanceof Ci.nsIDOMHTMLMediaElement)
-          node[command]();
-        break;
-
-      case "videotab":
-        if (node instanceof Ci.nsIDOMHTMLVideoElement) {
-          node.pause();
-          Cu.import("resource:///modules/video.jsm");
-          Video.fullScreenSourceElement = node;
-          sendAsyncMessage("Browser:FullScreenVideo:Start");
-        }
-        break;
-
       case "select-all":
         this._onSelectAll();
         break;
@@ -306,12 +291,13 @@ var ContextMenuHandler = {
 
           // Don't include "copy" for password fields.
           if (!(elem instanceof Ci.nsIDOMHTMLInputElement) || elem.mozIsTextField(true)) {
+            // If there is a selection add cut and copy
             if (selectionStart != selectionEnd) {
               state.types.push("cut");
               state.types.push("copy");
               state.string = elem.value.slice(selectionStart, selectionEnd);
-            }
-            if (elem.value && (selectionStart > 0 || selectionEnd < elem.textLength)) {
+            } else if (elem.value && elem.textLength) {
+              // There is text and it is not selected so add selectable items
               state.types.push("selectable");
               state.string = elem.value;
             }

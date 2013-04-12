@@ -13,7 +13,7 @@ from application_cache import ApplicationCache
 from keys import Keys
 from errors import *
 from emulator import Emulator
-from geckoinstance import GeckoInstance
+import geckoinstance
 
 
 class HTMLElement(object):
@@ -111,6 +111,7 @@ class Actions(object):
     def __init__(self, marionette):
         self.action_chain = []
         self.marionette = marionette
+        self.current_id = None
 
     def press(self, element, x=None, y=None):
         element=element.id
@@ -139,7 +140,9 @@ class Actions(object):
         return self
 
     def perform(self):
-        return self.marionette._send_message('actionChain', 'ok', value=self.action_chain)
+        self.current_id = self.marionette._send_message('actionChain', 'value', chain=self.action_chain, nextId=self.current_id)
+        self.action_chain = []
+        return self
 
 class MultiActions(object):
     def __init__(self, marionette):
@@ -164,13 +167,14 @@ class Marionette(object):
     TIMEOUT_SCRIPT = 'script'
     TIMEOUT_PAGE = 'page load'
 
-    def __init__(self, host='localhost', port=2828, bin=None, profile=None,
-                 emulator=None, sdcard=None, emulatorBinary=None,
+    def __init__(self, host='localhost', port=2828, app=None, bin=None,
+                 profile=None, emulator=None, sdcard=None, emulatorBinary=None,
                  emulatorImg=None, emulator_res=None, gecko_path=None,
                  connectToRunningEmulator=False, homedir=None, baseurl=None,
-                 noWindow=False, logcat_dir=None, busybox=None):
+                 noWindow=False, logcat_dir=None, busybox=None, symbols_path=None):
         self.host = host
         self.port = self.local_port = port
+        self.app = app
         self.bin = bin
         self.instance = None
         self.profile = profile
@@ -183,14 +187,24 @@ class Marionette(object):
         self.noWindow = noWindow
         self.logcat_dir = logcat_dir
         self._test_name = None
+        self.symbols_path = symbols_path
 
         if bin:
             port = int(self.port)
             if not Marionette.is_port_available(port, host=self.host):
                 ex_msg = "%s:%d is unavailable." % (self.host, port)
                 raise MarionetteException(message=ex_msg)
-            self.instance = GeckoInstance(host=self.host, port=self.port,
-                                          bin=self.bin, profile=self.profile)
+            if app:
+                # select instance class for the given app
+                try:
+                    instance_class = geckoinstance.apps[app]
+                except KeyError:
+                    msg = 'Application "%s" unknown (should be one of %s)'
+                    raise NotImplementedError(msg % (app, geckoinstance.apps.keys()))
+            else:
+                instance_class = geckoinstance.GeckoInstance
+            self.instance = instance_class(host=self.host, port=self.port,
+                                           bin=self.bin, profile=self.profile)
             self.instance.start()
             assert(self.wait_for_port())
 
@@ -366,10 +380,15 @@ class Marionette(object):
     def check_for_crash(self):
         returncode = None
         name = None
+        crashed = False
         if self.emulator:
             if self.emulator.check_for_crash():
                 returncode = self.emulator.proc.returncode
                 name = 'emulator'
+                crashed = True
+
+            if self.symbols_path and self.emulator.check_for_minidumps(self.symbols_path):
+                crashed = True
         elif self.instance:
             # In the future, a check for crashed Firefox processes
             # should be here.
@@ -377,7 +396,7 @@ class Marionette(object):
         if returncode is not None:
             print ('PROCESS-CRASH | %s | abnormal termination with exit code %d' %
                 (name, returncode))
-        return returncode is not None
+        return crashed
 
     def absolute_url(self, relative_url):
         return "%s%s" % (self.baseurl, relative_url)
@@ -386,8 +405,14 @@ class Marionette(object):
         return self._send_message('getStatus', 'value')
 
     def start_session(self, desired_capabilities=None):
-        # We are ignoring desired_capabilities, at least for now.
-        self.session = self._send_message('newSession', 'value')
+        try:
+            # We are ignoring desired_capabilities, at least for now.
+            self.session = self._send_message('newSession', 'value')
+        except:
+            traceback.print_exc()
+            self.check_for_crash()
+            sys.exit()
+
         self.b2g = 'b2g' in self.session
         return self.session
 

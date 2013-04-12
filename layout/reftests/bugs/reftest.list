@@ -20,7 +20,7 @@
 == 10036-1.html 10036-1-ref.html
 skip-if(!cocoaWidget) HTTP(..) == 10209-1.html 10209-ref.html # Bug 667079
 HTTP(..) == 10209-2.html 10209-ref.html
-asserts(2) skip-if(!cocoaWidget) HTTP(..) == 10209-3.html 10209-3-ref.html # Assertions: bug 666606, skip because of bug 667079
+asserts(4) skip-if(!cocoaWidget) HTTP(..) == 10209-3.html 10209-3-ref.html # Assertions: bug 666606, skip because of bug 667079
 == 18217-basic-1.html 18217-basic-1-ref.html
 == 18217-basic-2a.html 18217-basic-2-ref.html
 == 18217-basic-2b.html 18217-basic-2-ref.html
@@ -1658,7 +1658,7 @@ skip-if(B2G) == 641770-1.html 641770-1-ref.html
 == 641856-1.html 641856-1-ref.html
 == 645491-1.html 645491-1-ref.html
 needs-focus == 652301-1a.html 652301-1-ref.html
-== 652301-1b.html 652301-1-ref.html
+needs-focus == 652301-1b.html 652301-1-ref.html
 == 645768-1.html 645768-1-ref.html
 fails-if(layersGPUAccelerated&&cocoaWidget) == 650228-1.html 650228-1-ref.html # Quartz alpha blending doesn't match GL alpha blending
 == 653930-1.html 653930-1-ref.html
@@ -1748,7 +1748,9 @@ skip-if(B2G) == 818276-1.html 818276-1-ref.html
 == 827577-1b.html 827577-1-ref.html
 == 827799-1.html about:blank
 == 836844-1.html 836844-1-ref.html
-== 848421-1.html 848421-1-ref.html
-== 847850-1.html 847850-1-ref.html
+== 841192-1.html 841192-1-ref.html
 == 846144-1.html 846144-1-ref.html
+== 847850-1.html 847850-1-ref.html
+== 848421-1.html 848421-1-ref.html
 test-pref(layout.css.flexbox.enabled,true) == 849407-1.html 849407-1-ref.html
+== 858803-1.html 858803-1-ref.html

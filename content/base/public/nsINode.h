@@ -282,7 +282,7 @@ public:
   // - HTMLFieldSetElement:   mElements, mDependentElements, mFirstLegend
   // - nsHTMLFormElement:     many!
   // - HTMLFrameSetElement:   mRowSpecs, mColSpecs
-  // - nsHTMLInputElement:    mInputData, mFiles, mFileList, mStaticDocfileList
+  // - HTMLInputElement:      mInputData, mFiles, mFileList, mStaticDocfileList
   // - nsHTMLMapElement:      mAreas
   // - HTMLMediaElement:      many!
   // - nsHTMLOutputElement:   mDefaultValue, mTokenList
@@ -1572,6 +1572,8 @@ public:
   {
     aLocalName = mNodeInfo->LocalName();
   }
+  // HasAttributes is defined inline in Element.h.
+  bool HasAttributes() const;
   nsDOMAttributeMap* GetAttributes();
   JS::Value SetUserData(JSContext* aCx, const nsAString& aKey, JS::Value aData,
                         nsIDOMUserDataHandler* aHandler,
@@ -1812,6 +1814,12 @@ extern const nsIID kThisPtrOffsetsSID;
   NS_OFFSET_AND_INTERFACE_TABLE_BEGIN_AMBIGUOUS(_class, nsINode)              \
     NS_INTERFACE_TABLE_ENTRY(_class, nsINode)                       
 
+#define NS_NODE_INTERFACE_TABLE1(_class, _i1)                                 \
+  NS_NODE_OFFSET_AND_INTERFACE_TABLE_BEGIN(_class)                            \
+    NS_INTERFACE_TABLE_ENTRY(_class, _i1)                                     \
+  NS_OFFSET_AND_INTERFACE_TABLE_END                                           \
+  NS_OFFSET_AND_INTERFACE_TABLE_TO_MAP_SEGUE
+
 #define NS_NODE_INTERFACE_TABLE2(_class, _i1, _i2)                            \
   NS_NODE_OFFSET_AND_INTERFACE_TABLE_BEGIN(_class)                            \
     NS_INTERFACE_TABLE_ENTRY(_class, _i1)                                     \
@@ -2007,6 +2015,12 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsINode, NS_INODE_IID)
   NS_IMETHOD GetLocalName(nsAString& aLocalName) __VA_ARGS__ \
   { \
     nsINode::GetLocalName(aLocalName); \
+    return NS_OK; \
+  } \
+  using nsINode::HasAttributes; \
+  NS_IMETHOD HasAttributes(bool* aResult) __VA_ARGS__ \
+  { \
+    *aResult = nsINode::HasAttributes(); \
     return NS_OK; \
   } \
   NS_IMETHOD GetDOMBaseURI(nsAString& aBaseURI) __VA_ARGS__ \

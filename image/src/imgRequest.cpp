@@ -7,14 +7,6 @@
 #include "imgRequest.h"
 #include "ImageLogging.h"
 
-/* We end up pulling in windows.h because we eventually hit gfxWindowsSurface;
- * windows.h defines LoadImage, so we have to #undef it or imgLoader::LoadImage
- * gets changed.
- * This #undef needs to be in multiple places because we don't always pull
- * headers in in the same order.
- */
-#undef LoadImage
-
 #include "imgLoader.h"
 #include "imgRequestProxy.h"
 #include "imgStatusTracker.h"
@@ -208,7 +200,7 @@ nsresult imgRequest::RemoveProxy(imgRequestProxy *proxy, nsresult aStatus)
       NS_ABORT_IF_FALSE(mURI, "Removing last observer without key uri.");
 
       mLoader->SetHasNoProxies(mURI, mCacheEntry);
-    } 
+    }
 #if defined(PR_LOGGING)
     else {
       nsAutoCString spec;
@@ -725,6 +717,17 @@ imgRequest::OnDataAvailable(nsIRequest *aRequest, nsISupports *ctxt,
       LOG_MSG(GetImgLog(), "imgRequest::OnDataAvailable", "Got content type from the channel");
     }
 
+#ifdef MOZ_WBMP
+#ifdef MOZ_WIDGET_GONK
+    // Only support WBMP in privileged app and certified app, do not support in browser app.
+    if (newType.EqualsLiteral(IMAGE_WBMP) &&
+        (!mLoadingPrincipal || mLoadingPrincipal->GetAppStatus() < nsIPrincipal::APP_STATUS_PRIVILEGED)) {
+      this->Cancel(NS_ERROR_FAILURE);
+      return NS_BINDING_ABORTED;
+    }
+#endif
+#endif
+
     // If we're a regular image and this is the first call to OnDataAvailable,
     // this will always be true. If we've resniffed our MIME type (i.e. we're a
     // multipart/x-mixed-replace image), we have to be able to switch our image
@@ -839,7 +842,7 @@ imgRequest::GetInterface(const nsIID & aIID, void **aResult)
   if (!mPrevChannelSink || aIID.Equals(NS_GET_IID(nsIChannelEventSink)))
     return QueryInterface(aIID, aResult);
 
-  NS_ASSERTION(mPrevChannelSink != this, 
+  NS_ASSERTION(mPrevChannelSink != this,
                "Infinite recursion - don't keep track of channel sinks that are us!");
   return mPrevChannelSink->GetInterface(aIID, aResult);
 }

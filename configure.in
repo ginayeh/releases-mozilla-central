@@ -70,7 +70,7 @@ GCONF_VERSION=1.2.1
 GIO_VERSION=2.20
 STARTUP_NOTIFICATION_VERSION=0.8
 DBUS_VERSION=0.60
-SQLITE_VERSION=3.7.16
+SQLITE_VERSION=3.7.16.1
 
 MSMANIFEST_TOOL=
 
@@ -119,30 +119,6 @@ then
   fi
 fi
 MOZ_BUILD_ROOT=`pwd`
-
-dnl Do not allow building if a clobber is required
-dnl ==============================================================
-dnl TODO Make this better, ideally this would clobber automaticially
-if test -e $_objdir/CLOBBER; then
-  if test $_topsrcdir/CLOBBER -nt $_objdir/CLOBBER; then
-    echo "	***"
-    echo "	*	The CLOBBER file has been updated, indicating that an incremental build"
-    echo "	*	since your last build will probably not work. A full build is required."
-    echo "	*	The change that caused this is:"
-    cat $_topsrcdir/CLOBBER | sed '/^#/d' | sed 's/^/	*	/'
-    echo "	*	"
-    echo "	*	The easiest way to fix this is to manually delete your objdir:"
-    echo "	*	rm -rf $_objdir"
-    echo "	*	"
-    echo "	*	Or, if you know this clobber doesn't apply to you, it can be ignored with:"
-    echo "	*	cp '$_topsrcdir/CLOBBER' $_objdir"
-    echo "	***"
-    exit 1
-    break;
-  fi
-else
-  touch $_objdir/CLOBBER
-fi
 
 MOZ_PYTHON
 
@@ -1019,10 +995,10 @@ MOZ_PNG_LIBS='$(call EXPAND_LIBNAME_PATH,mozpng,$(DEPTH)/media/libpng)'
 
 MOZ_JS_STATIC_LIBS='$(call EXPAND_LIBNAME_PATH,js_static,$(LIBXUL_DIST)/lib)'
 MOZ_JS_SHARED_LIBS='$(call EXPAND_LIBNAME_PATH,mozjs,$(LIBXUL_DIST)/lib)'
-DYNAMIC_XPCOM_LIBS='-L$(LIBXUL_DIST)/bin -lxpcom -lxpcom_core -lmozalloc'
+DYNAMIC_XPCOM_LIBS='-L$(LIBXUL_DIST)/bin -lxul -lxpcom_core -lmozalloc'
 MOZ_FIX_LINK_PATHS='-Wl,-rpath-link,$(LIBXUL_DIST)/bin -Wl,-rpath-link,$(prefix)/lib'
-XPCOM_FROZEN_LDOPTS='-L$(LIBXUL_DIST)/bin -lxpcom -lmozalloc'
-LIBXUL_LIBS='$(XPCOM_FROZEN_LDOPTS) -lxul'
+XPCOM_FROZEN_LDOPTS='-L$(LIBXUL_DIST)/bin -lxul -lmozalloc'
+LIBXUL_LIBS='$(XPCOM_FROZEN_LDOPTS)'
 XPCOM_GLUE_LDOPTS='$(LIBXUL_DIST)/lib/$(LIB_PREFIX)xpcomglue_s.$(LIB_SUFFIX) $(XPCOM_FROZEN_LDOPTS)'
 XPCOM_STANDALONE_GLUE_LDOPTS='$(LIBXUL_DIST)/lib/$(LIB_PREFIX)xpcomglue.$(LIB_SUFFIX)'
 
@@ -1426,7 +1402,7 @@ if test "$GNU_CC"; then
     MOZ_C_SUPPORTS_WARNING(-W, type-limits, ac_c_has_wtype_limits)
     MOZ_C_SUPPORTS_WARNING(-W, empty-body, ac_c_has_wempty_body)
     MOZ_C_SUPPORTS_WARNING(-W, sign-compare, ac_c_has_sign_compare)
-    
+
     # Turn off the following warnings that -Wall turns on:
     # -Wno-unused - lots of violations in third-party code
     #
@@ -1489,7 +1465,7 @@ if test "$GNU_CXX"; then
     MOZ_CXX_SUPPORTS_WARNING(-W, error=return-type, ac_cxx_has_werror_return_type)
     MOZ_CXX_SUPPORTS_WARNING(-W, type-limits, ac_cxx_has_wtype_limits)
     MOZ_CXX_SUPPORTS_WARNING(-W, empty-body, ac_cxx_has_wempty_body)
-    MOZ_CXX_SUPPORTS_WARNING(-W, sign-compare, ac_c_has_sign_compare)
+    MOZ_CXX_SUPPORTS_WARNING(-W, sign-compare, ac_cxx_has_sign_compare)
 
     # Turn off the following warnings that -Wall turns on:
     # -Wno-invalid-offsetof - we use offsetof on non-POD types frequently
@@ -2116,8 +2092,8 @@ ia64*-hpux*)
         # mingw doesn't require kernel32, user32, and advapi32 explicitly
         LIBS="$LIBS -luuid -lgdi32 -lwinmm -lwsock32 -luserenv -lsecur32 -lnetapi32"
         MOZ_FIX_LINK_PATHS=
-        DYNAMIC_XPCOM_LIBS='-L$(LIBXUL_DIST)/lib -lxpcom -lxpcom_core -lmozalloc'
-        XPCOM_FROZEN_LDOPTS='-L$(LIBXUL_DIST)/lib -lxpcom -lmozalloc'
+        DYNAMIC_XPCOM_LIBS='-L$(LIBXUL_DIST)/lib -lxul -lxpcom_core -lmozalloc'
+        XPCOM_FROZEN_LDOPTS='-L$(LIBXUL_DIST)/lib -lxul -lmozalloc'
         DLL_PREFIX=
         IMPORT_LIB_SUFFIX=dll.a
 
@@ -2159,6 +2135,11 @@ ia64*-hpux*)
         _DEFINES_CXXFLAGS='-FI $(DEPTH)/dist/include/mozilla-config.h -DMOZILLA_CLIENT'
         CFLAGS="$CFLAGS -W3 -Gy -Fd\$(COMPILE_PDBFILE)"
         CXXFLAGS="$CXXFLAGS -W3 -Gy -Fd\$(COMPILE_PDBFILE)"
+        # khuey says we can safely ignore MSVC warning C4251
+        # MSVC warning C4244 (implicit type conversion may lose data) warns
+        # and requires workarounds for perfectly valid code.  Also, GCC/clang
+        # don't warn about it by default. So for consistency/sanity, we turn
+        # it off on MSVC, too.
         # MSVC warning C4345 warns of newly conformant behavior as of VS2003.
         # MSVC warning C4351 warns of newly conformant behavior as of VS2005.
         # MSVC warning C4482 warns when an enum value is refered specifing the
@@ -2170,9 +2151,8 @@ ia64*-hpux*)
         # that behavior) that it's better to turn it off.
         # MSVC warning C4819 warns some UTF-8 characters (e.g. copyright sign)
         # on non-Western system locales even if it is in a comment.
-        # khuey says we can safely ignore MSVC warning C4251
-        CFLAGS="$CFLAGS -wd4819"
-        CXXFLAGS="$CXXFLAGS -wd4251 -wd4345 -wd4351 -wd4482 -wd4800 -wd4819"
+        CFLAGS="$CFLAGS -wd4244 -wd4819"
+        CXXFLAGS="$CXXFLAGS -wd4251 -wd4244 -wd4345 -wd4351 -wd4482 -wd4800 -wd4819"
         # make 'foo == bar;' error out
         CFLAGS="$CFLAGS -we4553"
         CXXFLAGS="$CXXFLAGS -we4553"
@@ -2182,9 +2162,9 @@ ia64*-hpux*)
         WARNINGS_AS_ERRORS='-WX'
         MOZ_OPTIMIZE_FLAGS='-O1'
         MOZ_FIX_LINK_PATHS=
-        DYNAMIC_XPCOM_LIBS='$(LIBXUL_DIST)/lib/xpcom.lib $(LIBXUL_DIST)/lib/xpcom_core.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
-        XPCOM_FROZEN_LDOPTS='$(LIBXUL_DIST)/lib/xpcom.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
-        LIBXUL_LIBS='$(LIBXUL_DIST)/lib/xpcom.lib $(LIBXUL_DIST)/lib/xul.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
+        DYNAMIC_XPCOM_LIBS='$(LIBXUL_DIST)/lib/xul.lib $(LIBXUL_DIST)/lib/xpcom_core.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
+        XPCOM_FROZEN_LDOPTS='$(LIBXUL_DIST)/lib/xul.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
+        LIBXUL_LIBS='$(LIBXUL_DIST)/lib/xul.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
         MOZ_COMPONENT_NSPR_LIBS='$(NSPR_LIBS)'
         LDFLAGS="$LDFLAGS -LARGEADDRESSAWARE -NXCOMPAT"
         dnl For profile-guided optimization
@@ -2269,7 +2249,7 @@ ia64*-hpux*)
         if test -n "$GNU_CC"; then
             CFLAGS="$CFLAGS -mstackrealign -fno-keep-inline-dllexport"
             CXXFLAGS="$CXXFLAGS -mstackrealign -fno-keep-inline-dllexport"
-            LDFLAGS="$LDFLAGS -Wl,--enable-stdcall-fixup"
+            LDFLAGS="$LDFLAGS -Wl,--enable-stdcall-fixup -Wl,--large-address-aware"
         else
             AC_DEFINE(HAVE_STDCALL)
             DSO_LDOPTS="$DSO_LDOPTS -MACHINE:X86"
@@ -2360,8 +2340,8 @@ ia64*-hpux*)
     MOZ_DEBUG_FLAGS="-g -fno-inline"
     MOZ_OPTIMIZE_FLAGS="-O2"
     MOZ_OPTIMIZE_LDFLAGS="-s -Zlinker /EXEPACK:2 -Zlinker /PACKCODE -Zlinker /PACKDATA"
-    DYNAMIC_XPCOM_LIBS='-L$(LIBXUL_DIST)/lib $(LIBXUL_DIST)/lib/xpcom.lib $(LIBXUL_DIST)/lib/xpcom_core.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
-    LIBXUL_LIBS='-L$(LIBXUL_DIST)/lib $(LIBXUL_DIST)/lib/xpcom.lib $(LIBXUL_DIST)/lib/xul.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
+    DYNAMIC_XPCOM_LIBS='-L$(LIBXUL_DIST)/lib $(LIBXUL_DIST)/lib/xul.lib $(LIBXUL_DIST)/lib/xpcom_core.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
+    LIBXUL_LIBS='-L$(LIBXUL_DIST)/lib $(LIBXUL_DIST)/lib/xul.lib $(LIBXUL_DIST)/lib/mozalloc.lib'
     TARGET_MD_ARCH=os2
     _PLATFORM_DEFAULT_TOOLKIT="cairo-os2"
     RC=rc.exe
@@ -2715,9 +2695,20 @@ if test "$GNU_CXX"; then
         [AC_TRY_COMPILE([#include <memory>], [],
                         ac_cv_cxx0x_headers_bug="no",
                         ac_cv_cxx0x_headers_bug="yes")])
-    CXXFLAGS="$_SAVE_CXXFLAGS"
-    if test "$ac_cv_cxx0x_headers_bug" = "no"; then
-        CXXFLAGS="$CXXFLAGS -std=gnu++0x"
+
+    if test "$CLANG_CXX" -a "$ac_cv_cxx0x_headers_bug" = "yes"; then
+        CXXFLAGS="$CXXFLAGS -I$_topsrcdir/build/unix/headers"
+        AC_CACHE_CHECK(whether workaround for gcc c++0x headers conflict with clang works,
+            ac_cv_cxx0x_clang_workaround,
+            [AC_TRY_COMPILE([#include <memory>], [],
+                            ac_cv_cxx0x_clang_workaround="yes",
+                            ac_cv_cxx0x_clang_workaround="no")])
+
+        if test "ac_cv_cxx0x_clang_workaround" = "no"; then
+            CXXFLAGS="$_SAVE_CXXFLAGS"
+        fi
+    elif test "$ac_cv_cxx0x_headers_bug" = "yes"; then
+        CXXFLAGS="$_SAVE_CXXFLAGS"
     fi
 fi
 
@@ -3979,17 +3970,6 @@ if test -n "$MOZ_NATIVE_NSS"; then
    NSS_LIBS="$NSS_LIBS -lcrmf"
 else
    NSS_CFLAGS='-I$(LIBXUL_DIST)/include/nss'
-   if test -z "$IMPORT_LIB_SUFFIX"; then
-       DLL_LINK_SUFFIX='$(DLL_SUFFIX)'
-   else
-       DLL_LINK_SUFFIX='.$(IMPORT_LIB_SUFFIX)'
-   fi
-   NSS_DEP_LIBS="\
-        \$(LIBXUL_DIST)/lib/\$(LIB_PREFIX)crmf.\$(LIB_SUFFIX) \
-        \$(LIBXUL_DIST)/lib/\$(DLL_PREFIX)smime$NSS_VERSION${DLL_LINK_SUFFIX} \
-        \$(LIBXUL_DIST)/lib/\$(DLL_PREFIX)ssl$NSS_VERSION${DLL_LINK_SUFFIX} \
-        \$(LIBXUL_DIST)/lib/\$(DLL_PREFIX)nss$NSS_VERSION${DLL_LINK_SUFFIX} \
-        \$(LIBXUL_DIST)/lib/\$(DLL_PREFIX)nssutil$NSS_VERSION${DLL_LINK_SUFFIX}"
 
    if test -z "$GNU_CC" -a "$OS_ARCH" = "WINNT" -o "$OS_ARCH" = "OS2"; then
        NSS_LIBS="\
@@ -4221,16 +4201,16 @@ MOZ_TREMOR=
 MOZ_WAVE=1
 MOZ_SAMPLE_TYPE_FLOAT32=
 MOZ_SAMPLE_TYPE_S16=
-MOZ_MEDIA=
 MOZ_OPUS=1
 MOZ_WEBM=1
-MOZ_DASH=1
+MOZ_DASH=
 MOZ_WMF=
 MOZ_WEBRTC=1
 MOZ_PEERCONNECTION=
 MOZ_SRTP=
 MOZ_WEBRTC_SIGNALING=
 MOZ_WEBRTC_IN_LIBXUL=
+MOZ_WEBRTC_ASSERT_ALWAYS=1
 MOZ_SCTP=
 MOZ_MEDIA_PLUGINS=
 MOZ_MEDIA_NAVIGATOR=
@@ -4239,6 +4219,7 @@ MOZ_VP8=
 MOZ_VP8_ERROR_CONCEALMENT=
 MOZ_VP8_ENCODER=
 MOZ_WEBVTT=1
+MOZ_WEBSPEECH=1
 VPX_AS=
 VPX_ASFLAGS=
 VPX_AS_DASH_C_FLAG=
@@ -4526,6 +4507,9 @@ cairo-windows)
     MOZ_WEBGL=1
     MOZ_PDF_PRINTING=1
     MOZ_INSTRUMENT_EVENT_LOOP=1
+    if test -n "$GNU_CC"; then
+        MOZ_FOLD_LIBS=
+    fi
     ;;
 
 cairo-gtk2|cairo-gtk2-x11)
@@ -4585,7 +4569,8 @@ cairo-cocoa)
     TK_CFLAGS="-DNO_X11"
     CFLAGS="$CFLAGS $TK_CFLAGS"
     CXXFLAGS="$CXXFLAGS $TK_CFLAGS"
-    LIBXUL_LIBS='$(XPCOM_FROZEN_LDOPTS) $(LIBXUL_DIST)/bin/XUL'
+    DYNAMIC_XPCOM_LIBS='$(LIBXUL_DIST)/bin/XUL -lxpcom_core -lmozalloc'
+    XPCOM_FROZEN_LDOPTS='$(LIBXUL_DIST)/bin/XUL -lmozalloc'
     MOZ_USER_DIR="Mozilla"
     MOZ_FS_LAYOUT=bundle
     MOZ_WEBGL=1
@@ -4600,7 +4585,8 @@ cairo-uikit)
     TK_LIBS='-framework Foundation -framework CoreFoundation -framework CoreGraphics -framework CoreText'
     CFLAGS="$CFLAGS $TK_CFLAGS"
     CXXFLAGS="$CXXFLAGS $TK_CFLAGS"
-    LIBXUL_LIBS='$(XPCOM_FROZEN_LDOPTS) $(LIBXUL_DIST)/bin/XUL'
+    DYNAMIC_XPCOM_LIBS='$(LIBXUL_DIST)/bin/XUL -lxpcom_core -lmozalloc'
+    XPCOM_FROZEN_LDOPTS='$(LIBXUL_DIST)/bin/XUL -lmozalloc'
     MOZ_USER_DIR="Mozilla"
     MOZ_FS_LAYOUT=bundle
     ;;
@@ -5287,6 +5273,31 @@ if test -n "$MOZ_WEBRTC"; then
     esac
 fi
 
+# target_arch is from {ia32|x64|arm|ppc}
+case "$CPU_ARCH" in
+x86_64 | ia64)
+    WEBRTC_TARGET_ARCH=x64
+    ;;
+
+arm*)
+    WEBRTC_TARGET_ARCH=arm
+    ;;
+
+x86)
+    WEBRTC_TARGET_ARCH=ia32
+    ;;
+
+ppc*)
+    WEBRTC_TARGET_ARCH=ppc
+    ;;
+*)
+# unsupported arch for webrtc
+    WEBRTC_TARGET_ARCH=unknown
+    MOZ_WEBRTC=
+    ;;
+
+esac
+
 dnl ========================================================
 dnl = Disable WebRTC code
 dnl ========================================================
@@ -5297,7 +5308,9 @@ MOZ_ARG_DISABLE_BOOL(webrtc,
 
 if test -n "$MOZ_WEBRTC"; then
     AC_DEFINE(MOZ_WEBRTC)
-    MOZ_MEDIA=1
+    dnl MOZ_WEBRTC_ASSERT_ALWAYS turns on a number of safety asserts in
+    dnl opt/production builds (via MOZ_CRASH())
+    AC_DEFINE(MOZ_WEBRTC_ASSERT_ALWAYS)
     MOZ_RAW=1
     MOZ_VP8=1
     MOZ_VP8_ENCODER=1
@@ -5338,6 +5351,7 @@ AC_SUBST(MOZ_WEBRTC_LEAKING_TESTS)
 AC_SUBST(MOZ_WEBRTC_SIGNALING)
 AC_SUBST(MOZ_PEERCONNECTION)
 AC_SUBST(MOZ_WEBRTC_IN_LIBXUL)
+AC_SUBST(MOZ_WEBRTC_ASSERT_ALWAYS)
 AC_SUBST(MOZ_SCTP)
 AC_SUBST(MOZ_SRTP)
 
@@ -5355,6 +5369,20 @@ arm*)
 esac
 
 dnl ========================================================
+dnl = Disable Speech API code
+dnl ========================================================
+MOZ_ARG_DISABLE_BOOL(webspeech,
+[  --disable-webspeech        Disable support for HTML Speech API],
+    MOZ_WEBSPEECH=,
+    MOZ_WEBSPEECH=1)
+
+if test -n "$MOZ_WEBSPEECH"; then
+    AC_DEFINE(MOZ_WEBSPEECH)
+fi
+
+AC_SUBST(MOZ_WEBSPEECH)
+
+dnl ========================================================
 dnl = Enable Raw Codecs
 dnl ========================================================
 MOZ_ARG_ENABLE_BOOL(raw,
@@ -5364,7 +5392,6 @@ MOZ_ARG_ENABLE_BOOL(raw,
 
 if test -n "$MOZ_RAW"; then
     AC_DEFINE(MOZ_RAW)
-    MOZ_MEDIA=1
 fi
 
 AC_SUBST(MOZ_RAW)
@@ -5380,7 +5407,6 @@ MOZ_ARG_DISABLE_BOOL(ogg,
 if test -n "$MOZ_OGG"; then
     AC_DEFINE(MOZ_OGG)
     MOZ_CUBEB=1
-    MOZ_MEDIA=1
 
     dnl Checks for __attribute__(aligned()) directive
     AC_CACHE_CHECK([__attribute__ ((aligned ())) support],
@@ -5426,25 +5452,6 @@ if test -n "$MOZ_WEBM"; then
 fi;
 
 dnl ========================================================
-dnl = Disable DASH-WebM support
-dnl ========================================================
-MOZ_ARG_DISABLE_BOOL(dash,
-[  --disable-dash          Disable support for DASH-WebM],
-    MOZ_DASH=,
-    MOZ_DASH=1)
-
-if test -n "$MOZ_DASH"; then
-    if test -n "$MOZ_WEBM"; then
-        AC_DEFINE(MOZ_DASH)
-    else
-        dnl Fail if WebM is not enabled as well as DASH.
-        AC_MSG_ERROR([WebM is currently disabled and must be enabled for DASH
-                     to work.])
-    fi
-fi;
-
-
-dnl ========================================================
 dnl = Windows Media Foundation support
 dnl ========================================================
 if test "$OS_ARCH" = "WINNT"; then
@@ -5462,7 +5469,6 @@ MOZ_ARG_DISABLE_BOOL(wmf,
 if test -n "$MOZ_WMF"; then
     AC_DEFINE(MOZ_WMF)
     MOZ_CUBEB=1
-    MOZ_MEDIA=1
 fi;
 
 dnl ========================================================
@@ -5558,7 +5564,6 @@ AC_SUBST(MOZ_LIBVPX_LIBS)
 
 if test "$MOZ_WEBM"; then
     MOZ_CUBEB=1
-    MOZ_MEDIA=1
     if test "$MOZ_SAMPLE_TYPE_FLOAT32"; then
         MOZ_VORBIS=1
     else
@@ -5661,7 +5666,6 @@ MOZ_ARG_DISABLE_BOOL(wave,
 if test -n "$MOZ_WAVE"; then
     AC_DEFINE(MOZ_WAVE)
     MOZ_CUBEB=1
-    MOZ_MEDIA=1
 fi
 
 dnl ========================================================
@@ -5678,10 +5682,6 @@ fi
 
 if test -n "$MOZ_CUBEB"; then
     AC_DEFINE(MOZ_CUBEB)
-fi
-
-if test -n "$MOZ_MEDIA"; then
-    AC_DEFINE(MOZ_MEDIA)
 fi
 
 if test -n "$MOZ_VORBIS" -a -n "$MOZ_TREMOR"; then
@@ -5786,7 +5786,6 @@ AC_SUBST(MOZ_GSTREAMER)
 
 if test -n "$MOZ_GSTREAMER"; then
    AC_DEFINE(MOZ_GSTREAMER)
-   MOZ_MEDIA=1
 fi
 
 
@@ -5970,7 +5969,7 @@ if test "$MOZ_GAMEPAD"; then
             if ! test -f "$MOZ_DIRECTX_SDK_PATH"/lib/$MOZ_DIRECTX_SDK_CPU_SUFFIX/dxguid.lib ; then
                MOZ_GAMEPAD=
             fi
-        else
+        elif test "$GCC" != "yes"; then
             MOZ_GAMEPAD=
         fi
         if test -z "$MOZ_GAMEPAD"; then
@@ -6033,18 +6032,18 @@ if test -n "$MOZ_CRASHREPORTER"; then
     AC_SUBST(MOZ_GTHREAD_LIBS)
   fi
 
-  if test "$OS_ARCH" != "$HOST_OS_ARCH"; then
+  if test "$OS_ARCH" != "$HOST_OS_ARCH" -a "$OS_ARCH" != "WINNT"; then
     AC_MSG_ERROR([Breakpad tools do not support compiling on $HOST_OS_ARCH while targeting $OS_ARCH.  Use --disable-crashreporter.])
   fi
 
   if test "$OS_ARCH" = "WINNT"; then
-    AC_DEFINE_UNQUOTED(BREAKPAD_CUSTOM_STDINT_H, "mozilla/StandardInteger.h")
     if test -z "$HAVE_64BIT_OS"; then
       MOZ_CRASHREPORTER_INJECTOR=1
       AC_DEFINE(MOZ_CRASHREPORTER_INJECTOR)
     fi
   fi
 fi
+AC_DEFINE_UNQUOTED(BREAKPAD_CUSTOM_STDINT_H, "mozilla/StandardInteger.h")
 
 MOZ_ARG_WITH_STRING(crashreporter-enable-percent,
 [  --with-crashreporter-enable-percent=NN
@@ -7777,20 +7776,22 @@ dnl =========================================================
 dnl = Chrome format
 dnl =========================================================
 MOZ_ARG_ENABLE_STRING([chrome-format],
-[  --enable-chrome-format=jar|flat|both|symlink|omni
-                          Select FORMAT of chrome files (default=jar)],
+[  --enable-chrome-format=jar|flat|omni
+                          Select FORMAT of chrome files during packaging],
     MOZ_CHROME_FILE_FORMAT=`echo $enableval | tr A-Z a-z`)
 
 if test -z "$MOZ_CHROME_FILE_FORMAT"; then
     MOZ_CHROME_FILE_FORMAT=jar
 fi
 
+if test "$MOZ_CHROME_FILE_FORMAT" = "symlink"; then
+    AC_MSG_ERROR([--enable-chrome-format=symlink has been deprecated. It is now used by default in $DIST/bin on platforms that support it])
+fi
+
 if test "$MOZ_CHROME_FILE_FORMAT" != "jar" &&
     test "$MOZ_CHROME_FILE_FORMAT" != "flat" &&
-    test "$MOZ_CHROME_FILE_FORMAT" != "symlink" &&
-    test "$MOZ_CHROME_FILE_FORMAT" != "both" &&
     test "$MOZ_CHROME_FILE_FORMAT" != "omni"; then
-    AC_MSG_ERROR([--enable-chrome-format must be set to either jar, flat, both, symlink, or omni])
+    AC_MSG_ERROR([--enable-chrome-format must be set to either jar, flat, or omni])
 fi
 
 dnl =========================================================
@@ -7991,7 +7992,7 @@ dnl ========================================================
 MOZ_ARG_HEADER(Build dependencies)
 
 if test "$GNU_CC" -a "$GNU_CXX"; then
-  _DEPEND_CFLAGS='$(filter-out %/.pp,-MD -MF $(MDDEPDIR)/$(@F).pp)'
+  _DEPEND_CFLAGS='-MD -MP -MF $(MDDEPDIR)/$(@F).pp'
 dnl Sun Studio on Solaris use -xM instead of -MD, see config/rules.mk
 elif test "$SOLARIS_SUNPRO_CC"; then
   _DEPEND_CFLAGS=
@@ -8077,7 +8078,7 @@ dnl ========================================================
 dnl Graphics checks.
 dnl ========================================================
 
-if test "${OS_TARGET}" = "WINNT" -o "${OS_ARCH}" = "Darwin" -o "${MOZ_WIDGET_TOOLKIT}" = "android" -o "${MOZ_WIDGET_TOOLKIT}" = "gtk2"; then
+if test "${OS_TARGET}" = "WINNT" -o "${MOZ_WIDGET_TOOLKIT}" = "android" -o "${MOZ_WIDGET_TOOLKIT}" = "gtk2"; then
 MOZ_ENABLE_SKIA=1
 else
 MOZ_ENABLE_SKIA=
@@ -8512,6 +8513,12 @@ if test -n "$MOZ_CAPTIVEDETECT"; then
   AC_DEFINE(MOZ_CAPTIVEDETECT)
 fi
 
+dnl Build WBMP decoder if required
+AC_SUBST(MOZ_WBMP)
+if test -n "$MOZ_WBMP"; then
+  AC_DEFINE(MOZ_WBMP)
+fi
+
 dnl ========================================================
 if test "$MOZ_DEBUG" -o "$NS_TRACE_MALLOC" -o "$MOZ_DMD"; then
     MOZ_COMPONENTS_VERSION_SCRIPT_LDFLAGS=
@@ -8818,7 +8825,6 @@ AC_SUBST(MOZ_NATIVE_NSPR)
 
 AC_SUBST(NSS_CFLAGS)
 AC_SUBST(NSS_LIBS)
-AC_SUBST(NSS_DEP_LIBS)
 AC_SUBST(MOZ_NATIVE_NSS)
 AC_SUBST(NSS_DISABLE_DBM)
 
@@ -8894,7 +8900,6 @@ AC_SUBST(MOZ_NSS_PATCH)
 AC_SUBST(MOZ_APP_COMPONENT_LIBS)
 AC_SUBST(MOZ_APP_EXTRA_LIBS)
 
-AC_SUBST(MOZ_MEDIA)
 AC_SUBST(MOZ_SPEEX_RESAMPLER)
 AC_SUBST(MOZ_SOUNDTOUCH)
 AC_SUBST(MOZ_CUBEB)
@@ -9068,31 +9073,6 @@ case "$host" in
 *)
     FIXED_EGREP="egrep"
     ;;
-esac
-
-# target_arch is from {ia32|x64|arm|ppc}
-case "$CPU_ARCH" in
-x86_64 | ia64)
-    WEBRTC_TARGET_ARCH=x64
-    ;;
-
-arm*)
-    WEBRTC_TARGET_ARCH=arm
-    ;;
-
-x86)
-    WEBRTC_TARGET_ARCH=ia32
-    ;;
-
-ppc*)
-    WEBRTC_TARGET_ARCH=ppc
-    ;;
-*)
-# unsupported arch for webrtc
-    WEBRTC_TARGET_ARCH=unknown
-    MOZ_WEBRTC=
-    ;;
-
 esac
 
 # Generate Makefiles for WebRTC directly from .gyp files

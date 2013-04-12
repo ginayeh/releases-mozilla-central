@@ -118,32 +118,26 @@ class JS_PUBLIC_API(AutoGCRooter) {
         SHAPEVECTOR =  -4, /* js::AutoShapeVector */
         IDARRAY =      -6, /* js::AutoIdArray */
         DESCRIPTORS =  -7, /* js::AutoPropDescArrayRooter */
-        // UNUSED      -8
-        // UNUSED      -9
-        OBJECT =      -10, /* js::AutoObjectRooter */
-        ID =          -11, /* js::AutoIdRooter */
-        VALVECTOR =   -12, /* js::AutoValueVector */
-        DESCRIPTOR =  -13, /* js::AutoPropertyDescriptorRooter */
-        STRING =      -14, /* js::AutoStringRooter */
-        IDVECTOR =    -15, /* js::AutoIdVector */
-        OBJVECTOR =   -16, /* js::AutoObjectVector */
-        STRINGVECTOR =-17, /* js::AutoStringVector */
-        SCRIPTVECTOR =-18, /* js::AutoScriptVector */
-        PROPDESC =    -19, /* js::PropDesc::AutoRooter */
-        STACKSHAPE =  -21, /* js::StackShape::AutoRooter */
-        STACKBASESHAPE=-22,/* js::StackBaseShape::AutoRooter */
-        GETTERSETTER =-24, /* js::AutoRooterGetterSetter */
-        REGEXPSTATICS=-25, /* js::RegExpStatics::AutoRooter */
-        NAMEVECTOR =  -26, /* js::AutoNameVector */
-        HASHABLEVALUE=-27,
-        IONMASM =     -28, /* js::ion::MacroAssembler */
-        IONALLOC =    -29, /* js::ion::AutoTempAllocatorRooter */
-        WRAPVECTOR =  -30, /* js::AutoWrapperVector */
-        WRAPPER =     -31, /* js::AutoWrapperRooter */
-        OBJOBJHASHMAP=-32, /* js::AutoObjectObjectHashMap */
-        OBJU32HASHMAP=-33, /* js::AutoObjectUnsigned32HashMap */
-        OBJHASHSET =  -34, /* js::AutoObjectHashSet */
-        JSONPARSER =  -35  /* js::JSONParser */
+        OBJECT =       -8, /* js::AutoObjectRooter */
+        ID =           -9, /* js::AutoIdRooter */
+        VALVECTOR =   -10, /* js::AutoValueVector */
+        DESCRIPTOR =  -11, /* js::AutoPropertyDescriptorRooter */
+        STRING =      -12, /* js::AutoStringRooter */
+        IDVECTOR =    -13, /* js::AutoIdVector */
+        OBJVECTOR =   -14, /* js::AutoObjectVector */
+        STRINGVECTOR =-15, /* js::AutoStringVector */
+        SCRIPTVECTOR =-16, /* js::AutoScriptVector */
+        NAMEVECTOR =  -17, /* js::AutoNameVector */
+        HASHABLEVALUE=-18, /* js::HashableValue */
+        IONMASM =     -19, /* js::ion::MacroAssembler */
+        IONALLOC =    -20, /* js::ion::AutoTempAllocatorRooter */
+        WRAPVECTOR =  -21, /* js::AutoWrapperVector */
+        WRAPPER =     -22, /* js::AutoWrapperRooter */
+        OBJOBJHASHMAP=-23, /* js::AutoObjectObjectHashMap */
+        OBJU32HASHMAP=-24, /* js::AutoObjectUnsigned32HashMap */
+        OBJHASHSET =  -25, /* js::AutoObjectHashSet */
+        JSONPARSER =  -26, /* js::JSONParser */
+        CUSTOM =      -27  /* js::CustomAutoRooter */
     };
 
   private:
@@ -667,6 +661,35 @@ class AutoScriptVector : public AutoVectorRooter<JSScript *>
     MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
+/*
+ * Cutsom rooting behavior for internal and external clients.
+ */
+class JS_PUBLIC_API(CustomAutoRooter) : private AutoGCRooter
+{
+  public:
+    explicit CustomAutoRooter(JSContext *cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+      : AutoGCRooter(cx, CUSTOM)
+    {
+        MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+    }
+
+    friend void AutoGCRooter::trace(JSTracer *trc);
+
+  protected:
+    /* Supplied by derived class to trace roots. */
+    virtual void trace(JSTracer *trc) = 0;
+
+    /* Methods for trace() to call to mark roots, for external clients. */
+    static void traceObject(JSTracer *trc, JSObject **thingp, const char *name);
+    static void traceScript(JSTracer *trc, JSScript **thingp, const char *name);
+    static void traceString(JSTracer *trc, JSString **thingp, const char *name);
+    static void traceId(JSTracer *trc, jsid *thingp, const char *name);
+    static void traceValue(JSTracer *trc, JS::Value *thingp, const char *name);
+
+  private:
+    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
+};
+
 /* Returns true if |v| is considered an acceptable this-value. */
 typedef bool (*IsAcceptableThis)(const Value &v);
 
@@ -949,11 +972,8 @@ typedef JSBool
 /*
  * Function type for trace operation of the class called to enumerate all
  * traceable things reachable from obj's private data structure. For each such
- * thing, a trace implementation must call
- *
- *    JS_CallTracer(trc, thing, kind);
- *
- * or one of its convenience macros as described in jsapi.h.
+ * thing, a trace implementation must call one of the |JS_Call<Type>Tracer|
+ * variants on the thing.
  *
  * JSTraceOp implementation can assume that no other threads mutates object
  * state. It must not change state of the object or corresponding native
@@ -967,8 +987,8 @@ typedef void
 (* JSTraceOp)(JSTracer *trc, JSRawObject obj);
 
 /*
- * DEBUG only callback that JSTraceOp implementation can provide to return
- * a string describing the reference traced with JS_CallTracer.
+ * Callback that JSTraceOp implementation can provide to return a string
+ * describing the reference traced with JS_CallTracer.
  */
 typedef void
 (* JSTraceNamePrinter)(JSTracer *trc, char *buf, size_t bufsize);
@@ -1087,17 +1107,17 @@ typedef const JSErrorFormatString *
                     const unsigned errorNumber);
 
 typedef JSBool
-(* JSLocaleToUpperCase)(JSContext *cx, JSString *src, jsval *rval);
+(* JSLocaleToUpperCase)(JSContext *cx, JSHandleString src, JSMutableHandleValue rval);
 
 typedef JSBool
-(* JSLocaleToLowerCase)(JSContext *cx, JSString *src, jsval *rval);
+(* JSLocaleToLowerCase)(JSContext *cx, JSHandleString src, JSMutableHandleValue rval);
 
 typedef JSBool
-(* JSLocaleCompare)(JSContext *cx, JSString *src1, JSString *src2,
-                    jsval *rval);
+(* JSLocaleCompare)(JSContext *cx, JSHandleString src1, JSHandleString src2,
+                    JSMutableHandleValue rval);
 
 typedef JSBool
-(* JSLocaleToUnicode)(JSContext *cx, const char *src, jsval *rval);
+(* JSLocaleToUnicode)(JSContext *cx, const char *src, JSMutableHandleValue rval);
 
 /*
  * Security protocol types.
@@ -1998,7 +2018,7 @@ JS_StringToVersion(const char *string);
 
 #define JSOPTION_METHODJIT      JS_BIT(14)      /* Whole-method JIT. */
 
-/* JS_BIT(15) is currently unused. */
+#define JSOPTION_BASELINE       JS_BIT(15)      /* Baseline compiler. */
 
 #define JSOPTION_METHODJIT_ALWAYS \
                                 JS_BIT(16)      /* Always whole-method JIT,
@@ -2012,6 +2032,7 @@ JS_StringToVersion(const char *string);
                                                    "use strict" annotations. */
 
 #define JSOPTION_ION            JS_BIT(20)      /* IonMonkey */
+
 #define JSOPTION_ASMJS          JS_BIT(21)      /* optimizingasm.js compiler */
 
 #define JSOPTION_MASK           JS_BITMASK(22)
@@ -2474,7 +2495,8 @@ typedef void
 
 enum WeakMapTraceKind {
     DoNotTraceWeakMaps = 0,
-    TraceWeakMapValues = 1
+    TraceWeakMapValues = 1,
+    TraceWeakMapKeysValues = 2
 };
 
 struct JSTracer {
@@ -2488,15 +2510,6 @@ struct JSTracer {
     void                *realLocation;
 #endif
 };
-
-/*
- * The method to call on each reference to a traceable thing stored in a
- * particular JSObject or other runtime structure. With DEBUG defined the
- * caller before calling JS_CallTracer must initialize JSTracer fields
- * describing the reference using the macros below.
- */
-extern JS_PUBLIC_API(void)
-JS_CallTracer(JSTracer *trc, void *thing, JSGCTraceKind kind);
 
 /*
  * Set debugging information about a reference to a traceable thing to prepare
@@ -2562,48 +2575,23 @@ JS_CallTracer(JSTracer *trc, void *thing, JSGCTraceKind kind);
 # define JS_SET_TRACING_NAME(trc, name)                                       \
     JS_SET_TRACING_DETAILS(trc, NULL, name, (size_t)-1)
 
-/*
- * Convenience macro to invoke JS_CallTracer using C string as the name for
- * the reference to a traceable thing.
- */
-# define JS_CALL_TRACER(trc, thing, kind, name)                               \
-    JS_BEGIN_MACRO                                                            \
-        JS_SET_TRACING_NAME(trc, name);                                       \
-        JS_CallTracer((trc), (thing), (kind));                                \
-    JS_END_MACRO
+extern JS_PUBLIC_API(void)
+JS_CallValueTracer(JSTracer *trc, JS::Value value, const char *name);
 
-/*
- * Convenience macros to invoke JS_CallTracer when jsval represents a
- * reference to a traceable thing.
- */
-#define JS_CALL_VALUE_TRACER(trc, val, name)                                  \
-    JS_BEGIN_MACRO                                                            \
-        if (JSVAL_IS_TRACEABLE(val)) {                                        \
-            JS_CALL_TRACER((trc), JSVAL_TO_GCTHING(val),                      \
-                           JSVAL_TRACE_KIND(val), name);                      \
-        }                                                                     \
-    JS_END_MACRO
+extern JS_PUBLIC_API(void)
+JS_CallIdTracer(JSTracer *trc, jsid id, const char *name);
 
-#define JS_CALL_OBJECT_TRACER(trc, object, name)                              \
-    JS_BEGIN_MACRO                                                            \
-        JSObject *obj_ = (object);                                            \
-        JS_ASSERT(obj_);                                                      \
-        JS_CALL_TRACER((trc), obj_, JSTRACE_OBJECT, name);                    \
-    JS_END_MACRO
+extern JS_PUBLIC_API(void)
+JS_CallObjectTracer(JSTracer *trc, JSObject *obj, const char *name);
 
-#define JS_CALL_STRING_TRACER(trc, string, name)                              \
-    JS_BEGIN_MACRO                                                            \
-        JSString *str_ = (string);                                            \
-        JS_ASSERT(str_);                                                      \
-        JS_CALL_TRACER((trc), str_, JSTRACE_STRING, name);                    \
-    JS_END_MACRO
+extern JS_PUBLIC_API(void)
+JS_CallStringTracer(JSTracer *trc, JSString *str, const char *name);
 
-#define JS_CALL_SCRIPT_TRACER(trc, script, name)                              \
-    JS_BEGIN_MACRO                                                            \
-        JSScript *script_ = (script);                                         \
-        JS_ASSERT(script_);                                                   \
-        JS_CALL_TRACER((trc), script_, JSTRACE_SCRIPT, name);                 \
-    JS_END_MACRO
+extern JS_PUBLIC_API(void)
+JS_CallScriptTracer(JSTracer *trc, JSScript *script, const char *name);
+
+extern JS_PUBLIC_API(void)
+JS_CallGenericTracer(JSTracer *trc, void *gcthing, const char *name);
 
 /*
  * API for JSTraceCallback implementations.
@@ -2665,8 +2653,24 @@ JS_SetFinalizeCallback(JSRuntime *rt, JSFinalizeCallback cb);
 extern JS_PUBLIC_API(JSBool)
 JS_IsGCMarkingTracer(JSTracer *trc);
 
+/*
+ * JS_IsAboutToBeFinalized checks if the given object is going to be finalized
+ * at the end of the current GC. When called outside of the context of a GC,
+ * this function will return false. Typically this function is used on weak
+ * references, where the reference should be nulled out or destroyed if the
+ * given object is about to be finalized.
+ *
+ * The argument to JS_IsAboutToBeFinalized is an in-out param: when the
+ * function returns false, the object being referenced is still alive, but the
+ * garbage collector might have moved it. In this case, the reference passed
+ * to JS_IsAboutToBeFinalized will be updated to the object's new location.
+ * Callers of this method are responsible for updating any state that is
+ * dependent on the object's address. For example, if the object's address is
+ * used as a key in a hashtable, then the object must be removed and
+ * re-inserted with the correct hash.
+ */
 extern JS_PUBLIC_API(JSBool)
-JS_IsAboutToBeFinalized(void *thing);
+JS_IsAboutToBeFinalized(JSObject **obj);
 
 typedef enum JSGCParamKey {
     /* Maximum nominal heap before last ditch GC. */
@@ -2733,7 +2737,7 @@ typedef enum JSGCParamKey {
     JSGC_ANALYSIS_PURGE_TRIGGER = 19,
 
     /* Lower limit after which we limit the heap growth. */
-    JSGC_ALLOCATION_THRESHOLD = 20,
+    JSGC_ALLOCATION_THRESHOLD = 20
 } JSGCParamKey;
 
 typedef enum JSGCMode {
@@ -3209,7 +3213,7 @@ extern JS_PUBLIC_API(JSBool)
 JS_DefineConstDoubles(JSContext *cx, JSObject *obj, JSConstDoubleSpec *cds);
 
 extern JS_PUBLIC_API(JSBool)
-JS_DefineProperties(JSContext *cx, JSObject *obj, JSPropertySpec *ps);
+JS_DefineProperties(JSContext *cx, JSObject *obj, const JSPropertySpec *ps);
 
 extern JS_PUBLIC_API(JSBool)
 JS_DefineProperty(JSContext *cx, JSObject *obj, const char *name, jsval value,
@@ -3716,7 +3720,7 @@ extern JS_PUBLIC_API(JSObject*)
 JS_BindCallable(JSContext *cx, JSObject *callable, JSRawObject newThis);
 
 extern JS_PUBLIC_API(JSBool)
-JS_DefineFunctions(JSContext *cx, JSObject *obj, JSFunctionSpec *fs);
+JS_DefineFunctions(JSContext *cx, JSObject *obj, const JSFunctionSpec *fs);
 
 extern JS_PUBLIC_API(JSFunction *)
 JS_DefineFunction(JSContext *cx, JSObject *obj, const char *name, JSNative call,
@@ -4961,7 +4965,7 @@ namespace JS {
 extern JS_PUBLIC_DATA(const HandleId) JSID_VOIDHANDLE;
 extern JS_PUBLIC_DATA(const HandleId) JSID_EMPTYHANDLE;
 
-};
+} /* namespace JS */
 
 namespace js {
 
@@ -5040,6 +5044,6 @@ using JS::MutableHandleValue;
 
 using JS::Zone;
 
-}  /* namespace js */
+} /* namespace js */
 
 #endif /* jsapi_h___ */

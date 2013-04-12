@@ -44,7 +44,7 @@
 using namespace mozilla::dom;
 
 #define TX_ENSURE_CURRENTNODE                           \
-    NS_ASSERTION(mCurrentNode, "mCurrentNode is NULL"); \
+    NS_ASSERTION(mCurrentNode, "mCurrentNode is nullptr"); \
     if (!mCurrentNode)                                  \
         return NS_ERROR_UNEXPECTED
 
@@ -309,13 +309,9 @@ txMozillaXMLOutput::endElement()
         } else if (ns == kNameSpaceID_XHTML &&
                    (localName == nsGkAtoms::input ||
                     localName == nsGkAtoms::button ||
-                    localName == nsGkAtoms::menuitem
-#ifdef MOZ_MEDIA
-                     ||
+                    localName == nsGkAtoms::menuitem ||
                     localName == nsGkAtoms::audio ||
-                    localName == nsGkAtoms::video
-#endif
-                  )) {
+                    localName == nsGkAtoms::video)) {
           element->DoneCreatingElement();
         }   
     }

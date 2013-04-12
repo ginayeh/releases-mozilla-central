@@ -2394,7 +2394,8 @@ class _FindFriends(ipdl.ast.Visitor):
 
     def findFriends(self, ptype):
         self.mytype = ptype
-        self.walkDownTheProtocolTree(ptype.toplevel())
+        for toplvl in ptype.toplevels():
+            self.walkDownTheProtocolTree(toplvl);
         return self.friends
 
     # TODO could make this into a _iterProtocolTreeHelper ...
@@ -3851,6 +3852,11 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
 
         # bool DeallocShmem(Shmem& mem):
         #   bool ok = DestroySharedMemory(mem);
+        ##ifdef DEBUG
+        #   if (!ok) {
+        #     NS_RUNTIMEABORT("bad Shmem");
+        #   }
+        ##endif // DEBUG
         #   mem.forget();
         #   return ok;
         deallocShmem = MethodDefn(MethodDecl(
@@ -3859,10 +3865,16 @@ class _GenerateProtocolActorCode(ipdl.ast.Visitor):
             ret=Type.BOOL))
         okvar = ExprVar('ok')
 
+        ifbad = StmtIf(ExprNot(okvar))
+        ifbad.addifstmt(_runtimeAbort('bad Shmem'))
+
         deallocShmem.addstmts([
             StmtDecl(Decl(Type.BOOL, okvar.name),
                      init=ExprCall(p.destroySharedMemory(),
                                    args=[ memvar ])),
+            CppDirective('ifdef', 'DEBUG'),
+            ifbad,
+            CppDirective('endif', '// DEBUG'),
             StmtExpr(_shmemForget(memvar)),
             StmtReturn(okvar)
         ])

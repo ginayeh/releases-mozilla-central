@@ -30,6 +30,7 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/dom/DocumentFragment.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/dom/HTMLMediaElement.h"
 #include "mozilla/dom/HTMLTemplateElement.h"
 #include "mozilla/dom/TextDecoderBase.h"
 #include "mozilla/Likely.h"
@@ -167,9 +168,6 @@
 
 #ifdef IBMBIDI
 #include "nsIBidiKeyboard.h"
-#endif
-#ifdef MOZ_MEDIA
-#include "mozilla/dom/HTMLMediaElement.h"
 #endif
 
 extern "C" int MOZ_XMLTranslateEntity(const char* ptr, const char* end,
@@ -1268,9 +1266,7 @@ nsContentUtils::IsHTMLVoid(nsIAtom* aLocalName)
     (aLocalName == nsGkAtoms::link) ||
     (aLocalName == nsGkAtoms::meta) ||
     (aLocalName == nsGkAtoms::param) ||
-#ifdef MOZ_MEDIA
     (aLocalName == nsGkAtoms::source) ||
-#endif
     (aLocalName == nsGkAtoms::track) ||
     (aLocalName == nsGkAtoms::wbr);
 }
@@ -1666,7 +1662,7 @@ nsContentUtils::InProlog(nsINode *aNode)
 JSContext *
 nsContentUtils::GetContextFromDocument(nsIDocument *aDocument)
 {
-  nsIScriptGlobalObject *sgo = aDocument->GetScopeObject();
+  nsCOMPtr<nsIScriptGlobalObject> sgo =  do_QueryInterface(aDocument->GetScopeObject());
   if (!sgo) {
     // No script global, no context.
     return nullptr;
@@ -1693,7 +1689,7 @@ nsContentUtils::TraceSafeJSContext(JSTracer* aTrc)
     return;
   }
   if (JSObject* global = JS_GetGlobalObject(cx)) {
-    JS_CALL_OBJECT_TRACER(aTrc, global, "safe context");
+    JS_CallObjectTracer(aTrc, global, "safe context");
   }
 }
 
@@ -3061,7 +3057,7 @@ IsContextOnStack(nsIJSContextStack *aStack, JSContext *aContext)
 }
 
 bool
-nsCxPusher::Push(nsIDOMEventTarget *aCurrentTarget)
+nsCxPusher::Push(EventTarget *aCurrentTarget)
 {
   if (mPushedSomething) {
     NS_ERROR("Whaaa! No double pushing with nsCxPusher::Push()!");
@@ -3073,7 +3069,13 @@ nsCxPusher::Push(nsIDOMEventTarget *aCurrentTarget)
   nsresult rv;
   nsIScriptContext* scx =
     aCurrentTarget->GetContextForEventHandlers(&rv);
+#ifdef DEBUG_smaug
   NS_ENSURE_SUCCESS(rv, false);
+#else
+  if(NS_FAILED(rv)) {
+    return false;
+  }
+#endif
 
   if (!scx) {
     // The target may have a special JS context for event handlers.
@@ -3098,7 +3100,7 @@ nsCxPusher::Push(nsIDOMEventTarget *aCurrentTarget)
 }
 
 bool
-nsCxPusher::RePush(nsIDOMEventTarget *aCurrentTarget)
+nsCxPusher::RePush(EventTarget *aCurrentTarget)
 {
   if (!mPushedSomething) {
     return Push(aCurrentTarget);
@@ -3554,10 +3556,10 @@ nsresult GetEventAndTarget(nsIDocument* aDoc, nsISupports* aTarget,
                            const nsAString& aEventName,
                            bool aCanBubble, bool aCancelable,
                            bool aTrusted, nsIDOMEvent** aEvent,
-                           nsIDOMEventTarget** aTargetOut)
+                           EventTarget** aTargetOut)
 {
   nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(aDoc);
-  nsCOMPtr<nsIDOMEventTarget> target(do_QueryInterface(aTarget));
+  nsCOMPtr<EventTarget> target(do_QueryInterface(aTarget));
   NS_ENSURE_TRUE(domDoc && target, NS_ERROR_INVALID_ARG);
 
   nsCOMPtr<nsIDOMEvent> event;
@@ -3608,7 +3610,7 @@ nsContentUtils::DispatchEvent(nsIDocument* aDoc, nsISupports* aTarget,
                               bool aTrusted, bool *aDefaultAction)
 {
   nsCOMPtr<nsIDOMEvent> event;
-  nsCOMPtr<nsIDOMEventTarget> target;
+  nsCOMPtr<EventTarget> target;
   nsresult rv = GetEventAndTarget(aDoc, aTarget, aEventName, aCanBubble,
                                   aCancelable, aTrusted, getter_AddRefs(event),
                                   getter_AddRefs(target));
@@ -3627,7 +3629,7 @@ nsContentUtils::DispatchChromeEvent(nsIDocument *aDoc,
 {
 
   nsCOMPtr<nsIDOMEvent> event;
-  nsCOMPtr<nsIDOMEventTarget> target;
+  nsCOMPtr<EventTarget> target;
   nsresult rv = GetEventAndTarget(aDoc, aTarget, aEventName, aCanBubble,
                                   aCancelable, true, getter_AddRefs(event),
                                   getter_AddRefs(target));
@@ -3637,7 +3639,7 @@ nsContentUtils::DispatchChromeEvent(nsIDocument *aDoc,
   if (!aDoc->GetWindow())
     return NS_ERROR_INVALID_ARG;
 
-  nsIDOMEventTarget* piTarget = aDoc->GetWindow()->GetParentTarget();
+  EventTarget* piTarget = aDoc->GetWindow()->GetParentTarget();
   if (!piTarget)
     return NS_ERROR_INVALID_ARG;
 
@@ -3879,7 +3881,7 @@ nsContentUtils::HasMutationListeners(nsINode* aNode,
 
   // If we have a window, we can check it for mutation listeners now.
   if (aNode->IsInDoc()) {
-    nsCOMPtr<nsIDOMEventTarget> piTarget(do_QueryInterface(window));
+    nsCOMPtr<EventTarget> piTarget(do_QueryInterface(window));
     if (piTarget) {
       nsEventListenerManager* manager = piTarget->GetListenerManager(false);
       if (manager && manager->HasMutationListeners()) {
@@ -4698,6 +4700,15 @@ nsContentUtils::IsSystemPrincipal(nsIPrincipal* aPrincipal)
   return NS_SUCCEEDED(rv) && isSystem;
 }
 
+nsIPrincipal*
+nsContentUtils::GetSystemPrincipal()
+{
+  nsCOMPtr<nsIPrincipal> sysPrin;
+  nsresult rv = sSecurityManager->GetSystemPrincipal(getter_AddRefs(sysPrin));
+  MOZ_ASSERT(NS_SUCCEEDED(rv) && sysPrin);
+  return sysPrin;
+}
+
 bool
 nsContentUtils::CombineResourcePrincipals(nsCOMPtr<nsIPrincipal>* aResourcePrincipal,
                                           nsIPrincipal* aExtraPrincipal)
@@ -5035,10 +5046,15 @@ nsContentUtils::AddScriptBlocker()
   ++sScriptBlockerCount;
 }
 
+#ifdef DEBUG
+static bool sRemovingScriptBlockers = false;
+#endif
+
 /* static */
 void
 nsContentUtils::RemoveScriptBlocker()
 {
+  MOZ_ASSERT(!sRemovingScriptBlockers);
   NS_ASSERTION(sScriptBlockerCount != 0, "Negative script blockers");
   --sScriptBlockerCount;
   if (sScriptBlockerCount) {
@@ -5054,14 +5070,23 @@ nsContentUtils::RemoveScriptBlocker()
                "bad sRunnersCountAtFirstBlocker");
 
   while (firstBlocker < lastBlocker) {
-    nsCOMPtr<nsIRunnable> runnable = (*sBlockedScriptRunners)[firstBlocker];
+    nsCOMPtr<nsIRunnable> runnable;
+    runnable.swap((*sBlockedScriptRunners)[firstBlocker]);
     ++firstBlocker;
 
+    // Calling the runnable can reenter us
     runnable->Run();
+    // So can dropping the reference to the runnable
+    runnable = nullptr;
+
     NS_ASSERTION(sRunnersCountAtFirstBlocker == 0,
                  "Bad count");
     NS_ASSERTION(!sScriptBlockerCount, "This is really bad");
   }
+#ifdef DEBUG
+  AutoRestore<bool> removingScriptBlockers(sRemovingScriptBlockers);
+  sRemovingScriptBlockers = true;
+#endif
   sBlockedScriptRunners->RemoveElementsAt(originalFirstBlocker, blockersCount);
 }
 
@@ -5903,7 +5928,7 @@ nsContentUtils::DispatchXULCommand(nsIContent* aTarget,
     return aShell->HandleDOMEventWithTarget(aTarget, event, &status);
   }
 
-  nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(aTarget);
+  nsCOMPtr<EventTarget> target = do_QueryInterface(aTarget);
   NS_ENSURE_STATE(target);
   bool dummy;
   return target->DispatchEvent(event, &dummy);
@@ -6405,7 +6430,7 @@ nsContentUtils::FindInternalContentViewer(const char* aType,
   // one helper factory, please
   nsCOMPtr<nsICategoryManager> catMan(do_GetService(NS_CATEGORYMANAGER_CONTRACTID));
   if (!catMan)
-    return NULL;
+    return nullptr;
 
   nsCOMPtr<nsIDocumentLoaderFactory> docFactory;
 
@@ -6424,7 +6449,6 @@ nsContentUtils::FindInternalContentViewer(const char* aType,
     return docFactory.forget();
   }
 
-#ifdef MOZ_MEDIA
   if (DecoderTraits::IsSupportedInVideoDocument(nsDependentCString(aType))) {
     docFactory = do_GetService("@mozilla.org/content/document-loader-factory;1");
     if (docFactory && aLoaderType) {
@@ -6432,9 +6456,8 @@ nsContentUtils::FindInternalContentViewer(const char* aType,
     }
     return docFactory.forget();
   }
-#endif // MOZ_MEDIA
 
-  return NULL;
+  return nullptr;
 }
 
 // static
@@ -6508,7 +6531,7 @@ nsContentUtils::SetUpChannelOwner(nsIPrincipal* aLoadingPrincipal,
   //      can't provide their own security context!
   //
   //      (Currently chrome URIs set the owner when they are created!
-  //      So setting a NULL owner would be bad!)
+  //      So setting a nullptr owner would be bad!)
   //
   // If aForceOwner is true, the owner will be set, even for a channel that
   // can provide its own security context. This is used for the HTML5 IFRAME

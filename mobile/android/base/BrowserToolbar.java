@@ -5,14 +5,17 @@
 
 package org.mozilla.gecko;
 
+import org.mozilla.gecko.gfx.ImmutableViewportMetrics;
+import org.mozilla.gecko.util.HardwareUtils;
+
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.graphics.drawable.AnimationDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.StateListDrawable;
-import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
 import android.os.SystemClock;
@@ -42,9 +45,6 @@ import android.widget.ViewSwitcher;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.TimerTask;
-
-import org.mozilla.gecko.gfx.ImmutableViewportMetrics;
 
 public class BrowserToolbar implements ViewSwitcher.ViewFactory,
                                        Tabs.OnTabsChangedListener,
@@ -65,7 +65,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
     private int mTitlePadding;
     private boolean mSiteSecurityVisible;
     private boolean mAnimateSiteSecurity;
-    private TabsButton mTabs;
+    private ShapedButton mTabs;
     private int mTabsPaneWidth;
     private ImageButton mBack;
     private ImageButton mForward;
@@ -203,16 +203,20 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
                         menu.findItem(R.id.share).setVisible(false);
                         menu.findItem(R.id.add_to_launcher).setVisible(false);
                     }
+                    if (!tab.getFeedsEnabled()) {
+                        menu.findItem(R.id.subscribe).setVisible(false);
+                    }
                 } else {
                     // if there is no tab, remove anything tab dependent
                     menu.findItem(R.id.copyurl).setVisible(false);
                     menu.findItem(R.id.share).setVisible(false);
                     menu.findItem(R.id.add_to_launcher).setVisible(false);
+                    menu.findItem(R.id.subscribe).setVisible(false);
                 }
             }
         });
 
-        mTabs = (TabsButton) mLayout.findViewById(R.id.tabs);
+        mTabs = (ShapedButton) mLayout.findViewById(R.id.tabs);
         mTabs.setOnClickListener(new Button.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -352,7 +356,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
 
         mMenu = (GeckoImageButton) mLayout.findViewById(R.id.menu);
         mActionItemBar = (LinearLayout) mLayout.findViewById(R.id.menu_items);
-        mHasSoftMenuButton = !mActivity.hasPermanentMenuKey();
+        mHasSoftMenuButton = !HardwareUtils.hasMenuButton();
 
         if (mHasSoftMenuButton) {
             mMenu.setVisibility(View.VISIBLE);
@@ -364,7 +368,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
             });
         }
 
-        if (!mActivity.isTablet()) {
+        if (!HardwareUtils.isTablet()) {
             // Set a touch delegate to Tabs button, so the touch events on its tail
             // are passed to the menu button.
             mLayout.post(new Runnable() {
@@ -374,14 +378,8 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
                     int width = mTabs.getWidth();
                     int tail = (width - height) / 2;
 
-                    Rect leftBounds = new Rect(0, 0, tail, height);
-                    Rect rightBounds = new Rect(width - tail, 0, width, height);
-
-                    TailTouchDelegate delegate = new TailTouchDelegate(leftBounds, mAddressBarView);
-
-                    if (mHasSoftMenuButton)
-                        delegate.add(rightBounds, mMenu);
-
+                    Rect bounds = new Rect(0, 0, tail, height);
+                    TailTouchDelegate delegate = new TailTouchDelegate(bounds, mAddressBarView);
                     mTabs.setTouchDelegate(delegate);
                 }
             });
@@ -558,6 +556,18 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
         return mVisibility == ToolbarVisibility.VISIBLE;
     }
 
+    public void setNextFocusDownId(int nextId) {
+        mAwesomeBar.setNextFocusDownId(nextId);
+        mTabs.setNextFocusDownId(nextId);
+        mBack.setNextFocusDownId(nextId);
+        mForward.setNextFocusDownId(nextId);
+        mFavicon.setNextFocusDownId(nextId);
+        mStop.setNextFocusDownId(nextId);
+        mSiteSecurity.setNextFocusDownId(nextId);
+        mReader.setNextFocusDownId(nextId);
+        mMenu.setNextFocusDownId(nextId);
+    }
+
     @Override
     public void onAnimationStart(Animation animation) {
         if (animation.equals(mLockFadeIn)) {
@@ -647,7 +657,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
             setTitle(url);
         }
 
-        if (mActivity.isTablet() || Build.VERSION.SDK_INT < 11) {
+        if (HardwareUtils.isTablet() || Build.VERSION.SDK_INT < 11) {
             return;
         }
 
@@ -772,7 +782,7 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
 
     private void onAwesomeBarSearch() {
         // This animation doesn't make much sense in a sidebar UI
-        if (mActivity.isTablet() || Build.VERSION.SDK_INT < 11) {
+        if (HardwareUtils.isTablet() || Build.VERSION.SDK_INT < 11) {
             mActivity.onSearchRequested();
             return;
         }
@@ -874,6 +884,12 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
     }
 
     public void updateTabCountAndAnimate(int count) {
+        // Don't animate if the toolbar is hidden.
+        if (!isVisible()) {
+            updateTabCount(count);
+            return;
+        }
+
         if (mCount > count) {
             mTabsCount.setInAnimation(mSlideDownIn);
             mTabsCount.setOutAnimation(mSlideDownOut);
@@ -889,21 +905,6 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
                                     mActivity.getString(R.string.num_tabs, count) :
                                     mActivity.getString(R.string.one_tab));
         mCount = count;
-        mHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                GeckoTextView view = (GeckoTextView) mTabsCount.getCurrentView();
-                view.setSelected(true);
-            }
-        }, mDuration);
-
-        mHandler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                GeckoTextView view = (GeckoTextView) mTabsCount.getCurrentView();
-                view.setSelected(false);
-            }
-        }, 2 * mDuration);
     }
 
     public void updateTabCount(int count) {
@@ -988,27 +989,10 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
     }
 
     public void updateTabs(boolean areTabsShown) {
-        if (areTabsShown) {
-            mTabs.getBackground().setLevel(TABS_EXPANDED);
-
-            if (!mActivity.hasTabsSideBar()) {
-                mTabs.setImageLevel(0);
-                mTabsCount.setVisibility(View.GONE);
-                mMenu.setImageLevel(TABS_EXPANDED);
-                mMenu.getBackground().setLevel(TABS_EXPANDED);
-            } else {
-                mTabs.setImageLevel(TABS_EXPANDED);
-            }
-        } else {
+        if (areTabsShown)
+            mTabs.setImageLevel(TABS_EXPANDED);
+        else
             mTabs.setImageLevel(TABS_CONTRACTED);
-            mTabs.getBackground().setLevel(TABS_CONTRACTED);
-
-            if (!mActivity.hasTabsSideBar()) {
-                mTabsCount.setVisibility(View.VISIBLE);
-                mMenu.setImageLevel(TABS_CONTRACTED);
-                mMenu.getBackground().setLevel(TABS_CONTRACTED);
-            }
-        }
 
         // A level change will not trigger onMeasure() for the tabs, where the path is created.
         // Manually requesting a layout to re-calculate the path.
@@ -1016,11 +1000,9 @@ public class BrowserToolbar implements ViewSwitcher.ViewFactory,
     }
 
     public void setIsSideBar(boolean isSideBar) {
-        mTabs.setIsSideBar(isSideBar);
-
         Resources resources = mActivity.getResources();
         mTabs.setImageDrawable(resources.getDrawable(R.drawable.tabs_level));
-        mTabs.setBackgroundDrawable(resources.getDrawable(R.drawable.tabs_button));
+        mTabs.setBackgroundDrawable(resources.getDrawable(R.drawable.shaped_button));
     }
 
     public void setProgressVisibility(boolean visible) {

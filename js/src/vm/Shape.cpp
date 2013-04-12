@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "mozilla/DebugOnly.h"
+#include "mozilla/PodOperations.h"
 
 #include "jstypes.h"
 #include "jsclist.h"
@@ -38,6 +39,7 @@ using namespace js;
 using namespace js::gc;
 
 using mozilla::DebugOnly;
+using mozilla::PodZero;
 
 bool
 ShapeTable::init(JSRuntime *rt, RawShape lastProp)
@@ -1028,12 +1030,19 @@ Shape::setObjectParent(JSContext *cx, JSObject *parent, TaggedProto proto, Shape
     return replaceLastProperty(cx, base, proto, lastRoot);
 }
 
-bool
-JSObject::preventExtensions(JSContext *cx)
+/* static */ bool
+js::ObjectImpl::preventExtensions(JSContext *cx, Handle<ObjectImpl*> obj)
 {
-    JS_ASSERT(isExtensible());
+    MOZ_ASSERT(obj->isExtensible(),
+               "Callers must ensure |obj| is extensible before calling "
+               "preventExtensions");
 
-    RootedObject self(cx, this);
+    if (obj->isProxy()) {
+        RootedObject object(cx, obj->asObjectPtr());
+        return js::Proxy::preventExtensions(cx, object);
+    }
+
+    RootedObject self(cx, obj->asObjectPtr());
 
     /*
      * Force lazy properties to be resolved by iterating over the objects' own

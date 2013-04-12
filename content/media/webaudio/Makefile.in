@@ -16,6 +16,7 @@ FAIL_ON_WARNINGS := 1
 endif # !_MSC_VER
 
 CPPSRCS := \
+  AnalyserNode.cpp \
   AudioBuffer.cpp \
   AudioBufferSourceNode.cpp \
   AudioContext.cpp \
@@ -23,7 +24,6 @@ CPPSRCS := \
   AudioListener.cpp \
   AudioNode.cpp \
   AudioParam.cpp \
-  AudioSourceNode.cpp \
   BiquadFilterNode.cpp \
   DelayNode.cpp \
   DynamicsCompressorNode.cpp \
@@ -37,6 +37,7 @@ CPPSRCS := \
 
 EXPORTS_NAMESPACES := mozilla/dom
 EXPORTS_mozilla/dom := \
+  AnalyserNode.h \
   AudioBuffer.h \
   AudioBufferSourceNode.h \
   AudioContext.h \
@@ -44,7 +45,6 @@ EXPORTS_mozilla/dom := \
   AudioListener.h \
   AudioNode.h \
   AudioParam.h \
-  AudioSourceNode.h \
   BiquadFilterNode.h \
   DelayNode.h \
   DynamicsCompressorNode.h \

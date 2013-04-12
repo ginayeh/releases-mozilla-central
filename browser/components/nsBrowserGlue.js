@@ -53,9 +53,6 @@ XPCOMUtils.defineLazyModuleGetter(this, "webrtcUI",
 XPCOMUtils.defineLazyModuleGetter(this, "PrivateBrowsingUtils",
                                   "resource://gre/modules/PrivateBrowsingUtils.jsm");
 
-XPCOMUtils.defineLazyModuleGetter(this, "KeywordURLResetPrompter",
-                                  "resource:///modules/KeywordURLResetPrompter.jsm");
-
 XPCOMUtils.defineLazyModuleGetter(this, "RecentWindow",
                                   "resource:///modules/RecentWindow.jsm");
 
@@ -264,13 +261,6 @@ BrowserGlue.prototype = {
           this._initPlaces(false);
         }
         break;
-      case "defaultURIFixup-using-keyword-pref":
-        if (KeywordURLResetPrompter.shouldPrompt) {
-          let keywordURI = subject.QueryInterface(Ci.nsIURI);
-          KeywordURLResetPrompter.prompt(this.getMostRecentBrowserWindow(),
-                                         keywordURI);
-        }
-        break;
       case "initial-migration-will-import-default-bookmarks":
         this._migrationImportsDefaultBookmarks = true;
         break;
@@ -344,7 +334,6 @@ BrowserGlue.prototype = {
     os.addObserver(this, "distribution-customization-complete", false);
     os.addObserver(this, "places-shutdown", false);
     this._isPlacesShutdownObserver = true;
-    os.addObserver(this, "defaultURIFixup-using-keyword-pref", false);
     os.addObserver(this, "handle-xul-text-link", false);
     os.addObserver(this, "profile-before-change", false);
 #ifdef MOZ_SERVICES_HEALTHREPORT
@@ -366,8 +355,8 @@ BrowserGlue.prototype = {
     os.removeObserver(this, "browser-lastwindow-close-granted");
 #endif
 #ifdef MOZ_SERVICES_SYNC
-    os.removeObserver(this, "weave:service:ready", false);
-    os.removeObserver(this, "weave:engine:clients:display-uri", false);
+    os.removeObserver(this, "weave:service:ready");
+    os.removeObserver(this, "weave:engine:clients:display-uri");
 #endif
     os.removeObserver(this, "session-save");
     if (this._isIdleObserver)
@@ -378,7 +367,6 @@ BrowserGlue.prototype = {
       os.removeObserver(this, "places-database-locked");
     if (this._isPlacesShutdownObserver)
       os.removeObserver(this, "places-shutdown");
-    os.removeObserver(this, "defaultURIFixup-using-keyword-pref");
     os.removeObserver(this, "handle-xul-text-link");
     os.removeObserver(this, "profile-before-change");
 #ifdef MOZ_SERVICES_HEALTHREPORT
@@ -564,9 +552,6 @@ BrowserGlue.prototype = {
       });
     }
 
-    let keywordURLUserSet = Services.prefs.prefHasUserValue("keyword.URL");
-    Services.telemetry.getHistogramById("FX_KEYWORD_URL_USERSET").add(keywordURLUserSet);
-
     // Perform default browser checking.
     var shell;
     try {
@@ -731,7 +716,7 @@ BrowserGlue.prototype = {
     var button0Title = quitBundle.GetStringFromName("saveTitle");
     var button1Title = quitBundle.GetStringFromName("cancelTitle");
     var button2Title = quitBundle.GetStringFromName("quitTitle");
-    var neverAskText = quitBundle.GetStringFromName("neverAsk");
+    var neverAskText = quitBundle.GetStringFromName("neverAsk2");
 
     // This wouldn't have been set above since we shouldn't be here for
     // aQuitType == "lastwindow"
@@ -1223,7 +1208,7 @@ BrowserGlue.prototype = {
   },
 
   _migrateUI: function BG__migrateUI() {
-    const UI_VERSION = 9;
+    const UI_VERSION = 11;
     const BROWSER_DOCURL = "chrome://browser/content/browser.xul#";
     let currentUIVersion = 0;
     try {
@@ -1366,6 +1351,29 @@ BrowserGlue.prototype = {
       Services.prefs.clearUserPref("browser.library.useNewDownloadsView");
     }
 
+#ifdef XP_WIN
+    if (currentUIVersion < 10) {
+      // For Windows systems with display set to > 96dpi (i.e. systemDefaultScale
+      // will return a value > 1.0), we want to discard any saved full-zoom settings,
+      // as we'll now be scaling the content according to the system resolution
+      // scale factor (Windows "logical DPI" setting)
+      let sm = Cc["@mozilla.org/gfx/screenmanager;1"].getService(Ci.nsIScreenManager);
+      if (sm.systemDefaultScale > 1.0) {
+        let cps2 = Cc["@mozilla.org/content-pref/service;1"].
+                   getService(Ci.nsIContentPrefService2);
+        cps2.removeByName("browser.content.full-zoom", null);
+      }
+    }
+#endif
+
+    if (currentUIVersion < 11) {
+      Services.prefs.clearUserPref("dom.disable_window_move_resize");
+      Services.prefs.clearUserPref("dom.disable_window_flip");
+      Services.prefs.clearUserPref("dom.event.contextmenu.enabled");
+      Services.prefs.clearUserPref("javascript.enabled");
+      Services.prefs.clearUserPref("permissions.default.image");
+    }
+
     if (this._dirty)
       this._dataSource.QueryInterface(Ci.nsIRDFRemoteDataSource).Flush();
 
@@ -1398,7 +1406,7 @@ BrowserGlue.prototype = {
       }
 
       // Add the entry to the persisted set for this document if it's not there.
-      // This code is mostly borrowed from nsXULDocument::Persist.
+      // This code is mostly borrowed from XULDocument::Persist.
       let docURL = aSource.ValueUTF8.split("#")[0];
       let docResource = this._rdf.GetResource(docURL);
       let persistResource = this._rdf.GetResource("http://home.netscape.com/NC-rdf#persist");
@@ -1637,9 +1645,10 @@ ContentPermissionPrompt.prototype = {
    *                               Permission is granted if action is null or ALLOW_ACTION.
    * @param aNotificationId        The id of the PopupNotification.
    * @param aAnchorId              The id for the PopupNotification anchor.
+   * @param aOptions               Options for the PopupNotification
    */
   _showPrompt: function CPP_showPrompt(aRequest, aMessage, aPermission, aActions,
-                                       aNotificationId, aAnchorId) {
+                                       aNotificationId, aAnchorId, aOptions) {
     function onFullScreen() {
       popup.remove();
     }
@@ -1692,24 +1701,25 @@ ContentPermissionPrompt.prototype = {
     var mainAction = popupNotificationActions.length ?
                        popupNotificationActions[0] : null;
     var secondaryActions = popupNotificationActions.splice(1);
-    var options = null;
 
     if (aRequest.type == "pointerLock") {
       // If there's no mainAction, this is the autoAllow warning prompt.
       let autoAllow = !mainAction;
-      options = { removeOnDismissal: autoAllow,
-                  eventCallback: function (type) {
-                                   if (type == "removed") {
-                                     browser.removeEventListener("mozfullscreenchange", onFullScreen, true);
-                                     if (autoAllow)
-                                       aRequest.allow();
-                                   }
-                                 },
-                };
+      aOptions = {
+        removeOnDismissal: autoAllow,
+        eventCallback: type => {
+          if (type == "removed") {
+            browser.removeEventListener("mozfullscreenchange", onFullScreen, true);
+            if (autoAllow) {
+              aRequest.allow();
+            }
+          }
+        },
+      };
     }
 
     var popup = chromeWin.PopupNotifications.show(browser, aNotificationId, aMessage, aAnchorId,
-                                                  mainAction, secondaryActions, options);
+                                                  mainAction, secondaryActions, aOptions);
     if (aRequest.type == "pointerLock") {
       // pointerLock is automatically allowed in fullscreen mode (and revoked
       // upon exit), so if the page enters fullscreen mode after requesting
@@ -1771,7 +1781,8 @@ ContentPermissionPrompt.prototype = {
 
     secHistogram.add(Ci.nsISecurityUITelemetry.WARNING_GEOLOCATION_REQUEST);
 
-    this._showPrompt(aRequest, message, "geo", actions, "geolocation", "geo-notification-icon");
+    this._showPrompt(aRequest, message, "geo", actions, "geolocation",
+                     "geo-notification-icon", null);
   },
 
   _promptWebNotifications : function(aRequest) {
@@ -1804,7 +1815,7 @@ ContentPermissionPrompt.prototype = {
 
     this._showPrompt(aRequest, message, "desktop-notification", actions,
                      "web-notifications",
-                     "web-notifications-notification-icon");
+                     "web-notifications-notification-icon", null);
   },
 
   _promptPointerLock: function CPP_promtPointerLock(aRequest, autoAllow) {
@@ -1814,7 +1825,7 @@ ContentPermissionPrompt.prototype = {
 
     let originString = requestingURI.schemeIs("file") ? requestingURI.path : requestingURI.host;
     let message = browserBundle.formatStringFromName(autoAllow ?
-                                  "pointerLock.autoLock.title" : "pointerLock.title",
+                                  "pointerLock.autoLock.title2" : "pointerLock.title2",
                                   [originString], 1);
     // If this is an autoAllow info prompt, offer no actions.
     // _showPrompt() will allow the request when it's dismissed.
@@ -1822,7 +1833,7 @@ ContentPermissionPrompt.prototype = {
     if (!autoAllow) {
       actions = [
         {
-          stringId: "pointerLock.allow",
+          stringId: "pointerLock.allow2",
           action: null,
           expireType: null,
           callback: function() {},
@@ -1842,7 +1853,8 @@ ContentPermissionPrompt.prototype = {
       ];
     }
 
-    this._showPrompt(aRequest, message, "pointerLock", actions, "pointerLock", "pointerLock-notification-icon");
+    this._showPrompt(aRequest, message, "pointerLock", actions, "pointerLock",
+                     "pointerLock-notification-icon", null);
   },
 
   prompt: function CPP_prompt(request) {

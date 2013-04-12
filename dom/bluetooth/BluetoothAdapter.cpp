@@ -14,7 +14,6 @@
 
 #include "nsContentUtils.h"
 #include "nsDOMClassInfo.h"
-#include "nsIDOMBluetoothDeviceAddressEvent.h"
 #include "nsIDOMBluetoothDeviceEvent.h"
 #include "nsTArrayHelpers.h"
 #include "DOMRequest.h"
@@ -84,7 +83,7 @@ public:
     MOZ_ASSERT(aReq && aAdapterPtr);
   }
 
-  virtual bool ParseSuccessfulReply(jsval* aValue)
+  virtual bool ParseSuccessfulReply(JS::Value* aValue)
   {
     LOG("[A] GetPairedDevicesTask::ParseSuccessfulReply");
     *aValue = JSVAL_VOID;
@@ -346,6 +345,7 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     e->InitBluetoothDeviceEvent(NS_LITERAL_STRING("devicefound"),
                                 false, false, device);
     DispatchTrustedEvent(event);
+<<<<<<< HEAD
   } else if (aData.name().EqualsLiteral("DeviceDisappeared")) {
     LOG("[A] Receive event - DeviceDisappeared");
     const nsAString& deviceAddress = aData.value().get_nsString();
@@ -371,6 +371,8 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     e->InitBluetoothDeviceEvent(NS_LITERAL_STRING("devicecreated"),
                                 false, false, device);
     DispatchTrustedEvent(e);
+=======
+>>>>>>> 05088603b4671fed989e4494323113393a124c64
   } else if (aData.name().EqualsLiteral("PropertyChanged")) {
     NS_ASSERTION(v.type() == BluetoothValue::TArrayOfBluetoothNamedValue,
                  "PropertyChanged: Invalid value type");
@@ -436,6 +438,7 @@ BluetoothAdapter::StopDiscovery(nsIDOMDOMRequest** aRequest)
 }
 
 NS_IMETHODIMP
+<<<<<<< HEAD
 BluetoothAdapter::GetEnabled(bool* aEnabled)
 {
   LOGV("[A] %s", __FUNCTION__);
@@ -444,6 +447,8 @@ BluetoothAdapter::GetEnabled(bool* aEnabled)
 }
 
 NS_IMETHODIMP
+=======
+>>>>>>> 05088603b4671fed989e4494323113393a124c64
 BluetoothAdapter::GetAddress(nsAString& aAddress)
 {
   LOGV("[A] %s", __FUNCTION__);
@@ -492,7 +497,7 @@ BluetoothAdapter::GetDiscoverableTimeout(uint32_t* aDiscoverableTimeout)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
+BluetoothAdapter::GetDevices(JSContext* aCx, JS::Value* aDevices)
 {
   LOGV("[A] %s", __FUNCTION__);
   if (mJsDeviceAddresses) {
@@ -506,7 +511,7 @@ BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::GetUuids(JSContext* aCx, jsval* aValue)
+BluetoothAdapter::GetUuids(JSContext* aCx, JS::Value* aValue)
 {
   LOGV("[A] %s", __FUNCTION__);
   if (mJsUuids) {
@@ -845,12 +850,4 @@ BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
   return NS_OK;
 }
 
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, propertychanged)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicedisappeared)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicecreated)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestconfirmation)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpincode)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, requestpasskey)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, authorize)
-NS_IMPL_EVENT_HANDLER(BluetoothAdapter, cancel)

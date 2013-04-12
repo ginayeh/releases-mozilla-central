@@ -9,7 +9,7 @@
 #include "nsServiceManagerUtils.h"
 #include "nsIContentViewer.h"
 #include "nsIDocument.h"
-#include "nsXULDocument.h"
+#include "XULDocument.h"
 #include "nsIWindowMediator.h"
 #include "nsPIDOMWindow.h"
 #include "nsIWebNavigation.h"
@@ -188,7 +188,7 @@ MarkContentViewer(nsIContentViewer* aViewer, bool aCleanupJS,
       if (elm) {
         elm->MarkForCC();
       }
-      nsCOMPtr<nsIDOMEventTarget> win = do_QueryInterface(doc->GetInnerWindow());
+      nsCOMPtr<EventTarget> win = do_QueryInterface(doc->GetInnerWindow());
       if (win) {
         elm = win->GetListenerManager(false);
         if (elm) {
@@ -420,12 +420,12 @@ TraceActiveWindowGlobal(const uint64_t& aId, nsGlobalWindow*& aWindow, void* aCl
   if (aWindow->GetDocShell() && aWindow->IsOuterWindow()) {
     TraceClosure* closure = static_cast<TraceClosure*>(aClosure);
     if (JSObject* global = aWindow->FastGetGlobalJSObject()) {
-      JS_CALL_OBJECT_TRACER(closure->mTrc, global, "active window global");
+      JS_CallObjectTracer(closure->mTrc, global, "active window global");
     }
 #ifdef MOZ_XUL
     nsIDocument* doc = aWindow->GetExtantDoc();
     if (doc && doc->IsXUL()) {
-      nsXULDocument* xulDoc = static_cast<nsXULDocument*>(doc);
+      XULDocument* xulDoc = static_cast<XULDocument*>(doc);
       xulDoc->TraceProtos(closure->mTrc, closure->mGCNumber);
     }
 #endif

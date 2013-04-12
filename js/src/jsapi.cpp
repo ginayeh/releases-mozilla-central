@@ -11,6 +11,7 @@
 
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/GuardObjects.h"
+#include "mozilla/PodOperations.h"
 #include "mozilla/ThreadLocal.h"
 
 #include <ctype.h>
@@ -99,6 +100,8 @@ using namespace js::gc;
 using namespace js::types;
 
 using mozilla::Maybe;
+using mozilla::PodCopy;
+using mozilla::PodZero;
 
 using js::frontend::Parser;
 
@@ -689,11 +692,14 @@ PerThreadData::PerThreadData(JSRuntime *runtime)
     ionTop(NULL),
     ionJSContext(NULL),
     ionStackLimit(0),
+#ifdef JS_THREADSAFE
+    ionStackLimitLock_(NULL),
+#endif
     ionActivation(NULL),
     asmJSActivationStack_(NULL),
-# ifdef JS_THREADSAFE
+#ifdef JS_THREADSAFE
     asmJSActivationStackLock_(NULL),
-# endif
+#endif
     suppressGC(0)
 {}
 
@@ -701,6 +707,10 @@ bool
 PerThreadData::init()
 {
 #ifdef JS_THREADSAFE
+    ionStackLimitLock_ = PR_NewLock();
+    if (!ionStackLimitLock_)
+        return false;
+
     asmJSActivationStackLock_ = PR_NewLock();
     if (!asmJSActivationStackLock_)
         return false;
@@ -711,6 +721,9 @@ PerThreadData::init()
 PerThreadData::~PerThreadData()
 {
 #ifdef JS_THREADSAFE
+    if (ionStackLimitLock_)
+        PR_DestroyLock(ionStackLimitLock_);
+
     if (asmJSActivationStackLock_)
         PR_DestroyLock(asmJSActivationStackLock_);
 #endif
@@ -718,6 +731,7 @@ PerThreadData::~PerThreadData()
 
 JSRuntime::JSRuntime(JSUseHelperThreads useHelperThreads)
   : mainThread(this),
+    interrupt(0),
     atomsCompartment(NULL),
     systemZone(NULL),
     numCompartments(0),
@@ -848,6 +862,7 @@ JSRuntime::JSRuntime(JSUseHelperThreads useHelperThreads)
     data(NULL),
     gcLock(NULL),
     gcHelperThread(thisFromCtor()),
+    sizeOfNonHeapAsmJSArrays_(0),
 #ifdef JS_THREADSAFE
 #ifdef JS_ION
     workerThreadState(NULL),
@@ -1518,6 +1533,8 @@ JS_WrapObject(JSContext *cx, JSObject **objp)
 {
     AssertHeapIsIdle(cx);
     CHECK_REQUEST(cx);
+    if (*objp)
+        JS::ExposeGCThingToActiveJS(*objp, JSTRACE_OBJECT);
     return cx->compartment->wrap(cx, objp);
 }
 
@@ -1526,6 +1543,8 @@ JS_WrapValue(JSContext *cx, jsval *vp)
 {
     AssertHeapIsIdle(cx);
     CHECK_REQUEST(cx);
+    if (vp)
+        JS::ExposeValueToActiveJS(*vp);
     RootedValue value(cx, *vp);
     bool ok = cx->compartment->wrap(cx, &value);
     *vp = value.get();
@@ -1537,6 +1556,13 @@ JS_WrapId(JSContext *cx, jsid *idp)
 {
   AssertHeapIsIdle(cx);
   CHECK_REQUEST(cx);
+  if (idp) {
+      jsid id = *idp;
+      if (JSID_IS_STRING(id))
+          JS::ExposeGCThingToActiveJS(JSID_TO_STRING(id), JSTRACE_STRING);
+      else if (JSID_IS_OBJECT(id))
+          JS::ExposeGCThingToActiveJS(JSID_TO_OBJECT(id), JSTRACE_OBJECT);
+  }
   return cx->compartment->wrapId(cx, idp);
 }
 
@@ -2439,6 +2465,56 @@ JS_SetExtraGCRootsTracer(JSRuntime *rt, JSTraceDataOp traceOp, void *data)
 }
 
 JS_PUBLIC_API(void)
+JS_CallValueTracer(JSTracer *trc, Value valueArg, const char *name)
+{
+    Value value = valueArg;
+    MarkValueUnbarriered(trc, &value, name);
+    JS_ASSERT(value == valueArg);
+}
+
+JS_PUBLIC_API(void)
+JS_CallIdTracer(JSTracer *trc, jsid idArg, const char *name)
+{
+    jsid id = idArg;
+    MarkIdUnbarriered(trc, &id, name);
+    JS_ASSERT(id == idArg);
+}
+
+JS_PUBLIC_API(void)
+JS_CallObjectTracer(JSTracer *trc, JSObject *objArg, const char *name)
+{
+    JSObject *obj = objArg;
+    MarkObjectUnbarriered(trc, &obj, name);
+    JS_ASSERT(obj == objArg);
+}
+
+JS_PUBLIC_API(void)
+JS_CallStringTracer(JSTracer *trc, JSString *strArg, const char *name)
+{
+    JSString *str = strArg;
+    MarkStringUnbarriered(trc, &str, name);
+    JS_ASSERT(str == strArg);
+}
+
+JS_PUBLIC_API(void)
+JS_CallScriptTracer(JSTracer *trc, JSScript *scriptArg, const char *name)
+{
+    JSScript *script = scriptArg;
+    MarkScriptUnbarriered(trc, &script, name);
+    JS_ASSERT(script == scriptArg);
+}
+
+JS_PUBLIC_API(void)
+JS_CallGenericTracer(JSTracer *trc, void *gcthingArg, const char *name)
+{
+    void *gcthing = gcthingArg;
+    JSGCTraceKind kind = gc::GetGCThingTraceKind(gcthing);
+    JS_SET_TRACING_NAME(trc, name);
+    MarkKind(trc, &gcthing, kind);
+    JS_ASSERT(gcthing == gcthingArg);
+}
+
+JS_PUBLIC_API(void)
 JS_TracerInit(JSTracer *trc, JSRuntime *rt, JSTraceCallback callback)
 {
     InitTracer(trc, rt, callback);
@@ -2455,12 +2531,6 @@ JS_PUBLIC_API(void)
 JS_TraceChildren(JSTracer *trc, void *thing, JSGCTraceKind kind)
 {
     js::TraceChildren(trc, thing, kind);
-}
-
-JS_PUBLIC_API(void)
-JS_CallTracer(JSTracer *trc, void *thing, JSGCTraceKind kind)
-{
-    js::CallTracer(trc, thing, kind);
 }
 
 JS_PUBLIC_API(void)
@@ -2852,12 +2922,9 @@ JS_SetFinalizeCallback(JSRuntime *rt, JSFinalizeCallback cb)
 }
 
 JS_PUBLIC_API(JSBool)
-JS_IsAboutToBeFinalized(void *thing)
+JS_IsAboutToBeFinalized(JSObject **obj)
 {
-    gc::Cell *t = static_cast<gc::Cell *>(thing);
-    bool isDying = IsCellAboutToBeFinalized(&t);
-    JS_ASSERT(t == thing);
-    return isDying;
+    return IsObjectAboutToBeFinalized(obj);
 }
 
 JS_PUBLIC_API(void)
@@ -3019,6 +3086,16 @@ JS_SetNativeStackQuota(JSRuntime *rt, size_t stackSize)
     } else {
         JS_ASSERT(rt->nativeStackBase >= stackSize);
         rt->mainThread.nativeStackLimit = rt->nativeStackBase - (stackSize - 1);
+    }
+#endif
+
+    // If there's no pending interrupt request set on the runtime's main thread's
+    // ionStackLimit, then update it so that it reflects the new nativeStacklimit.
+#ifdef JS_ION
+    {
+        PerThreadData::IonStackLimitLock lock(rt->mainThread);
+        if (rt->mainThread.ionStackLimit != uintptr_t(-1))
+            rt->mainThread.ionStackLimit = rt->mainThread.nativeStackLimit;
     }
 #endif
 }
@@ -3938,7 +4015,7 @@ JS_DefineConstDoubles(JSContext *cx, JSObject *objArg, JSConstDoubleSpec *cds)
 }
 
 JS_PUBLIC_API(JSBool)
-JS_DefineProperties(JSContext *cx, JSObject *objArg, JSPropertySpec *ps)
+JS_DefineProperties(JSContext *cx, JSObject *objArg, const JSPropertySpec *ps)
 {
     RootedObject obj(cx, objArg);
     JSBool ok;
@@ -4808,12 +4885,14 @@ JS_CloneFunctionObject(JSContext *cx, JSObject *funobjArg, JSRawObject parentArg
     RootedObject parent(cx, parentArg);
     AssertHeapIsIdle(cx);
     CHECK_REQUEST(cx);
-    assertSameCompartment(cx, parent);  // XXX no funobj for now
+    assertSameCompartment(cx, parent);
+    // Note that funobj can be in a different compartment.
 
     if (!parent)
         parent = cx->global();
 
     if (!funobj->isFunction()) {
+        AutoCompartment ac(cx, funobj);
         ReportIsNotFunction(cx, ObjectValue(*funobj));
         return NULL;
     }
@@ -4931,7 +5010,7 @@ js_generic_native_method_dispatcher(JSContext *cx, unsigned argc, Value *vp)
 }
 
 JS_PUBLIC_API(JSBool)
-JS_DefineFunctions(JSContext *cx, JSObject *objArg, JSFunctionSpec *fs)
+JS_DefineFunctions(JSContext *cx, JSObject *objArg, const JSFunctionSpec *fs)
 {
     JS_THREADSAFE_ASSERT(cx->compartment != cx->runtime->atomsCompartment);
     AssertHeapIsIdle(cx);
@@ -4972,18 +5051,8 @@ JS_DefineFunctions(JSContext *cx, JSObject *objArg, JSFunctionSpec *fs)
              * As jsapi.h notes, fs must point to storage that lives as long
              * as fun->object lives.
              */
-            fun->setExtendedSlot(0, PrivateValue(fs));
+            fun->setExtendedSlot(0, PrivateValue(const_cast<JSFunctionSpec*>(fs)));
         }
-
-        /*
-         * During creation of the self-hosting global, we ignore all
-         * self-hosted functions, as that means we're currently setting up
-         * the global object that that the self-hosted code is then compiled
-         * in. Self-hosted functions can access each other via their names,
-         * but not via the builtin classes they get installed into.
-         */
-        if (fs->selfHostedName && cx->runtime->isSelfHostingGlobal(cx->global()))
-            return JS_TRUE;
 
         /*
          * Delay cloning self-hosted functions until they are called. This is
@@ -4992,21 +5061,41 @@ JS_DefineFunctions(JSContext *cx, JSObject *objArg, JSFunctionSpec *fs)
          * call paths then call InitializeLazyFunctionScript if !hasScript.
          */
         if (fs->selfHostedName) {
-            RootedFunction fun(cx, DefineFunction(cx, obj, id, /* native = */ NULL, fs->nargs, 0,
-                                                  JSFunction::ExtendedFinalizeKind, SingletonObject));
-            if (!fun)
-                return JS_FALSE;
-            fun->setIsSelfHostedBuiltin();
-            fun->setExtendedSlot(0, PrivateValue(fs));
+            /*
+             * During creation of the self-hosting global, we ignore all
+             * self-hosted functions, as that means we're currently setting up
+             * the global object that the self-hosted code is then compiled
+             * in. Self-hosted functions can access each other via their names,
+             * but not via the builtin classes they get installed into.
+             */
+            if (cx->runtime->isSelfHostingGlobal(cx->global()))
+                continue;
+
             RootedAtom shAtom(cx, Atomize(cx, fs->selfHostedName, strlen(fs->selfHostedName)));
             if (!shAtom)
                 return JS_FALSE;
-            RootedObject holder(cx, cx->global()->intrinsicsHolder());
-            if (!JS_DefinePropertyById(cx,holder, AtomToId(shAtom),
-                                       ObjectValue(*fun), NULL, NULL, 0))
-            {
+            RootedPropertyName shName(cx, shAtom->asPropertyName());
+            RootedValue funVal(cx);
+            if (!cx->runtime->maybeWrappedSelfHostedFunction(cx, shName, &funVal))
                 return JS_FALSE;
+            if (!funVal.isUndefined()) {
+                if (!JSObject::defineProperty(cx, obj, atom->asPropertyName(), funVal,
+                                             NULL, NULL, flags & ~JSFUN_FLAGS_MASK))
+                {
+                    return JS_FALSE;
+                }
+            } else {
+                RawFunction fun = DefineFunction(cx, obj, id, /* native = */ NULL, fs->nargs, 0,
+                                                 JSFunction::ExtendedFinalizeKind, SingletonObject);
+                if (!fun)
+                    return JS_FALSE;
+                fun->setIsSelfHostedBuiltin();
+                fun->setExtendedSlot(0, PrivateValue(const_cast<JSFunctionSpec*>(fs)));
+                funVal.setObject(*fun);
             }
+            RootedObject holder(cx, cx->global()->intrinsicsHolder());
+            if (!JSObject::defineProperty(cx, holder, shName, funVal))
+                return JS_FALSE;
         } else {
             JSFunction *fun = DefineFunction(cx, obj, id, fs->call.op, fs->nargs, flags);
             if (!fun)
@@ -6639,11 +6728,11 @@ JS_NewDateObjectMsec(JSContext *cx, double msec)
 }
 
 JS_PUBLIC_API(JSBool)
-JS_ObjectIsDate(JSContext *cx, JSRawObject obj)
+JS_ObjectIsDate(JSContext *cx, JSRawObject objArg)
 {
-    AssertHeapIsIdle(cx);
-    JS_ASSERT(obj);
-    return obj->isDate();
+    RootedObject obj(cx, objArg);
+    assertSameCompartment(cx, obj);
+    return ObjectClassIs(obj, ESClass_Date, cx);
 }
 
 JS_PUBLIC_API(void)
@@ -6775,9 +6864,8 @@ JS_PUBLIC_API(JSBool)
 JS_ObjectIsRegExp(JSContext *cx, JSObject *objArg)
 {
     RootedObject obj(cx, objArg);
-    AssertHeapIsIdle(cx);
-    JS_ASSERT(obj);
-    return obj->isRegExp();
+    assertSameCompartment(cx, obj);
+    return ObjectClassIs(obj, ESClass_RegExp, cx);
 }
 
 JS_PUBLIC_API(unsigned)

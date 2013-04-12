@@ -8,7 +8,6 @@
 
 #include "gfxImageSurface.h"
 #include "gfxRect.h"
-#include "nsIDOMSVGFilters.h"
 #include "nsIFrame.h"
 #include "nsImageLoadingContent.h"
 #include "nsSVGLength2.h"
@@ -54,7 +53,6 @@ typedef nsSVGElement nsSVGFEBase;
  * derive from SVGFEUnstyledElement instead
  */
 class nsSVGFE : public nsSVGFEBase
-//, public nsIDOMSVGFilterPrimitiveStandardAttributes
 {
   friend class nsSVGFilterInstance;
 
@@ -131,15 +129,16 @@ public:
   virtual bool SubregionIsUnionOfRegions() { return true; }
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_SVG_FE_CID)
-  
+
   // interfaces:
   NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_NSIDOMSVGFILTERPRIMITIVESTANDARDATTRIBUTES
 
   // nsIContent interface
   NS_IMETHOD_(bool) IsAttributeMapped(const nsIAtom* aAttribute) const;
 
   // nsSVGElement interface
+  virtual nsresult Clone(nsINodeInfo *aNodeInfo, nsINode **aResult) const MOZ_OVERRIDE = 0;
+
   virtual bool HasValidDimensions() const;
 
   bool IsNodeOfType(uint32_t aFlags) const
@@ -228,7 +227,6 @@ protected:
   // nsSVGElement specializations:
   virtual LengthAttributesInfo GetLengthInfo();
 
-  // nsIDOMSVGFitlerPrimitiveStandardAttributes values
   enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT };
   nsSVGLength2 mLengthAttributes[4];
   static LengthInfo sLengthInfo[4];
@@ -243,6 +241,8 @@ protected:
     : SVGFEUnstyledElementBase(aNodeInfo) {}
 
 public:
+  virtual nsresult Clone(nsINodeInfo *aNodeInfo, nsINode **aResult) const MOZ_OVERRIDE = 0;
+
   // returns true if changes to the attribute should cause us to
   // repaint the filter
   virtual bool AttributeAffectsRendering(
@@ -262,9 +262,6 @@ protected:
 public:
   // interfaces:
   NS_DECL_ISUPPORTS_INHERITED
-
-  // FE Base
-  NS_FORWARD_NSIDOMSVGFILTERPRIMITIVESTANDARDATTRIBUTES(nsSVGFELightingElementBase::)
 
   virtual nsresult Filter(nsSVGFilterInstance* aInstance,
                           const nsTArray<const Image*>& aSources,

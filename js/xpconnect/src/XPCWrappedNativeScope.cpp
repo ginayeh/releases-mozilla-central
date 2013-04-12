@@ -129,7 +129,11 @@ XPCWrappedNativeScope::XPCWrappedNativeScope(JSContext *cx,
         mIsXBLScope(false)
 {
     // add ourselves to the scopes list
-    {   // scoped lock
+    {
+        MOZ_ASSERT(aGlobal);
+        MOZ_ASSERT(js::GetObjectClass(aGlobal)->flags & (JSCLASS_PRIVATE_IS_NSISUPPORTS |
+                                                         JSCLASS_HAS_PRIVATE)); 
+        // scoped lock
         XPCAutoLock lock(XPCJSRuntime::Get()->GetMapLock());
 
 #ifdef DEBUG
@@ -268,6 +272,7 @@ JSObject *GetXBLScope(JSContext *cx, JSObject *contentScope)
 {
     JSAutoCompartment ac(cx, contentScope);
     JSObject *scope = EnsureCompartmentPrivate(contentScope)->scope->EnsureXBLScope(cx);
+    NS_ENSURE_TRUE(scope, nullptr); // See bug 858642.
     scope = js::UnwrapObject(scope);
     xpc_UnmarkGrayObject(scope);
     return scope;
@@ -387,8 +392,8 @@ WrappedNativeJSGCThingTracer(JSDHashTable *table, JSDHashEntryHdr *hdr,
 static PLDHashOperator
 TraceDOMExpandos(nsPtrHashKey<JSObject> *expando, void *aClosure)
 {
-    JS_CALL_OBJECT_TRACER(static_cast<JSTracer *>(aClosure), expando->GetKey(),
-                          "DOM expando object");
+    JS_CallObjectTracer(static_cast<JSTracer *>(aClosure), expando->GetKey(),
+                        "DOM expando object");
     return PL_DHASH_NEXT;
 }
 
@@ -475,8 +480,7 @@ XPCWrappedNativeScope::StartFinalizationPhaseOfGC(JSFreeOp *fop, XPCJSRuntime* r
 
         XPCWrappedNativeScope* next = cur->mNext;
 
-        if (cur->mGlobalJSObject &&
-            JS_IsAboutToBeFinalized(cur->mGlobalJSObject)) {
+        if (cur->mGlobalJSObject && cur->mGlobalJSObject.isAboutToBeFinalized()) {
             cur->mGlobalJSObject.finalize(fop->runtime());
             // Move this scope from the live list to the dying list.
             if (prev)
@@ -487,10 +491,8 @@ XPCWrappedNativeScope::StartFinalizationPhaseOfGC(JSFreeOp *fop, XPCJSRuntime* r
             gDyingScopes = cur;
             cur = nullptr;
         } else {
-            if (cur->mPrototypeNoHelper &&
-                JS_IsAboutToBeFinalized(cur->mPrototypeNoHelper)) {
+            if (cur->mPrototypeNoHelper && JS_IsAboutToBeFinalized(&cur->mPrototypeNoHelper))
                 cur->mPrototypeNoHelper = nullptr;
-            }
         }
         if (cur)
             prev = cur;

@@ -147,7 +147,7 @@ HTMLTextAreaElement::Select()
 
   nsEventStatus status = nsEventStatus_eIgnore;
   nsGUIEvent event(true, NS_FORM_SELECTED, nullptr);
-  // XXXbz nsHTMLInputElement guards against this reentering; shouldn't we?
+  // XXXbz HTMLInputElement guards against this reentering; shouldn't we?
   nsEventDispatcher::Dispatch(static_cast<nsIContent*>(this), presContext,
                               &event, nullptr, &status);
 
@@ -455,7 +455,7 @@ bool
 HTMLTextAreaElement::IsDisabledForEvents(uint32_t aMessage)
 {
   nsIFormControlFrame* formControlFrame = GetFormControlFrame(false);
-  nsIFrame* formFrame = NULL;
+  nsIFrame* formFrame = nullptr;
   if (formControlFrame) {
     formFrame = do_QueryFrame(formControlFrame);
   }

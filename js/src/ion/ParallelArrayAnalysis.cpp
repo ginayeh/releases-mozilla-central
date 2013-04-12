@@ -215,6 +215,7 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(LoadTypedArrayElement)
     SAFE_OP(LoadTypedArrayElementHole)
     MAYBE_WRITE_GUARDED_OP(StoreTypedArrayElement, elements)
+    WRITE_GUARDED_OP(StoreTypedArrayElementHole, elements)
     UNSAFE_OP(ClampToUint8)
     SAFE_OP(LoadFixedSlot)
     WRITE_GUARDED_OP(StoreFixedSlot, object)
@@ -263,6 +264,8 @@ class ParallelArrayVisitor : public MInstructionVisitor
     SAFE_OP(ParCheckInterrupt)
     SAFE_OP(ParCheckOverRecursed)
     SAFE_OP(PolyInlineDispatch)
+    SAFE_OP(FunctionDispatch)
+    SAFE_OP(TypeObjectDispatch)
     UNSAFE_OP(EffectiveAddress)
     UNSAFE_OP(AsmJSUnsignedToDouble)
     UNSAFE_OP(AsmJSNeg)
@@ -303,14 +306,14 @@ ParallelCompileContext::appendToWorklist(HandleFunction fun)
     }
 
     // Skip if we're compiling off thread.
-    if (script->parallelIon == ION_COMPILING_SCRIPT) {
+    if (script->isParallelIonCompilingOffThread()) {
         Spew(SpewCompile, "Skipping %p:%s:%u, off-main-thread compilation in progress",
              fun.get(), script->filename(), script->lineno);
         return true;
     }
 
     // Skip if the code is expected to result in a bailout.
-    if (script->parallelIon && script->parallelIon->bailoutExpected()) {
+    if (script->hasParallelIonScript() && script->parallelIonScript()->bailoutExpected()) {
         Spew(SpewCompile, "Skipping %p:%s:%u, bailout expected",
              fun.get(), script->filename(), script->lineno);
         return true;
@@ -529,7 +532,7 @@ ParallelArrayVisitor::convertToBailout(MBasicBlock *block, MInstruction *ins)
             continue;
 
         // create bailout block to insert on this edge
-        MBasicBlock *bailBlock = MBasicBlock::NewParBailout(graph_, block->info(), pred, pc);
+        MBasicBlock *bailBlock = MBasicBlock::NewParBailout(graph_, pred->info(), pred, pc);
         if (!bailBlock)
             return false;
 

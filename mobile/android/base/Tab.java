@@ -5,17 +5,12 @@
 
 package org.mozilla.gecko;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.mozilla.gecko.db.BrowserDB;
 import org.mozilla.gecko.gfx.Layer;
 import org.mozilla.gecko.util.ThreadUtils;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import android.content.ContentResolver;
 import android.graphics.Bitmap;
@@ -26,6 +21,12 @@ import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Tab {
     private static final String LOGTAG = "GeckoTab";
@@ -38,6 +39,7 @@ public class Tab {
     private Bitmap mFavicon;
     private String mFaviconUrl;
     private int mFaviconSize;
+    private boolean mFeedsEnabled;
     private JSONObject mIdentityData;
     private boolean mReaderEnabled;
     private BitmapDrawable mThumbnail;
@@ -76,6 +78,7 @@ public class Tab {
         mFavicon = null;
         mFaviconUrl = null;
         mFaviconSize = 0;
+        mFeedsEnabled = false;
         mIdentityData = null;
         mReaderEnabled = false;
         mEnteringReaderMode = false;
@@ -187,6 +190,10 @@ public class Tab {
 
     public synchronized String getFaviconURL() {
         return mFaviconUrl;
+    }
+
+    public boolean getFeedsEnabled() {
+        return mFeedsEnabled;
     }
 
     public String getSecurityMode() {
@@ -310,6 +317,10 @@ public class Tab {
         mFavicon = null;
         mFaviconUrl = null;
         mFaviconSize = 0;
+    }
+
+    public void setFeedsEnabled(boolean feedsEnabled) {
+        mFeedsEnabled = feedsEnabled;
     }
 
     public void updateIdentityData(JSONObject identityData) {
@@ -525,6 +536,7 @@ public class Tab {
 
         setContentType(message.getString("contentType"));
         clearFavicon();
+        setFeedsEnabled(false);
         updateTitle(null);
         updateIdentityData(null);
         setReaderEnabled(false);

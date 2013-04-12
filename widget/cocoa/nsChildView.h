@@ -22,6 +22,7 @@
 #include "TextInputHandler.h"
 #include "nsCocoaUtils.h"
 #include "gfxQuartzSurface.h"
+#include "GLContext.h"
 
 #include "nsString.h"
 #include "nsIDragService.h"
@@ -261,9 +262,9 @@ typedef NSInteger NSEventGestureAxis;
   BOOL mDidForceRefreshOpenGL;
   BOOL mWaitingForPaint;
 
-  // Support for fluid swipe tracking.
 #ifdef __LP64__
-  BOOL *mSwipeAnimationCancelled;
+  // Support for fluid swipe tracking.
+  void (^mCancelSwipeAnimation)();
 #endif
 
   // Whether this uses off-main-thread compositing.
@@ -558,6 +559,9 @@ protected:
     return widget.forget();
   }
 
+  void MaybeDrawResizeIndicator(mozilla::layers::LayerManagerOGL* aManager, nsIntRect aRect);
+  void MaybeDrawRoundedBottomCorners(mozilla::layers::LayerManagerOGL* aManager, nsIntRect aRect);
+
   nsIWidget* GetWidgetForListenerEvents();
 
 protected:
@@ -577,6 +581,7 @@ protected:
 
   nsRefPtr<gfxASurface> mTempThebesSurface;
   nsRefPtr<mozilla::gl::TextureImage> mResizerImage;
+  nsRefPtr<mozilla::gl::TextureImage> mCornerMaskImage;
 
   nsRefPtr<gfxQuartzSurface> mTitlebarSurf;
   gfxSize mTitlebarSize;
@@ -587,6 +592,8 @@ protected:
   // ** We'll need to reinitialize this if the backing resolution changes. **
   CGFloat               mBackingScaleFactor;
 
+  bool                  mFailedResizerImage;
+  bool                  mFailedCornerMaskImage;
   bool                  mVisible;
   bool                  mDrawing;
   bool                  mPluginDrawing;

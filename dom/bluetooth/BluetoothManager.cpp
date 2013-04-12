@@ -62,7 +62,7 @@ public:
   }
 
   bool
-  ParseSuccessfulReply(jsval* aValue)
+  ParseSuccessfulReply(JS::Value* aValue)
   {
     LOG("[M] GetAdapterTask::ParseSuccessfulReply");
     *aValue = JSVAL_VOID;

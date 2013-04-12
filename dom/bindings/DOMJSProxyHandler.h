@@ -36,6 +36,7 @@ public:
   {
   }
 
+  bool preventExtensions(JSContext *cx, JS::Handle<JSObject*> proxy) MOZ_OVERRIDE;
   bool getPropertyDescriptor(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
                             JSPropertyDescriptor* desc, unsigned flags) MOZ_OVERRIDE;
   bool defineProperty(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
@@ -44,6 +45,7 @@ public:
                JS::Handle<jsid> id, bool* bp) MOZ_OVERRIDE;
   bool enumerate(JSContext* cx, JS::Handle<JSObject*> proxy, JS::AutoIdVector& props) MOZ_OVERRIDE;
   bool has(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id, bool* bp) MOZ_OVERRIDE;
+  bool isExtensible(JSObject *proxy) MOZ_OVERRIDE;
   using js::BaseProxyHandler::obj_toString;
 
   static JSObject* GetExpandoObject(JSObject* obj)
@@ -111,7 +113,7 @@ FillPropertyDescriptor(JSPropertyDescriptor* desc, JSObject* obj, bool readonly)
 }
 
 inline void
-FillPropertyDescriptor(JSPropertyDescriptor* desc, JSObject* obj, jsval v, bool readonly)
+FillPropertyDescriptor(JSPropertyDescriptor* desc, JSObject* obj, JS::Value v, bool readonly)
 {
   desc->value = v;
   FillPropertyDescriptor(desc, obj, readonly);

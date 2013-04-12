@@ -262,14 +262,12 @@ nsEventListenerManager::AddEventListenerInternal(
     if (window) {
       window->SetHasPaintEventListeners();
     }
-#ifdef MOZ_MEDIA
   } else if (aType == NS_MOZAUDIOAVAILABLE) {
     mMayHaveAudioAvailableEventListener = true;
     nsPIDOMWindow* window = GetInnerWindowForTarget();
     if (window) {
       window->SetHasAudioAvailableEventListeners();
     }
-#endif // MOZ_MEDIA
   } else if (aType >= NS_MUTATION_START && aType <= NS_MUTATION_END) {
     // For mutation listeners, we need to update the global bit on the DOM window.
     // Otherwise we won't actually fire the mutation event.
@@ -628,7 +626,7 @@ nsEventListenerManager::SetEventHandler(nsIAtom *aName,
 
     // We want to allow compiling an event handler even in an unloaded
     // document, so use GetScopeObject here, not GetScriptHandlingObject.
-    global = doc->GetScopeObject();
+    global = do_QueryInterface(doc->GetScopeObject());
   } else {
     nsCOMPtr<nsPIDOMWindow> win = GetTargetAsInnerWindow();
     if (win) {
@@ -669,11 +667,12 @@ nsEventListenerManager::SetEventHandler(nsIAtom *aName,
     NS_ENSURE_SUCCESS(rv, rv);
 
     if (csp) {
-      bool inlineOK;
-      rv = csp->GetAllowsInlineScript(&inlineOK);
+      bool inlineOK = true;
+      bool reportViolations = false;
+      rv = csp->GetAllowsInlineScript(&reportViolations, &inlineOK);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      if ( !inlineOK ) {
+      if (reportViolations) {
         // gather information to log with violation report
         nsIURI* uri = doc->GetDocumentURI();
         nsAutoCString asciiSpec;
@@ -693,6 +692,10 @@ nsEventListenerManager::SetEventHandler(nsIAtom *aName,
                                  NS_ConvertUTF8toUTF16(asciiSpec),
                                  scriptSample,
                                  0);
+      }
+
+      // return early if CSP wants us to block inline scripts
+      if (!inlineOK) {
         return NS_OK;
       }
     }
@@ -905,7 +908,7 @@ nsresult
 nsEventListenerManager::HandleEventSubType(nsListenerStruct* aListenerStruct,
                                            nsIDOMEventListener* aListener,
                                            nsIDOMEvent* aDOMEvent,
-                                           nsIDOMEventTarget* aCurrentTarget,
+                                           EventTarget* aCurrentTarget,
                                            nsCxPusher* aPusher)
 {
   nsresult result = NS_OK;
@@ -939,7 +942,7 @@ void
 nsEventListenerManager::HandleEventInternal(nsPresContext* aPresContext,
                                             nsEvent* aEvent,
                                             nsIDOMEvent** aDOMEvent,
-                                            nsIDOMEventTarget* aCurrentTarget,
+                                            EventTarget* aCurrentTarget,
                                             nsEventStatus* aEventStatus,
                                             nsCxPusher* aPusher)
 {
@@ -1142,7 +1145,7 @@ nsEventListenerManager::HasListeners()
 nsresult
 nsEventListenerManager::GetListenerInfo(nsCOMArray<nsIEventListenerInfo>* aList)
 {
-  nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mTarget);
+  nsCOMPtr<EventTarget> target = do_QueryInterface(mTarget);
   NS_ENSURE_STATE(target);
   aList->Clear();
   uint32_t count = mListeners.Length();

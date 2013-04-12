@@ -23,7 +23,6 @@ namespace dom {
 
 SVGDocument::SVGDocument()
 {
-  SetIsDOMBinding();
 }
 
 SVGDocument::~SVGDocument()
@@ -79,7 +78,7 @@ NS_IMETHODIMP
 SVGDocument::GetRootElement(nsIDOMSVGElement** aRootElement)
 {
   ErrorResult rv;
-  nsCOMPtr<nsIDOMSVGElement> retval = do_QueryInterface(GetRootElement(rv));
+  nsCOMPtr<nsIDOMSVGElement> retval = GetRootElement(rv);
   retval.forget(aRootElement);
   return rv.ErrorCode();
 }

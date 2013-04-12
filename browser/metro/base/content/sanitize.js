@@ -8,6 +8,7 @@ XPCOMUtils.defineLazyModuleGetter(this, "PlacesUtils",
                                   "resource://gre/modules/PlacesUtils.jsm");
 
 function Sanitizer() {}
+
 Sanitizer.prototype = {
   // warning to the caller: this one may raise an exception (e.g. bug #265028)
   clearItem: function (aItemName)
@@ -99,22 +100,12 @@ Sanitizer.prototype = {
       {
         var cookieMgr = Cc["@mozilla.org/cookiemanager;1"].getService(Ci.nsICookieManager);
         cookieMgr.removeAll();
-      },
-      
-      get canClear()
-      {
-        return true;
-      }
-    },
 
-    geolocation: {
-      clear: function ()
-      {
         // clear any network geolocation provider sessions
         try {
           var branch = Services.prefs.getBranch("geo.wifi.access_token.");
           branch.deleteBranch("");
-          
+
           branch = Services.prefs.getBranch("geo.request.remember.");
           branch.deleteBranch("");
         } catch (e) {dump(e);}
@@ -133,8 +124,8 @@ Sanitizer.prototype = {
         Services.perms.removeAll();
 
         // Clear site-specific settings like page-zoom level
-        var cps = Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService);
-        cps.removeGroupedPrefs();
+        var cps = Cc["@mozilla.org/content-pref/service;1"].getService(Ci.nsIContentPrefService2);
+        cps.removeAllDomains(null);
 
         // Clear "Never remember passwords for this site", which is not handled by
         // the permission manager

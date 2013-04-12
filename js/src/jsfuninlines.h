@@ -92,6 +92,13 @@ JSFunction::initializeExtended()
 }
 
 inline void
+JSFunction::initExtendedSlot(size_t which, const js::Value &val)
+{
+    JS_ASSERT(which < mozilla::ArrayLength(toExtended()->extendedSlots));
+    toExtended()->extendedSlots[which].init(val);
+}
+
+inline void
 JSFunction::setExtendedSlot(size_t which, const js::Value &val)
 {
     JS_ASSERT(which < mozilla::ArrayLength(toExtended()->extendedSlots));
@@ -191,11 +198,11 @@ CloneFunctionObjectIfNotSingleton(JSContext *cx, HandleFunction fun, HandleObjec
 
     // These intermediate variables are needed to avoid link errors on some
     // platforms.  Sigh.
-    gc::AllocKind finalizeKind = JSFunction::ExtendedFinalizeKind;
+    gc::AllocKind finalizeKind = JSFunction::FinalizeKind;
     gc::AllocKind extendedFinalizeKind = JSFunction::ExtendedFinalizeKind;
     gc::AllocKind kind = fun->isExtended()
-                         ? finalizeKind
-                         : extendedFinalizeKind;
+                         ? extendedFinalizeKind
+                         : finalizeKind;
     return CloneFunctionObject(cx, fun, parent, kind);
 }
 

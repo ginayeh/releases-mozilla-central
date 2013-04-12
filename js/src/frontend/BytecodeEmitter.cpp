@@ -11,6 +11,7 @@
 
 #include "mozilla/DebugOnly.h"
 #include "mozilla/FloatingPoint.h"
+#include "mozilla/PodOperations.h"
 
 #ifdef HAVE_MEMORY_H
 #include <memory.h>
@@ -52,6 +53,7 @@ using namespace js::gc;
 using namespace js::frontend;
 
 using mozilla::DebugOnly;
+using mozilla::PodCopy;
 
 static bool
 SetSrcNoteOffset(JSContext *cx, BytecodeEmitter *bce, unsigned index, unsigned which, ptrdiff_t offset);
@@ -2336,7 +2338,7 @@ EmitSwitch(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn)
                 JS_ASSERT(pn3->isKind(PNK_DEFAULT));
                 continue;
             }
-            caseNoteIndex = NewSrcNote2(cx, bce, SRC_PCDELTA, 0);
+            caseNoteIndex = NewSrcNote2(cx, bce, SRC_NEXTCASE, 0);
             if (caseNoteIndex < 0)
                 return false;
             off = EmitJump(cx, bce, JSOP_CASE, 0);
@@ -3015,7 +3017,6 @@ EmitVariables(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmitOption 
     JS_ASSERT(pn->isArity(PN_LIST));
     JS_ASSERT(isLet == (emitOption == PushInitialValues));
 
-    ptrdiff_t off = -1, noteIndex = -1;
     ParseNode *next;
     for (ParseNode *pn2 = pn->pn_head; ; pn2 = next) {
         next = pn2->pn_next;
@@ -3076,7 +3077,7 @@ EmitVariables(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmitOption 
                  * head, pass JSOP_POP rather than the pseudo-prolog JSOP_NOP
                  * in pn->pn_op, to suppress a second (and misplaced) 'let'.
                  */
-                JS_ASSERT(noteIndex < 0 && !pn2->pn_next);
+                JS_ASSERT(!pn2->pn_next);
                 if (isLet) {
                     if (!MaybeEmitLetGroupDecl(cx, bce, pn2, &op))
                         return false;
@@ -3184,16 +3185,9 @@ EmitVariables(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn, VarEmitOption 
 #if JS_HAS_DESTRUCTURING
     emit_note_pop:
 #endif
-        ptrdiff_t tmp = bce->offset();
-        if (noteIndex >= 0) {
-            if (!SetSrcNoteOffset(cx, bce, (unsigned)noteIndex, 0, tmp-off))
-                return false;
-        }
         if (!next)
             break;
-        off = tmp;
-        noteIndex = NewSrcNote2(cx, bce, SRC_PCDELTA, 0);
-        if (noteIndex < 0 || Emit1(cx, bce, JSOP_POP) < 0)
+        if (Emit1(cx, bce, JSOP_POP) < 0)
             return false;
     }
 
@@ -3462,27 +3456,42 @@ ParseNode::getConstantValue(JSContext *cx, bool strictChecks, MutableHandleValue
         if (!obj)
             return false;
 
+        RootedValue value(cx), idvalue(cx);
         for (ParseNode *pn = pn_head; pn; pn = pn->pn_next) {
-            RootedValue value(cx);
             if (!pn->pn_right->getConstantValue(cx, strictChecks, &value))
                 return false;
 
             ParseNode *pnid = pn->pn_left;
             if (pnid->isKind(PNK_NUMBER)) {
-                Value idvalue = NumberValue(pnid->pn_dval);
-                RootedId id(cx);
-                if (idvalue.isInt32() && INT_FITS_IN_JSID(idvalue.toInt32()))
-                    id = INT_TO_JSID(idvalue.toInt32());
-                else if (!InternNonIntElementId<CanGC>(cx, obj, idvalue, &id))
-                    return false;
-                if (!JSObject::defineGeneric(cx, obj, id, value, NULL, NULL, JSPROP_ENUMERATE))
-                    return false;
+                idvalue = NumberValue(pnid->pn_dval);
             } else {
                 JS_ASSERT(pnid->isKind(PNK_NAME) || pnid->isKind(PNK_STRING));
                 JS_ASSERT(pnid->pn_atom != cx->names().proto);
-                RootedId id(cx, AtomToId(pnid->pn_atom));
-                if (!DefineNativeProperty(cx, obj, id, value, NULL, NULL,
-                                          JSPROP_ENUMERATE, 0, 0)) {
+                idvalue = StringValue(pnid->pn_atom);
+            }
+
+            uint32_t index;
+            if (IsDefinitelyIndex(idvalue, &index)) {
+                if (!JSObject::defineElement(cx, obj, index, value, NULL, NULL,
+                                             JSPROP_ENUMERATE))
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            JSAtom *name = ToAtom<CanGC>(cx, idvalue);
+            if (!name)
+                return false;
+
+            if (name->isIndex(&index)) {
+                if (!JSObject::defineElement(cx, obj, index, value, NULL, NULL, JSPROP_ENUMERATE))
+                    return false;
+            } else {
+                if (!JSObject::defineProperty(cx, obj, name->asPropertyName(), value, NULL, NULL,
+                                              JSPROP_ENUMERATE))
+                {
                     return false;
                 }
             }
@@ -4801,32 +4810,22 @@ EmitDelete(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn)
       {
         /*
          * If useless, just emit JSOP_TRUE; otherwise convert delete foo()
-         * to foo(), true (a comma expression, requiring SRC_PCDELTA).
+         * to foo(), true (a comma expression).
          */
         bool useful = false;
         if (!CheckSideEffects(cx, bce, pn2, &useful))
             return false;
 
-        ptrdiff_t off, noteIndex;
         if (useful) {
             JS_ASSERT_IF(pn2->isKind(PNK_CALL), !(pn2->pn_xflags & PNX_SETCALL));
             if (!EmitTree(cx, bce, pn2))
                 return false;
-            off = bce->offset();
-            noteIndex = NewSrcNote2(cx, bce, SRC_PCDELTA, 0);
-            if (noteIndex < 0 || Emit1(cx, bce, JSOP_POP) < 0)
+            if (Emit1(cx, bce, JSOP_POP) < 0)
                 return false;
-        } else {
-            off = noteIndex = -1;
         }
 
         if (Emit1(cx, bce, JSOP_TRUE) < 0)
             return false;
-        if (noteIndex >= 0) {
-            ptrdiff_t tmp = bce->offset();
-            if (!SetSrcNoteOffset(cx, bce, unsigned(noteIndex), 0, tmp - off))
-                return false;
-        }
       }
     }
 
@@ -5689,28 +5688,13 @@ frontend::EmitTree(JSContext *cx, BytecodeEmitter *bce, ParseNode *pn)
 
       case PNK_COMMA:
       {
-        /*
-         * Emit SRC_PCDELTA notes on each JSOP_POP between comma operands.
-         * These notes help the decompiler bracket the bytecodes generated
-         * from each sub-expression that follows a comma.
-         */
-        ptrdiff_t off = -1, noteIndex = -1;
         for (ParseNode *pn2 = pn->pn_head; ; pn2 = pn2->pn_next) {
             if (!EmitTree(cx, bce, pn2))
                 return false;
-            ptrdiff_t tmp = bce->offset();
-            if (noteIndex >= 0) {
-                if (!SetSrcNoteOffset(cx, bce, (unsigned)noteIndex, 0, tmp-off))
-                    return false;
-            }
             if (!pn2->pn_next)
                 break;
-            off = tmp;
-            noteIndex = NewSrcNote2(cx, bce, SRC_PCDELTA, 0);
-            if (noteIndex < 0 ||
-                Emit1(cx, bce, JSOP_POP) < 0) {
+            if (Emit1(cx, bce, JSOP_POP) < 0)
                 return false;
-            }
         }
         break;
       }
@@ -6299,7 +6283,7 @@ JS_FRIEND_DATA(JSSrcNoteSpec) js_SrcNoteSpec[] = {
 /* 11 */ {"tableswitch",    1},
 /* 12 */ {"condswitch",     2},
 
-/* 13 */ {"pcdelta",        1},
+/* 13 */ {"nextcase",       1},
 
 /* 14 */ {"assignop",       0},
 

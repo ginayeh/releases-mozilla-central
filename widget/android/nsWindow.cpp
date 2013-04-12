@@ -28,7 +28,7 @@ using mozilla::unused;
 
 #include "nsRenderingContext.h"
 #include "nsIDOMSimpleGestureEvent.h"
-#include "nsDOMTouchEvent.h"
+#include "mozilla/dom/Touch.h"
 
 #include "nsGkAtoms.h"
 #include "nsWidgetsCID.h"
@@ -40,6 +40,7 @@ using mozilla::unused;
 #include "Layers.h"
 #include "BasicLayers.h"
 #include "LayerManagerOGL.h"
+#include "LayerManagerComposite.h"
 #include "GLContext.h"
 #include "GLContextProvider.h"
 
@@ -53,6 +54,7 @@ using mozilla::unused;
 #include "nsStringGlue.h"
 
 using namespace mozilla;
+using namespace mozilla::dom;
 using namespace mozilla::widget;
 
 NS_IMPL_ISUPPORTS_INHERITED0(nsWindow, nsBaseWidget)
@@ -876,6 +878,15 @@ nsWindow::OnGlobalAndroidEvent(AndroidGeckoEvent *ae)
             }
             break;
 
+        case AndroidGeckoEvent::IME_KEY_EVENT:
+            // Keys synthesized by Java IME code are saved in the mIMEKeyEvents
+            // array until the next IME_REPLACE_TEXT event, at which point
+            // these keys are dispatched in sequence.
+            if (win->mFocus) {
+                win->mFocus->mIMEKeyEvents.AppendElement(*ae);
+            }
+            break;
+
         case AndroidGeckoEvent::COMPOSITOR_CREATE:
             win->CreateLayerManager(ae->Width(), ae->Height());
             break;
@@ -1179,6 +1190,10 @@ bool nsWindow::OnMultitouchEvent(AndroidGeckoEvent *ae)
 {
     nsRefPtr<nsWindow> kungFuDeathGrip(this);
 
+    // End any composition in progress in case the touch event listener
+    // modifies the input field value (see bug 856155)
+    RemoveIMEComposition();
+
     // This is set to true once we have called SetPreventPanning() exactly
     // once for a given sequence of touch events. It is reset on the start
     // of the next sequence.
@@ -1258,21 +1273,21 @@ nsWindow::DispatchMultitouchEvent(nsTouchEvent &event, AndroidGeckoEvent *ae)
         action == AndroidMotionEvent::ACTION_POINTER_UP) {
         event.touches.SetCapacity(1);
         int pointerIndex = ae->PointerIndex();
-        nsCOMPtr<nsIDOMTouch> t(new nsDOMTouch(ae->PointIndicies()[pointerIndex],
-                                               ae->Points()[pointerIndex] - offset,
-                                               ae->PointRadii()[pointerIndex],
-                                               ae->Orientations()[pointerIndex],
-                                               ae->Pressures()[pointerIndex]));
+        nsCOMPtr<nsIDOMTouch> t(new Touch(ae->PointIndicies()[pointerIndex],
+                                          ae->Points()[pointerIndex] - offset,
+                                          ae->PointRadii()[pointerIndex],
+                                          ae->Orientations()[pointerIndex],
+                                          ae->Pressures()[pointerIndex]));
         event.touches.AppendElement(t);
     } else {
         int count = ae->Count();
         event.touches.SetCapacity(count);
         for (int i = 0; i < count; i++) {
-            nsCOMPtr<nsIDOMTouch> t(new nsDOMTouch(ae->PointIndicies()[i],
-                                                   ae->Points()[i] - offset,
-                                                   ae->PointRadii()[i],
-                                                   ae->Orientations()[i],
-                                                   ae->Pressures()[i]));
+            nsCOMPtr<nsIDOMTouch> t(new Touch(ae->PointIndicies()[i],
+                                              ae->Points()[i] - offset,
+                                              ae->PointRadii()[i],
+                                              ae->Orientations()[i],
+                                              ae->Pressures()[i]));
             event.touches.AppendElement(t);
         }
     }
@@ -1482,8 +1497,12 @@ nsWindow::InitKeyEvent(nsKeyEvent& event, AndroidGeckoEvent& key,
 
     if (event.message == NS_KEY_PRESS) {
         // Android gives us \n, so filter out some control characters.
-        event.isChar = (key.UnicodeChar() >= ' ');
-        event.charCode = event.isChar ? key.UnicodeChar() : 0;
+        int charCode = key.UnicodeChar();
+        if (!charCode) {
+            charCode = key.BaseUnicodeChar();
+        }
+        event.isChar = (charCode >= ' ');
+        event.charCode = event.isChar ? charCode : 0;
         event.keyCode = (event.charCode > 0) ? 0 : domKeyCode;
         event.pluginEvent = NULL;
     } else {
@@ -1505,10 +1524,17 @@ nsWindow::InitKeyEvent(nsKeyEvent& event, AndroidGeckoEvent& key,
         event.pluginEvent = pluginEvent;
     }
 
-    event.InitBasicModifiers(gMenu || key.IsCtrlPressed(),
-                             key.IsAltPressed(),
-                             key.IsShiftPressed(),
-                             key.IsMetaPressed());
+    if (event.message != NS_KEY_PRESS ||
+        !key.UnicodeChar() || !key.BaseUnicodeChar() ||
+        key.UnicodeChar() == key.BaseUnicodeChar()) {
+        // For keypress, if the unicode char already has modifiers applied, we
+        // don't specify extra modifiers. If UnicodeChar() != BaseUnicodeChar()
+        // it means UnicodeChar() already has modifiers applied.
+        event.InitBasicModifiers(gMenu || key.IsCtrlPressed(),
+                                 key.IsAltPressed(),
+                                 key.IsShiftPressed(),
+                                 key.IsMetaPressed());
+    }
     event.location = key.DomKeyLocation();
     event.time = key.Time();
 
@@ -1770,6 +1796,17 @@ nsWindow::OnIMEEvent(AndroidGeckoEvent *ae)
                 event.mExpandToClusterBoundary = false;
                 DispatchEvent(&event);
             }
+
+            if (!mIMEKeyEvents.IsEmpty()) {
+                for (uint32_t i = 0; i < mIMEKeyEvents.Length(); i++) {
+                    OnKeyEvent(&mIMEKeyEvents[i]);
+                }
+                mIMEKeyEvents.Clear();
+                FlushIMEChanges();
+                AndroidBridge::NotifyIME(AndroidBridge::NOTIFY_IME_REPLY_EVENT);
+                break;
+            }
+
             {
                 nsCompositionEvent event(true, NS_COMPOSITION_START, this);
                 InitEvent(event, nullptr);
@@ -1800,6 +1837,7 @@ nsWindow::OnIMEEvent(AndroidGeckoEvent *ae)
                   notified of the new selection
             */
             AutoIMEMask selMask(mIMEMaskSelectionUpdate);
+            RemoveIMEComposition();
             nsSelectionEvent selEvent(true, NS_SELECTION_SET, this);
             InitEvent(selEvent, nullptr);
 
@@ -2020,6 +2058,16 @@ NS_IMETHODIMP_(void)
 nsWindow::SetInputContext(const InputContext& aContext,
                           const InputContextAction& aAction)
 {
+    nsWindow *top = TopWindow();
+    if (top && top->mFocus && this != top->mFocus) {
+        // We are using an IME event later to notify Java, and the IME event
+        // will be processed by the focused window. Therefore, to ensure the
+        // IME event uses the correct mInputContext, we need to let the focused
+        // window process SetInputContext
+        top->mFocus->SetInputContext(aContext, aAction);
+        return;
+    }
+
     ALOGIME("IME: SetInputContext: s=0x%X, 0x%X, action=0x%X, 0x%X",
             aContext.mIMEState.mEnabled, aContext.mIMEState.mOpen,
             aAction.mCause, aAction.mFocusChange);
@@ -2060,10 +2108,17 @@ nsWindow::SetInputContext(const InputContext& aContext,
 NS_IMETHODIMP_(InputContext)
 nsWindow::GetInputContext()
 {
-    mInputContext.mIMEState.mOpen = IMEState::OPEN_STATE_NOT_SUPPORTED;
+    nsWindow *top = TopWindow();
+    if (top && top->mFocus && this != top->mFocus) {
+        // We let the focused window process SetInputContext,
+        // so we should let it process GetInputContext as well.
+        return top->mFocus->GetInputContext();
+    }
+    InputContext context = mInputContext;
+    context.mIMEState.mOpen = IMEState::OPEN_STATE_NOT_SUPPORTED;
     // We assume that there is only one context per process on Android
-    mInputContext.mNativeIMEContext = nullptr;
-    return mInputContext;
+    context.mNativeIMEContext = nullptr;
+    return context;
 }
 
 void
@@ -2286,8 +2341,8 @@ float
 nsWindow::ComputeRenderIntegrity()
 {
     if (sCompositorParent) {
-        mozilla::layers::LayerManagerOGL* manager =
-          static_cast<mozilla::layers::LayerManagerOGL*>(sCompositorParent->GetLayerManager());
+        mozilla::layers::LayerManagerComposite* manager =
+          static_cast<mozilla::layers::LayerManagerComposite*>(sCompositorParent->GetLayerManager());
         if (manager) {
             return manager->ComputeRenderIntegrity();
         }

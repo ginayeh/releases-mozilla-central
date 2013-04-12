@@ -176,42 +176,9 @@ this.ForgetAboutSite = {
       }
     }
 
-    // Content Preferences
-    let (cp = Cc["@mozilla.org/content-pref/service;1"].
-              getService(Ci.nsIContentPrefService)) {
-      let db = cp.DBConnection;
-      // First we need to get the list of "groups" which are really just domains
-      let names = [];
-      let stmt = db.createStatement(
-        "SELECT name " +
-        "FROM groups " +
-        "WHERE name LIKE ?1 ESCAPE '/'"
-      );
-      let pattern = stmt.escapeStringForLIKE(aDomain, "/");
-      stmt.bindByIndex(0, "%" + pattern);
-      try {
-        while (stmt.executeStep())
-          if (hasRootDomain(stmt.getString(0), aDomain))
-            names.push(stmt.getString(0));
-      }
-      finally {
-        stmt.finalize();
-      }
-
-      // Now, for each name we got back, remove all of its prefs.
-      for (let i = 0; i < names.length; i++) {
-        let uri = names[i];
-        let enumerator = cp.getPrefs(uri, null).enumerator;
-        while (enumerator.hasMoreElements()) {
-          let pref = enumerator.getNext().QueryInterface(Ci.nsIProperty);
-          cp.removePref(uri, pref.name, null);
-        }
-      }
-    }
-
-    // Indexed DB
-    let (idbm = Cc["@mozilla.org/dom/indexeddb/manager;1"].
-                getService(Ci.nsIIndexedDatabaseManager)) {
+    // Offline Storages
+    let (qm = Cc["@mozilla.org/dom/quota/manager;1"].
+              getService(Ci.nsIQuotaManager)) {
       // delete data from both HTTP and HTTPS sites
       let caUtils = {};
       let scriptLoader = Cc["@mozilla.org/moz/jssubscript-loader;1"].
@@ -220,11 +187,21 @@ this.ForgetAboutSite = {
                                  caUtils);
       let httpURI = caUtils.makeURI("http://" + aDomain);
       let httpsURI = caUtils.makeURI("https://" + aDomain);
-      idbm.clearDatabasesForURI(httpURI);
-      idbm.clearDatabasesForURI(httpsURI);
+      qm.clearStoragesForURI(httpURI);
+      qm.clearStoragesForURI(httpsURI);
     }
 
-    // Everybody else (including extensions)
-    Services.obs.notifyObservers(null, "browser:purge-domain-data", aDomain);
+    function onContentPrefsRemovalFinished() {
+      // Everybody else (including extensions)
+      Services.obs.notifyObservers(null, "browser:purge-domain-data", aDomain);
+    }
+
+    // Content Preferences
+    let cps2 = Cc["@mozilla.org/content-pref/service;1"].
+               getService(Ci.nsIContentPrefService2);
+    cps2.removeBySubdomain(aDomain, null, {
+      handleCompletion: function() onContentPrefsRemovalFinished(),
+      handleError: function() {}
+    });
   }
 };

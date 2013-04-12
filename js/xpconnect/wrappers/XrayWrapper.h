@@ -33,13 +33,13 @@ extern JSClass HolderClass;
 bool CloneExpandoChain(JSContext *cx, JSObject *src, JSObject *dst);
 
 bool
-IsTransparent(JSContext *cx, JSObject *wrapper, jsid id);
+IsTransparent(JSContext *cx, JSHandleObject wrapper, JSHandleId id);
 
 JSObject *
 GetNativePropertiesObject(JSContext *cx, JSObject *wrapper);
 
 bool
-IsXrayResolving(JSContext *cx, JSObject *wrapper, jsid id);
+IsXrayResolving(JSContext *cx, JSHandleObject wrapper, JSHandleId id);
 
 }
 
@@ -66,6 +66,8 @@ class XrayWrapper : public Base {
     virtual ~XrayWrapper();
 
     /* Fundamental proxy traps. */
+    virtual bool isExtensible(JSObject *wrapper) MOZ_OVERRIDE;
+    virtual bool preventExtensions(JSContext *cx, JS::Handle<JSObject*> wrapper) MOZ_OVERRIDE;
     virtual bool getPropertyDescriptor(JSContext *cx, JS::Handle<JSObject*> wrapper, JS::Handle<jsid> id,
                                        js::PropertyDescriptor *desc, unsigned flags);
     virtual bool getOwnPropertyDescriptor(JSContext *cx, JS::Handle<JSObject*> wrapper, JS::Handle<jsid> id,
@@ -93,11 +95,10 @@ class XrayWrapper : public Base {
     virtual bool iterate(JSContext *cx, JS::Handle<JSObject*> wrapper, unsigned flags,
                          JS::MutableHandle<JS::Value> vp);
 
-    virtual bool call(JSContext *cx, JS::Handle<JSObject*> wrapper, unsigned argc,
-                      js::Value *vp);
+    virtual bool call(JSContext *cx, JS::Handle<JSObject*> wrapper,
+                      const JS::CallArgs &args) MOZ_OVERRIDE;
     virtual bool construct(JSContext *cx, JS::Handle<JSObject*> wrapper,
-                           unsigned argc, js::Value *argv,
-                           JS::MutableHandle<JS::Value> rval);
+                           const JS::CallArgs &args) MOZ_OVERRIDE;
 
     static XrayWrapper singleton;
 
@@ -154,8 +155,8 @@ public:
     {
     }
 
-    virtual bool call(JSContext *cx, JS::Handle<JSObject*> proxy, unsigned argc,
-                      JS::Value *vp);
+    virtual bool call(JSContext *cx, JS::Handle<JSObject*> proxy,
+                      const JS::CallArgs &args) MOZ_OVERRIDE;
 };
 
 extern SandboxCallableProxyHandler sandboxCallableProxyHandler;

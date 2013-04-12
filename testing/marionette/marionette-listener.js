@@ -519,7 +519,7 @@ function executeWithCallback(msg, useFinish) {
 
   originalOnError = curWindow.onerror;
   curWindow.onerror = function errHandler(errMsg, url, line) {
-    sandbox.asyncComplete(errMsg, 17, null, asyncTestCommandId);
+    sandbox.asyncComplete(errMsg, 17, "@" + url + ", line " + line, asyncTestCommandId);
     curWindow.onerror = originalOnError;
   };
 
@@ -941,7 +941,7 @@ function actions(finger, touchId, command_id, i){
     i = 0;
   }
   if (i == finger.length) {
-    sendOk(command_id);
+    sendResponse({value: touchId}, command_id);
     return;
   }
   let pack = finger[i];
@@ -965,15 +965,31 @@ function actions(finger, touchId, command_id, i){
       touch = createATouch(el, corx, cory, touchId);
       lastTouch = touch;
       emitTouchEvent('touchstart', touch);
+      // check if it's a long press
+      // standard waiting time to fire contextmenu
+      let standard = Services.prefs.getIntPref("ui.click_hold_context_menus.delay");
+      // long press only happens when wait follows press
+      if (finger[i] != undefined && finger[i][0] == 'wait' && finger[i][1] != null && finger[i][1]*1000 >= standard) {
+        finger[i][1] = finger[i][1] - standard/1000;
+        finger.splice(i, 0, ['wait', standard/1000], ['longPress']);
+      }
       actions(finger,touchId, command_id, i);
       break;
     case 'release':
+      if (lastTouch == null) {
+        sendError("Element has not been pressed: no such element", 7, null, command_id);
+        return;
+      }
       touch = lastTouch;
       lastTouch = null;
       emitTouchEvent('touchend', touch);
       actions(finger, touchId, command_id, i);
       break;
     case 'move':
+      if (lastTouch == null) {
+        sendError("Element has not been pressed: no such element", 7, null, command_id);
+        return;
+      }
       el = elementManager.getKnownElement(pack[1], curWindow);
       let boxTarget = el.getBoundingClientRect();
       let startElement = lastTouch.target;
@@ -986,6 +1002,10 @@ function actions(finger, touchId, command_id, i){
       actions(finger, touchId, command_id, i);
       break;
     case 'moveByOffset':
+      if (lastTouch == null) {
+        sendError("Element has not been pressed: no such element", 7, null, command_id);
+        return;
+      }
       el = lastTouch.target;
       let doc = el.ownerDocument;
       let win = doc.defaultView;
@@ -1015,6 +1035,14 @@ function actions(finger, touchId, command_id, i){
       lastTouch = null;
       actions(finger, touchId, command_id, i);
       break;
+    case 'longPress':
+      let event = curWindow.document.createEvent('HTMLEvents');
+      event.initEvent('contextmenu',
+                      true,
+                      true);
+      lastTouch.target.dispatchEvent(event);
+      actions(finger, touchId, command_id, i);
+      break;
   }
 }
 
@@ -1023,12 +1051,14 @@ function actions(finger, touchId, command_id, i){
  */
 function actionChain(msg) {
   let command_id = msg.json.command_id;
-  let args = msg.json.value;
+  let args = msg.json.chain;
+  let touchId = msg.json.nextId;
   try {
     let commandArray = elementManager.convertWrappedArguments(args, curWindow);
-    // each finger associates with one touchId
-    let touchId = nextTouchId++;
     // loop the action array [ ['press', id], ['move', id], ['release', id] ]
+    if (touchId == null) {
+      touchId = nextTouchId++;
+    }
     actions(commandArray, touchId, command_id);
   }
   catch (e) {
@@ -1364,7 +1394,17 @@ function clickElement(msg) {
   let el;
   try {
     el = elementManager.getKnownElement(msg.json.element, curWindow);
-    utils.click(el);
+    if (checkVisible(el, command_id)) {
+      if (utils.isElementEnabled(el)) {
+        utils.synthesizeMouseAtCenter(el, {}, el.ownerDocument.defaultView)
+      }
+      else {
+        sendError("Element is not Enabled", 12, null, command_id)
+      }
+    }
+    else {
+      sendError("Element is not visible", 11, null, command_id)
+    }
     sendOk(command_id);
   }
   catch (e) {
@@ -1495,31 +1535,11 @@ function getElementPosition(msg) {
   let command_id = msg.json.command_id;
   try{
     let el = elementManager.getKnownElement(msg.json.element, curWindow);
-    var x = el.offsetLeft;
-    var y = el.offsetTop;
-    var elementParent = el.offsetParent;
-    while (elementParent != null) {
-      if (elementParent.tagName == "TABLE") {
-        var parentBorder = parseInt(elementParent.border);
-        if (isNaN(parentBorder)) {
-          var parentFrame = elementParent.getAttribute('frame');
-          if (parentFrame != null) {
-            x += 1;
-            y += 1;
-          }
-        } else if (parentBorder > 0) {
-          x += parentBorder;
-          y += parentBorder;
-        }
-      }
-      x += elementParent.offsetLeft;
-      y += elementParent.offsetTop;
-      elementParent = elementParent.offsetParent;
-    }
+    let rect = el.getBoundingClientRect();
 
     let location = {};
-    location.x = x;
-    location.y = y;
+    location.x = rect.left;
+    location.y = rect.top;
 
     sendResponse({value: location}, command_id);
   }
@@ -1583,6 +1603,7 @@ function switchToFrame(msg) {
     if(msg.json.focus == true) {
       curWindow.focus();
     }
+    sandbox = null;
     checkTimer.initWithCallback(checkLoad, 100, Ci.nsITimer.TYPE_ONE_SHOT);
     return;
   }
