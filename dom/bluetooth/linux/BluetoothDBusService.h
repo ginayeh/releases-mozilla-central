@@ -151,6 +151,10 @@ public:
   virtual void
   IsScoConnected(BluetoothReplyRunnable* aRunnable);
 
+  virtual nsresult
+  SendSinkMessage(const nsAString& aDeviceAddresses,
+                  const nsAString& aMessage);
+
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
                                   const char* aInterface,
