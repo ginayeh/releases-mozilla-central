@@ -1455,3 +1455,5 @@ BluetoothOppManager::OnGetServiceChannel(const nsAString& aDeviceAddress,
   }
 }
 
+NS_IMPL_ISUPPORTS0(BluetoothOppManager)
+

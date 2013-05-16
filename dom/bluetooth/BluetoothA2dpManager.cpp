@@ -230,6 +230,8 @@ BluetoothA2dpManager::HandleSinkPropertyChanged(const BluetoothSignal& aSignal)
     // Indicates if a stream is setup to a A2DP sink on the remote device.
     MOZ_ASSERT(value.type() == BluetoothValue::Tbool);
     mConnected = value.get_bool();
+    NotifyStatusChanged();
+    NotifyAudioManager();
   } else if (name.EqualsLiteral("Playing")) {
     // Indicates if a stream is active to a A2DP sink on the remote device.
     MOZ_ASSERT(value.type() == BluetoothValue::Tbool);
@@ -277,3 +279,61 @@ BluetoothA2dpManager::HandleSinkStateChanged(SinkState aState)
 
   mSinkState = aState;
 }
+
+void
+BluetoothA2dpManager::NotifyStatusChanged()
+{
+  MOZ_ASSERT(NS_IsMainThread());
+
+  NS_NAMED_LITERAL_STRING(type, BLUETOOTH_A2DP_STATUS_CHANGED);
+  InfallibleTArray<BluetoothNamedValue> parameters;
+
+  nsString name;
+  name.AssignLiteral("connected");
+  BluetoothValue v = mConnected;
+  parameters.AppendElement(BluetoothNamedValue(name, v));
+
+  name.AssignLiteral("address");
+  v = mDeviceAddress;
+  parameters.AppendElement(BluetoothNamedValue(name, v));
+
+  if (!BroadcastSystemMessage(type, parameters)) {
+    NS_WARNING("Failed to broadcast system message to settings");
+    return;
+  }
+}
+
+void
+BluetoothA2dpManager::NotifyAudioManager()
+{
+  MOZ_ASSERT(NS_IsMainThread());
+
+  nsCOMPtr<nsIObserverService> obs =
+    do_GetService("@mozilla.org/observer-service;1");
+  NS_ENSURE_TRUE_VOID(obs);
+
+  nsAutoString data;
+  data.AppendInt(mConnected);
+
+  if (NS_FAILED(obs->NotifyObservers(this,
+                                     BLUETOOTH_A2DP_STATUS_CHANGED,
+                                     data.BeginReading()))) {
+    NS_WARNING("Failed to notify bluetooth-a2dp-status-changed observsers!");
+  }
+}
+
+void
+BluetoothA2dpManager::OnGetServiceChannel(const nsAString& aDeviceAddress,
+                                          const nsAString& aServiceUuid,
+                                          int aChannel)
+{
+}
+
+void
+BluetoothA2dpManager::GetAddress(nsAString& aDeviceAddress)
+{
+  aDeviceAddress = mDeviceAddress;
+}
+
+NS_IMPL_ISUPPORTS0(BluetoothA2dpManager)
+
