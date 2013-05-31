@@ -21,11 +21,13 @@
 #include "nsIObserverService.h"
 #include "mozilla/Services.h"
 #include "AudioChannelService.h"
+#include "BluetoothProfileManagerBase.h"
 
 using namespace mozilla::dom::gonk;
 using namespace android;
 using namespace mozilla::hal;
 using namespace mozilla;
+using namespace mozilla::dom::bluetooth;
 
 #define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "AudioManager" , ## args)
 
@@ -35,6 +37,7 @@ using namespace mozilla;
 #define HEADPHONES_STATUS_OFF       NS_LITERAL_STRING("off").get()
 #define HEADPHONES_STATUS_UNKNOWN   NS_LITERAL_STRING("unknown").get()
 #define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
+#define BLUETOOTH_A2DP_STATUS_CHANGED "bluetooth-a2dp-status-changed"
 
 // Refer AudioService.java from Android
 static int sMaxStreamVolumeTbl[AUDIO_STREAM_CNT] = {
@@ -144,32 +147,54 @@ AudioManager::Observe(nsISupports* aSubject,
                       const char* aTopic,
                       const PRUnichar* aData)
 {
+  nsString address;
+  nsresult rv;
+  int status = NS_ConvertUTF16toUTF8(aData).ToInteger(&rv);
+  if (NS_FAILED(rv) || status > 1 || status < 0) {
+    nsCString errorMsg;
+    errorMsg.Append("Wrong data value of ");
+    errorMsg.Append(aTopic);
+    NS_WARNING(errorMsg.BeginReading());
+    return NS_ERROR_FAILURE;
+  }
+
+  BluetoothProfileManagerBase* profile =
+    static_cast<BluetoothProfileManagerBase*>(aSubject);
+  profile->GetAddress(address);
+
+  audio_policy_dev_state_t audioState = AUDIO_POLICY_DEVICE_STATE_AVAILABLE;
+  if (!status) {
+    audioState = AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE;
+  }
+
   if (!strcmp(aTopic, BLUETOOTH_SCO_STATUS_CHANGED)) {
-    if (aData) {
+    AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET,
+                                          audioState, NS_ConvertUTF16toUTF8(address).BeginReading());
+    AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET,
+                                          audioState, NS_ConvertUTF16toUTF8(address).BeginReading());
+    if (status) {
       String8 cmd;
       cmd.appendFormat("bt_samplerate=%d", kBtSampleRate);
       AudioSystem::setParameters(0, cmd);
-      const char* address = NS_ConvertUTF16toUTF8(nsDependentString(aData)).get();
-      AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET,
-                                            AUDIO_POLICY_DEVICE_STATE_AVAILABLE, address);
-      AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET,
-                                            AUDIO_POLICY_DEVICE_STATE_AVAILABLE, address);
       SetForceForUse(nsIAudioManager::USE_COMMUNICATION, nsIAudioManager::FORCE_BT_SCO);
     } else {
-      AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET,
-                                            AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE, "");
-      AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET,
-                                            AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE, "");
       // only force to none if the current force setting is bt_sco
       int32_t force;
       GetForceForUse(nsIAudioManager::USE_COMMUNICATION, &force);
       if (force == nsIAudioManager::FORCE_BT_SCO)
         SetForceForUse(nsIAudioManager::USE_COMMUNICATION, nsIAudioManager::FORCE_NONE);
     }
-
-    return NS_OK;
+  } else if (!strcmp(aTopic, BLUETOOTH_A2DP_STATUS_CHANGED)) {
+    AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
+                                          audioState, NS_ConvertUTF16toUTF8(address).BeginReading());
+    if (status) {
+      String8 cmd("bluetooth_enabled=true");
+      AudioSystem::setParameters(0, cmd);
+      cmd.setTo("A2dpSuspended=false");
+      AudioSystem::setParameters(0, cmd);
+    }
   }
-  return NS_ERROR_UNEXPECTED;
+  return NS_OK;
 }
 
 static void
@@ -209,6 +234,8 @@ AudioManager::AudioManager() : mPhoneState(PHONE_STATE_CURRENT),
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_SCO_STATUS_CHANGED, false))) {
     NS_WARNING("Failed to add bluetooth-sco-status-changed oberver!");
+  } else if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED, false))) {
+    NS_WARNING("Failed to add bluetooth-a2dp-status-changed oberver!");
   }
 
   for (int loop = 0; loop < AUDIO_STREAM_CNT; loop++) {
@@ -226,6 +253,8 @@ AudioManager::~AudioManager() {
   nsCOMPtr<nsIObserverService> obs = services::GetObserverService();
   if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_SCO_STATUS_CHANGED))) {
     NS_WARNING("Failed to add bluetooth-sco-status-changed oberver!");
+  } else if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED))) {
+    NS_WARNING("Failed to add bluetooth-a2dp-status-changed oberver!");
   }
 }
 
