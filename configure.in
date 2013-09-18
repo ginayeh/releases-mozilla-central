@@ -4159,6 +4159,7 @@ MOZ_ANDROID_BEAM=
 ACCESSIBILITY=1
 MOZ_TIME_MANAGER=
 MOZ_PAY=
+MOZ_TASK_TRACER=
 MOZ_AUDIO_CHANNEL_MANAGER=
 NSS_NO_LIBPKIX=
 MOZ_CONTENT_SANDBOX=
@@ -7497,6 +7498,14 @@ fi
 AC_SUBST(MOZ_PAY)
 
 dnl ========================================================
+dnl = Enable Support for Task Tracer
+dnl ========================================================
+if test -n "$MOZ_TASK_TRACER"; then
+    export MOZ_TASK_TRACER
+    AC_DEFINE(MOZ_TASK_TRACER)
+fi
+
+dnl ========================================================
 dnl = Enable Support for AudioChannelManager API
 dnl ========================================================
 if test -n "$MOZ_AUDIO_CHANNEL_MANAGER"; then
@@ -8405,6 +8414,7 @@ AC_SUBST(MOZ_INSTRUMENTS)
 AC_SUBST(MOZ_CALLGRIND)
 AC_SUBST(MOZ_VTUNE)
 AC_SUBST(MOZ_PROFILING)
+AC_SUBST(MOZ_TASK_TRACER)
 AC_SUBST(LIBICONV)
 AC_SUBST(MOZ_PLACES)
 AC_SUBST(MOZ_SOCIAL)

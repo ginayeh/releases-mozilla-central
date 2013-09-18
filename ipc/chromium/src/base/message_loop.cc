@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "mozilla/Atomics.h"
+#include "mozilla/nsTracedRunnable.h"
 #include "base/compiler_specific.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
@@ -78,6 +79,56 @@ static LPTOP_LEVEL_EXCEPTION_FILTER GetTopSEHFilter() {
 #endif  // defined(OS_WIN)
 
 //------------------------------------------------------------------------------
+class TracedTask : public Task
+{
+public:
+  TracedTask(Task *backed_obj)
+    : backed_obj_(backed_obj)
+    , origin_task_id_(0)
+  {
+    task_id_ = GenNewUniqueTaskId();
+  }
+
+  virtual ~TracedTask()
+  {
+    if (backed_obj_) {
+      delete backed_obj_;
+      backed_obj_ = nullptr;
+    }
+  }
+
+  void SetupTracedInfo()
+  {
+    *GetCurrentThreadTaskIdPtr() = origin_task_id_;
+  }
+
+  virtual void Run()
+  {
+    LogAction(ACTION_START, task_id_, origin_task_id_);
+
+    SetupTracedInfo();
+    backed_obj_->Run();
+    ClearTracedInfo();
+
+    LogAction(ACTION_FINISHED, task_id_, origin_task_id_);
+
+  }
+
+  void InitOriginTaskId()
+  {
+    uint64_t origintaskid = *GetCurrentThreadTaskIdPtr();
+//    if (origintaskid == 0) {
+//        origintaskid = task_id_;
+//    }
+    origin_task_id_ = origintaskid;
+
+    LogAction(ACTION_DISPATCH, task_id_, origin_task_id_);
+  }
+private:
+  Task *backed_obj_;
+  uint64_t task_id_;
+  uint64_t origin_task_id_;
+};
 
 // static
 MessageLoop* MessageLoop::current() {
@@ -271,6 +322,13 @@ void MessageLoop::PostNonNestableDelayedTask(
 void MessageLoop::PostIdleTask(
     const tracked_objects::Location& from_here, Task* task) {
   DCHECK(current() == this);
+
+#ifdef MOZ_TASK_TRACER
+  TracedTask *wrapper = new TracedTask(task);
+  wrapper->InitOriginTaskId();
+  task = wrapper;
+#endif
+
   task->SetBirthPlace(from_here);
   PendingTask pending_task(task, false);
   deferred_non_nestable_work_queue_.push(pending_task);
@@ -280,8 +338,14 @@ void MessageLoop::PostIdleTask(
 void MessageLoop::PostTask_Helper(
     const tracked_objects::Location& from_here, Task* task, int delay_ms,
     bool nestable) {
-  task->SetBirthPlace(from_here);
 
+#ifdef MOZ_TASK_TRACER
+  TracedTask *wrapper = new TracedTask(task);
+  wrapper->InitOriginTaskId();
+  task = wrapper;
+#endif
+
+  task->SetBirthPlace(from_here);
   PendingTask pending_task(task, nestable);
 
   if (delay_ms > 0) {

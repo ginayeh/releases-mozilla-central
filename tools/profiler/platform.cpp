@@ -626,6 +626,11 @@ void mozilla_sampler_unlock()
 
 bool mozilla_sampler_register_thread(const char* aName, void* stackTop)
 {
+#ifdef MOZ_TASK_TRACER
+  if (aName) {
+    PR_SetCurrentThreadName(aName);
+  }
+#endif
 #ifndef MOZ_WIDGET_GONK
   PseudoStack* stack = new PseudoStack();
   tlsPseudoStack.set(stack);

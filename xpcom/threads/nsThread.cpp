@@ -19,6 +19,10 @@
 #include "mozilla/Services.h"
 #include "nsXPCOMPrivate.h"
 
+#ifdef MOZ_TASK_TRACER
+#include "nsTracedRunnable.h"
+#endif
+
 #define HAVE_UALARM _BSD_SOURCE || (_XOPEN_SOURCE >= 500 ||                 \
                       _XOPEN_SOURCE && _XOPEN_SOURCE_EXTENDED) &&           \
                       !(_POSIX_C_SOURCE >= 200809L || _XOPEN_SOURCE >= 700)
@@ -279,6 +283,10 @@ nsThread::ThreadFunc(void *arg)
   // Release any observer of the thread here.
   self->SetObserver(nullptr);
 
+#ifdef MOZ_TASK_TRACER
+  FreeTracedInfo();
+#endif
+
   NS_RELEASE(self);
 }
 
@@ -373,6 +381,12 @@ nsThread::Dispatch(nsIRunnable *event, uint32_t flags)
   LOG(("THRD(%p) Dispatch [%p %x]\n", this, event, flags));
 
   NS_ENSURE_ARG_POINTER(event);
+
+#ifdef MOZ_TASK_TRACER
+  nsRefPtr<nsTracedRunnable> trace = new nsTracedRunnable(event);
+  trace->InitOriginTaskId();
+  event = trace;
+#endif
 
   if (gXPCOMThreadsShutDown && MAIN_THREAD != mIsMainThread) {
     return NS_ERROR_ILLEGAL_DURING_SHUTDOWN;

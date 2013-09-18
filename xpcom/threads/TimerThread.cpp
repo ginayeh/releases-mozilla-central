@@ -91,6 +91,7 @@ nsresult TimerThread::Init()
       mThread = nullptr;
     }
     else {
+      NS_SetThreadName(mThread, "TimerThread");
       nsRefPtr<TimerObserverRunnable> r = new TimerObserverRunnable(this);
       if (NS_IsMainThread()) {
         r->Run();

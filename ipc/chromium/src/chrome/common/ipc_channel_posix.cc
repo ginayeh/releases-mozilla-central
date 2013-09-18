@@ -32,6 +32,7 @@
 #include "chrome/common/ipc_logging.h"
 #include "chrome/common/ipc_message_utils.h"
 #include "mozilla/ipc/ProtocolUtils.h"
+#include "mozilla/nsTracedRunnable.h"
 
 namespace IPC {
 
@@ -535,6 +536,9 @@ bool Channel::ChannelImpl::ProcessIncomingMessages() {
     while (p < end) {
       const char* message_tail = Message::FindNext(p, end);
       if (message_tail) {
+#ifdef MOZ_TASK_TRACER
+        uint64_t saved_task_id = 0;
+#endif
         int len = static_cast<int>(message_tail - p);
         Message m(p, len);
         if (m.header()->num_fds) {
@@ -586,6 +590,15 @@ bool Channel::ChannelImpl::ProcessIncomingMessages() {
         DLOG(INFO) << "received message on channel @" << this <<
                       " with type " << m.type();
 #endif
+#ifdef MOZ_TASK_TRACER
+        if (m.header()->orig_task_id) {
+          if (*GetCurrentThreadTaskIdPtr()) {
+            saved_task_id = *GetCurrentThreadTaskIdPtr();
+          }
+          *GetCurrentThreadTaskIdPtr() = m.header()->orig_task_id;
+        }
+#endif
+
         if (m.routing_id() == MSG_ROUTING_NONE &&
             m.type() == HELLO_MESSAGE_TYPE) {
           // The Hello message contains only the process id.
@@ -600,6 +613,11 @@ bool Channel::ChannelImpl::ProcessIncomingMessages() {
           listener_->OnMessageReceived(m);
         }
         p = message_tail;
+#ifdef MOZ_TASK_TRACER
+      if (m.header()->orig_task_id) {
+        *GetCurrentThreadTaskIdPtr() = saved_task_id;
+      }
+#endif
       } else {
         // Last message is partial.
         break;
@@ -679,6 +697,11 @@ bool Channel::ChannelImpl::ProcessOutgoingMessages() {
       msg->set_fd_cookie(++last_pending_fd_id_);
 #endif
     }
+#ifdef MOZ_TASK_TRACER
+    if (*GetCurrentThreadTaskIdPtr()) {
+      msg->header()->orig_task_id = *GetCurrentThreadTaskIdPtr();
+    }
+#endif
 
     size_t amt_to_write = msg->size() - message_send_bytes_written_;
     DCHECK(amt_to_write != 0);

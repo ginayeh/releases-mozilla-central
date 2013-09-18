@@ -228,7 +228,7 @@ EnsureVibratorThreadInitialized()
 
   sVibratorRunnable = new VibratorRunnable();
   nsCOMPtr<nsIThread> thread;
-  NS_NewThread(getter_AddRefs(thread), sVibratorRunnable);
+  NS_NewNamedThread("Vibrator", getter_AddRefs(thread), sVibratorRunnable);
 }
 
 } // anonymous namespace

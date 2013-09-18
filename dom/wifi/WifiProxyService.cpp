@@ -181,6 +181,7 @@ WifiProxyService::Start(nsIWifiEventListener* aListener)
     NS_WARNING("Can't create wifi event thread");
     return NS_ERROR_FAILURE;
   }
+  NS_SetThreadName(mEventThread, "wifi event");
 
   rv = NS_NewThread(getter_AddRefs(mControlThread));
   if (NS_FAILED(rv)) {
@@ -190,6 +191,7 @@ WifiProxyService::Start(nsIWifiEventListener* aListener)
     mEventThread = nullptr;
     return NS_ERROR_FAILURE;
   }
+  NS_SetThreadName(mControlThread, "wifi control");
 
   mListener = aListener;
 

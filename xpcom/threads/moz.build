@@ -33,6 +33,8 @@ EXPORTS.mozilla += [
     'HangMonitor.h',
     'LazyIdleThread.h',
     'SyncRunnable.h',
+    'nsTracedCommon.h',
+    'nsTracedRunnable.h',
 ]
 
 CPP_SOURCES += [
@@ -47,6 +49,8 @@ CPP_SOURCES += [
     'nsThreadManager.cpp',
     'nsThreadPool.cpp',
     'nsTimerImpl.cpp',
+    'nsTracedCommon.cpp',
+    'nsTracedRunnable.cpp',
 ]
 
 LIBRARY_NAME = 'xpcomthreads_s'

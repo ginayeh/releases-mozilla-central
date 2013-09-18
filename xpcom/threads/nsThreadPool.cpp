@@ -127,6 +127,7 @@ nsThreadPool::PutEvent(nsIRunnable *event)
                                     nsIThreadManager::DEFAULT_STACK_SIZE,
                                     getter_AddRefs(thread));
   NS_ENSURE_STATE(thread);
+  NS_SetThreadName(thread, mName);
 
   bool killThread = false;
   {

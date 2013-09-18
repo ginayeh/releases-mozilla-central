@@ -44,6 +44,9 @@ Message::Message(int32_t routing_id, msgid_t type, PriorityValue priority,
 #if defined(OS_MACOSX)
   header()->cookie = 0;
 #endif
+#ifdef MOZ_TASK_TRACER
+  header()->orig_task_id = 0;
+#endif
   InitLoggingVariables(name);
 }
 
@@ -56,6 +59,9 @@ Message::Message(const Message& other) : Pickle(other) {
 #if defined(OS_POSIX)
   file_descriptor_set_ = other.file_descriptor_set_;
 #endif
+#ifdef MOZ_TASK_TRACER
+  header()->orig_task_id = other.header()->orig_task_id;
+#endif
 }
 
 void Message::InitLoggingVariables(const char* const name) {
@@ -65,6 +71,7 @@ void Message::InitLoggingVariables(const char* const name) {
   dont_log_ = false;
   log_data_ = NULL;
 #endif
+
 }
 
 Message& Message::operator=(const Message& other) {

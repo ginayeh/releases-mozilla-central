@@ -54,10 +54,14 @@ extern bool stack_key_initialized;
 # endif
 #endif
 
+extern void
+InitRunnableTrace();
+
 static inline
 void profiler_init(void* stackTop)
 {
   mozilla_sampler_init(stackTop);
+  InitRunnableTrace();
 }
 
 static inline
@@ -235,6 +239,14 @@ bool profiler_in_privacy_mode()
 #define PROFILE_DEFAULT_FEATURES NULL
 #define PROFILE_DEFAULT_FEATURE_COUNT 0
 
+#ifdef MOZ_TASK_TRACER
+extern void LogSamplerEnter(const char *aInfo);
+extern void LogSamplerExit(const char *aInfo);
+#else
+#define LogSamplerEnter(args...) do {} while (0)
+#define LogSamplerExit(args...) do {} while (0)
+#endif
+
 namespace mozilla {
 
 class MOZ_STACK_CLASS SamplerStackFrameRAII {
@@ -242,12 +254,17 @@ public:
   // we only copy the strings at save time, so to take multiple parameters we'd need to copy them then.
   SamplerStackFrameRAII(const char *aInfo, uint32_t line) {
     mHandle = mozilla_sampler_call_enter(aInfo, this, false, line);
+    mSamplerInfo = aInfo;
+    LogSamplerEnter(mSamplerInfo);
   }
   ~SamplerStackFrameRAII() {
     mozilla_sampler_call_exit(mHandle);
+    LogSamplerExit(mSamplerInfo);
+    mSamplerInfo = nullptr;
   }
 private:
   void* mHandle;
+  const char *mSamplerInfo;
 };
 
 static const int SAMPLER_MAX_STRING = 128;
@@ -271,11 +288,17 @@ public:
 #endif
       mHandle = mozilla_sampler_call_enter(mDest, this, true, line);
       va_end(args);
+      LogSamplerEnter(const_cast<char*>(mDest));
     } else {
       mHandle = mozilla_sampler_call_enter(aDefault, NULL, false, line);
+      if (aDefault) {
+        strcpy(mDest, aDefault);
+      }
+      LogSamplerEnter(const_cast<char*>(mDest));
     }
   }
   ~SamplerStackFramePrintfRAII() {
+    LogSamplerExit(const_cast<char*>(mDest));
     mozilla_sampler_call_exit(mHandle);
   }
 private:
